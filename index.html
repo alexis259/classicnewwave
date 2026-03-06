@@ -472,10 +472,10 @@ document.getElementById('today-date').textContent = new Date().toLocaleDateStrin
 const OWM_KEY = "4d80518071601acf124540cccbb5659b";
 const OWM_CITY = "New York";
 
-const CACHE_KEY = 'cnw_weather'; // local cache to avoid redundant function calls
+const CACHE_KEY = 'cnw_weather';
+const CACHE_VERSION = 'v2'; // bump this to bust all device caches
 
 function getTodayKey() {
-  // Cache key is just today's date string — resets at midnight automatically
   return new Date().toDateString();
 }
 
@@ -483,10 +483,11 @@ function getCachedWeather() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const { dateKey, data } = JSON.parse(raw);
-    // If cached date matches today, return it — no API call needed
-    if (dateKey === getTodayKey()) return data;
-    return null; // stale — new day, needs fresh fetch
+    const { dateKey, data, version } = JSON.parse(raw);
+    // Bust cache if version mismatch OR stale date OR missing approval state
+    if (version !== CACHE_VERSION) return null;
+    if (dateKey !== getTodayKey()) return null;
+    return data;
   } catch(e) {
     return null;
   }
@@ -496,86 +497,54 @@ function setCachedWeather(data) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       dateKey: getTodayKey(),
+      version: CACHE_VERSION,
       data
     }));
   } catch(e) {}
 }
 
+function bustCache() {
+  try { localStorage.removeItem(CACHE_KEY); } catch(e) {}
+}
+
 async function fetchWeather() {
-  // Check cache first — only hits API if no fresh data for today
   const cached = getCachedWeather();
-  if (cached) {
-    console.log('CNW: using cached weather for', getTodayKey());
-    return cached;
-  }
+  if (cached) return cached;
 
-  console.log('CNW: fetching fresh weather from OpenWeatherMap');
   try {
-    const [currentRes, forecastRes] = await Promise.all([
-      fetch(`https://api.openweathermap.org/data/2.5/weather?q=${OWM_CITY}&appid=${OWM_KEY}&units=imperial`),
-      fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${OWM_CITY}&appid=${OWM_KEY}&units=imperial`)
-    ]);
-
-    const current = await currentRes.json();
-    const forecastData = await forecastRes.json();
-
-    if (current.cod !== 200) throw new Error("Weather fetch failed");
-
-    // Rain chance from next 9 hours of forecast slots
-    const nearSlots = forecastData.list.slice(0, 3);
-    const precipChance = Math.round(Math.max(...nearSlots.map(s => (s.pop || 0) * 100)));
-
-    // 5-day forecast — pick the slot closest to noon each day
-    const days = {};
-    const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    forecastData.list.forEach(slot => {
-      const date = new Date(slot.dt * 1000);
-      const key = date.toDateString();
-      const hour = date.getHours();
-      if (!days[key] || Math.abs(hour - 12) < Math.abs(new Date(days[key].dt * 1000).getHours() - 12)) {
-        days[key] = slot;
-      }
-    });
-
-    const forecast = Object.values(days).slice(0, 5).map(slot => ({
-      day: dayNames[new Date(slot.dt * 1000).getDay()],
-      high: slot.main.temp_max,
-      rain: Math.round((slot.pop || 0) * 100)
-    }));
+    const res = await fetch('/.netlify/functions/get-daily');
+    const row = await res.json();
+    if (!row || row.error) throw new Error('Function error');
 
     const data = {
-      temp: current.main.temp,
-      feelsLike: current.main.feels_like,
-      condition: current.weather[0].main,
-      high: current.main.temp_max,
-      humidity: current.main.humidity,
-      precipChance,
-      windSpeed: Math.round(current.wind.speed),
-      forecast
+      temp: row.temp,
+      feelsLike: row.feels_like,
+      condition: row.condition,
+      humidity: row.humidity,
+      precipChance: row.precip_chance,
+      windSpeed: row.wind_speed,
+      forecast: row.forecast,
+      synopsisApproved: row.synopsis_approved,
+      synopsisDraft: row.synopsis_draft,
+      approved: row.approved,
+      score: row.score,
+      penalties: row.penalties,
+      updatedAt: row.updated_at  // used for cache busting
     };
 
-    // Cache it for the rest of the day
     setCachedWeather(data);
     return data;
-
-  } catch (err) {
-    console.error("Weather fetch error:", err);
-    // If fetch fails, check if there's any stale cache to fall back on
+  } catch(err) {
+    console.error('fetchWeather error:', err);
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (raw) return JSON.parse(raw).data;
     } catch(e) {}
-    // Last resort hardcoded fallback
     return {
-      temp: 39.7, feelsLike: 32, condition: "Cloudy",
-      high: 40.9, humidity: 68, precipChance: 75, windSpeed: 14,
-      forecast: [
-        { day: "Thu", high: 40.9, rain: 75 },
-        { day: "Fri", high: 39.8, rain: 20 },
-        { day: "Sat", high: 50.7, rain: 20 },
-        { day: "Sun", high: 60.7, rain: 35 },
-        { day: "Mon", high: 61.8, rain: 0  },
-      ]
+      temp: 45, feelsLike: 40, condition: "Cloudy",
+      humidity: 65, precipChance: 20, windSpeed: 10,
+      forecast: [], synopsisApproved: null, synopsisDraft: null,
+      approved: false, score: null, penalties: []
     };
   }
 }
