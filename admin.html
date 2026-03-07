@@ -694,7 +694,7 @@ async function fetchWeather() {
     const row = await res.json();
     if (!row || row.error) throw new Error('Function error');
     const data = {
-      temp: row.temp, feelsLike: row.feels_like,
+      temp: row.temp, high: row.high, feelsLike: row.feels_like,
       condition: row.condition, humidity: row.humidity,
       precipChance: row.precip_chance, windSpeed: row.wind_speed,
       forecast: row.forecast,
@@ -716,7 +716,7 @@ async function fetchWeather() {
 
 // ── SCORING ──
 function scoreWeather(w) {
-  let score = 10; const penalties = []; const t = w.temp;
+  let score = 10; const penalties = []; const t = w.high;
   if (t >= 70 && t <= 77) {}
   else if ((t >= 65 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
   else if (t >= 58 && t < 65) { score -= 2; penalties.push("a bit cool"); }
