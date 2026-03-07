@@ -1096,7 +1096,9 @@ async function drawStory() {
   // Logo bottom left
   const logo = new Image();
   logo.onload = () => {
+    ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(logo, 60, H - 200, 280, 140);
+    ctx.globalCompositeOperation = 'source-over';
 
     // site URL bottom right
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
