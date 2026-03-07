@@ -20,6 +20,10 @@ async function supabaseFetch(path, options = {}) {
   return res.json();
 }
 
+function toNYCDateKey(date) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(date);
+}
+
 async function fetchFreshWeather() {
   const [cr, fr] = await Promise.all([
     fetch(`https://api.openweathermap.org/data/2.5/weather?q=New York&appid=${OWM_KEY}&units=imperial`),
@@ -33,28 +37,38 @@ async function fetchFreshWeather() {
   const nearSlots = forecastData.list.slice(0, 3);
   const precipChance = Math.round(Math.max(...nearSlots.map(s => (s.pop || 0) * 100)));
 
+  // Group forecast slots by NYC date, picking the slot closest to noon NYC time
   const days = {};
   const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   forecastData.list.forEach(slot => {
     const date = new Date(slot.dt * 1000);
-    const key = date.toDateString();
-    const hour = date.getHours();
-    if (!days[key] || Math.abs(hour - 12) < Math.abs(new Date(days[key].dt * 1000).getHours() - 12)) {
-      days[key] = slot;
+    const key = toNYCDateKey(date);
+    const hourNYC = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(date));
+    if (!days[key] || Math.abs(hourNYC - 12) < Math.abs(days[key].hourNYC - 12)) {
+      days[key] = { slot, hourNYC };
     }
   });
 
-  const forecast = Object.values(days).slice(0, 5).map(slot => ({
+  const forecast = Object.entries(days).slice(0, 5).map(([, { slot }]) => ({
     day: dayNames[new Date(slot.dt * 1000).getDay()],
     high: slot.main.temp_max,
     rain: Math.round((slot.pop || 0) * 100)
   }));
 
+  // Compute true daily high from all forecast slots that fall on today's NYC date
+  const todayKey = toNYCDateKey(new Date());
+  const todaySlots = forecastData.list.filter(slot =>
+    toNYCDateKey(new Date(slot.dt * 1000)) === todayKey
+  );
+  const dailyHigh = todaySlots.length > 0
+    ? Math.max(...todaySlots.map(s => s.main.temp_max))
+    : current.main.temp_max;
+
   return {
     temp: current.main.temp,
     feelsLike: current.main.feels_like,
     condition: current.weather[0].main,
-    high: current.main.temp_max,
+    high: dailyHigh,
     humidity: current.main.humidity,
     precipChance,
     windSpeed: Math.round(current.wind.speed),
@@ -104,7 +118,7 @@ exports.handler = async (event) => {
   };
 
   try {
-    const dateKey = new Date().toDateString();
+    const dateKey = toNYCDateKey(new Date());
 
     // Check if we already have today's data in Supabase
     const existing = await supabaseFetch(
