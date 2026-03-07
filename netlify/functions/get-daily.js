@@ -79,7 +79,7 @@ async function fetchFreshWeather() {
 function scoreWeather(w) {
   let score = 10;
   const penalties = [];
-  const t = w.temp;
+  const t = w.high;
 
   if (t >= 70 && t <= 77) {}
   else if ((t >= 65 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
