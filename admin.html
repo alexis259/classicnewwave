@@ -866,7 +866,8 @@ async function regenSynopsis() {
 async function loadAll() {
   const weather = await fetchWeather();
   currentWeather = weather;
-  const { score, penalties } = scoreWeather(weather);
+  const score = weather.score;
+  const penalties = weather.penalties || [];
   currentScore = score;
   currentPenalties = penalties;
 

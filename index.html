@@ -633,7 +633,8 @@ function outfitForWeather(temp, rain) {
 // ── RENDER ──
 async function init() {
   const weather = await fetchWeather();
-  const { score, penalties } = scoreWeather(weather);
+  const score = weather.score;
+  const penalties = weather.penalties || [];
 
   document.getElementById('weather-headline').textContent = gradeHeadline(score);
   document.getElementById('score-num').textContent = score;
