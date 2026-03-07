@@ -29,7 +29,7 @@ exports.handler = async (event) => {
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
     }
 
-    const dateKey = new Date().toDateString();
+    const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 
     const updateData = draft
       ? { synopsis_draft: text, updated_at: new Date().toISOString() }
