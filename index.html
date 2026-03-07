@@ -652,29 +652,32 @@ async function init() {
       <div class="f-rain">${d.rain > 0 ? d.rain + '%' : 'dry'}</div>
     </div>`).join('');
 
-  // Load synopsis — server is source of truth now
+  // Load synopsis — always fetch fresh so admin approvals show immediately
   const synopsisEl = document.getElementById('synopsis-text');
   const now = new Date();
   const pastCutoff = now.getHours() >= 9;
 
-  if (weather.approved && weather.synopsisApproved) {
-    // Admin approved — show it
-    synopsisEl.textContent = weather.synopsisApproved;
-    synopsisEl.classList.remove('loading');
-  } else if (pastCutoff && weather.synopsisDraft) {
-    // Past 9 AM — auto-publish draft
-    synopsisEl.textContent = weather.synopsisDraft;
-    synopsisEl.classList.remove('loading');
-  } else if (pastCutoff) {
-    // Past 9 AM, no draft — generate one now
-    generateSynopsis(weather, score, penalties).then(text => {
-      synopsisEl.textContent = text;
+  fetch('/.netlify/functions/get-daily')
+    .then(r => r.json())
+    .then(row => {
+      if (row.approved && row.synopsis_approved) {
+        synopsisEl.textContent = row.synopsis_approved;
+      } else if (pastCutoff && row.synopsis_draft) {
+        synopsisEl.textContent = row.synopsis_draft;
+      } else if (pastCutoff) {
+        generateSynopsis(weather, score, penalties).then(text => {
+          synopsisEl.textContent = text;
+        });
+        return;
+      } else {
+        synopsisEl.textContent = "check back at 9 AM for today's vibe.";
+      }
+      synopsisEl.classList.remove('loading');
+    })
+    .catch(() => {
+      synopsisEl.textContent = "check back at 9 AM for today's vibe.";
       synopsisEl.classList.remove('loading');
     });
-  } else {
-    synopsisEl.textContent = "check back at 9 AM for today's vibe.";
-    synopsisEl.classList.remove('loading');
-  }
 }
 
 init();
