@@ -660,7 +660,7 @@ function bustCache() {
   try { localStorage.removeItem(CACHE_KEY); } catch(e) {}
 }
 
-function getTodayKey() { return new Date().toDateString(); }
+function getTodayKey() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()); }
 
 function getCachedWeather() {
   try {

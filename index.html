@@ -476,7 +476,7 @@ const CACHE_KEY = 'cnw_weather';
 const CACHE_VERSION = 'v3'; // bump this to bust all device caches
 
 function getTodayKey() {
-  return new Date().toDateString();
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 }
 
 function getCachedWeather() {
