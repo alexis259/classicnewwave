@@ -888,7 +888,7 @@ async function loadAll() {
     .map(p => `<span class="penalty-pill">↓ ${p}</span>`).join('');
 
   // Outfit
-  document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.temp, weather.precipChance)
+  document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.high || weather.temp, weather.precipChance)
     .map(item => `<span class="outfit-tag">${item}</span>`).join('');
 
   // Forecast
@@ -1004,7 +1004,7 @@ async function drawStory() {
   const score = weather.score;
   const penalties = weather.penalties || [];
   const synopsis = document.getElementById('synopsis-textarea').value || '';
-  const outfit = outfitForWeather(weather.temp, weather.precipChance);
+  const outfit = outfitForWeather(weather.high || weather.temp, weather.precipChance);
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   // ── BACKGROUND GRADIENT ──
