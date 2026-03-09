@@ -1008,7 +1008,7 @@ async function drawStory() {
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   // ── BACKGROUND GRADIENT ──
-  const [c1, c2, c3] = getBgGradient(weather.temp, weather.condition, weather.precipChance);
+  const [c1, c2, c3] = getBgGradient(weather.high || weather.temp, weather.condition, weather.precipChance);
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, c1);
   grad.addColorStop(0.5, c2);
@@ -1025,7 +1025,7 @@ async function drawStory() {
     ctx.fillRect(x, y, 1, 1);
   }
 
-  const accent = getAccentColor(weather.temp, weather.precipChance);
+  const accent = getAccentColor(weather.high || weather.temp, weather.precipChance);
 
   // ── TOP LABEL ──
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
