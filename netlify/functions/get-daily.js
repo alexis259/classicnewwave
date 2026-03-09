@@ -138,6 +138,7 @@ exports.handler = async (event) => {
       const weather = await fetchFreshWeather();
       const refreshed = {
         temp: weather.temp,
+        high: weather.high,
         feels_like: weather.feelsLike,
         condition: weather.condition,
         humidity: weather.humidity,
@@ -172,6 +173,7 @@ exports.handler = async (event) => {
     const row = {
       date_key: dateKey,
       temp: weather.temp,
+      high: weather.high,
       feels_like: weather.feelsLike,
       condition: weather.condition,
       humidity: weather.humidity,
