@@ -126,8 +126,41 @@ exports.handler = async (event) => {
     );
 
     if (existing && existing.length > 0) {
-      // Already have today — return it
-      return { statusCode: 200, headers, body: JSON.stringify(existing[0]) };
+      const row = existing[0];
+      const lastUpdated = new Date(row.updated_at || 0).getTime();
+      const stale = (Date.now() - lastUpdated) > 3 * 60 * 60 * 1000;
+
+      if (!stale) {
+        return { statusCode: 200, headers, body: JSON.stringify(row) };
+      }
+
+      // Row is older than 3 hours — refresh weather from OWM
+      const weather = await fetchFreshWeather();
+      const refreshed = {
+        temp: weather.temp,
+        feels_like: weather.feelsLike,
+        condition: weather.condition,
+        humidity: weather.humidity,
+        precip_chance: weather.precipChance,
+        wind_speed: weather.windSpeed,
+        forecast: weather.forecast,
+        updated_at: new Date().toISOString()
+      };
+
+      // Only re-score if admin hasn't approved (don't override their score)
+      if (!row.approved) {
+        const { score, penalties } = scoreWeather(weather);
+        refreshed.score = score;
+        refreshed.penalties = penalties;
+      }
+
+      await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
+        method: 'PATCH',
+        headers: { 'Prefer': 'return=minimal' },
+        body: JSON.stringify(refreshed)
+      });
+
+      return { statusCode: 200, headers, body: JSON.stringify({ ...row, ...refreshed }) };
     }
 
     // No data yet — fetch fresh from OWM
@@ -148,7 +181,8 @@ exports.handler = async (event) => {
       penalties,
       synopsis_draft: null,
       synopsis_approved: null,
-      approved: false
+      approved: false,
+      updated_at: new Date().toISOString()
     };
 
     const inserted = await supabaseFetch('/daily', {

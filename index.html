@@ -483,10 +483,10 @@ function getCachedWeather() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const { dateKey, data, version } = JSON.parse(raw);
-    // Bust cache if version mismatch OR stale date OR missing approval state
+    const { dateKey, data, version, cachedAt } = JSON.parse(raw);
     if (version !== CACHE_VERSION) return null;
     if (dateKey !== getTodayKey()) return null;
+    if (!cachedAt || (Date.now() - cachedAt) > 3 * 60 * 60 * 1000) return null;
     return data;
   } catch(e) {
     return null;
@@ -498,6 +498,7 @@ function setCachedWeather(data) {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       dateKey: getTodayKey(),
       version: CACHE_VERSION,
+      cachedAt: Date.now(),
       data
     }));
   } catch(e) {}
