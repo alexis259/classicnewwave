@@ -17,7 +17,8 @@ async function supabaseFetch(path, options = {}) {
       ...options.headers
     }
   });
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 function toNYCDateKey(date) {
