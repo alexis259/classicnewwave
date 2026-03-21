@@ -82,10 +82,12 @@ function scoreWeather(w) {
   const t = w.high;
 
   if (t >= 70 && t <= 77) {}
-  else if ((t >= 58 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
-  else if (t >= 50 && t < 58) { score -= 2; penalties.push("a bit cool"); }
-  else if (t >= 42 && t < 50) { score -= 4; penalties.push("cold out"); }
-  else if (t >= 35 && t < 42) { score -= 5; penalties.push("cold af"); }
+  else if ((t >= 65 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
+  else if (t >= 60 && t < 65) { score -= 2; penalties.push("a bit cool"); }
+  else if (t >= 55 && t < 60) { score -= 3; penalties.push("kinda cool"); }
+  else if (t >= 50 && t < 55) { score -= 4; penalties.push("chilly"); }
+  else if (t >= 42 && t < 50) { score -= 5; penalties.push("cold out"); }
+  else if (t >= 35 && t < 42) { score -= 6; penalties.push("cold af"); }
   else if (t >= 28 && t < 35) { score -= 7; penalties.push("freezing"); }
   else if (t < 28)             { score -= 8; penalties.push("BRUTAL"); }
   else if (t > 82 && t <= 88) { score -= 2; penalties.push("hot"); }
@@ -127,7 +129,8 @@ exports.handler = async (event) => {
     if (existing && existing.length > 0) {
       const row = existing[0];
       const lastUpdated = new Date(row.updated_at || 0).getTime();
-      const stale = (Date.now() - lastUpdated) > 3 * 60 * 60 * 1000;
+      const force = event.queryStringParameters?.force === 'true';
+      const stale = force || (Date.now() - lastUpdated) > 3 * 60 * 60 * 1000;
 
       if (!stale) {
         return { statusCode: 200, headers, body: JSON.stringify(row) };
