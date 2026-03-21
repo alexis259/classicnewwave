@@ -654,7 +654,7 @@ if (sessionStorage.getItem('cnw_admin') === '1') showAdmin();
 
 // ── SHARED CONFIG ──
 const CACHE_KEY = 'cnw_weather';
-const CACHE_VERSION = 'v2'; // must match index.html — bump both to bust all caches
+const CACHE_VERSION = 'v4'; // must match index.html — bump both to bust all caches
 
 function bustCache() {
   try { localStorage.removeItem(CACHE_KEY); } catch(e) {}

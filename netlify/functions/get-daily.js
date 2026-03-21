@@ -150,8 +150,8 @@ exports.handler = async (event) => {
         updated_at: new Date().toISOString()
       };
 
-      // Only re-score and clear draft if admin hasn't approved
-      if (!row.approved) {
+      // Re-score unless admin has approved (force=true overrides)
+      if (!row.approved || force) {
         const { score, penalties } = scoreWeather(weather);
         refreshed.score = score;
         refreshed.penalties = penalties;
