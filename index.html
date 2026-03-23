@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classic New Wave — Daily Weather</title>
+  <title>Classic New Weather — Daily Weather</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Archivo+Black&family=IBM+Plex+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -459,7 +459,7 @@
 </section>
 
 <footer class="site-footer">
-  © 2026 Classic New Wave · classicnewwave.com · NYC Weather · AM Edition
+  © 2026 Classic New Weather · classicnewweather.com · NYC Weather · AM Edition
 </footer>
 
 <script>
@@ -473,20 +473,20 @@ const OWM_KEY = "4d80518071601acf124540cccbb5659b";
 const OWM_CITY = "New York";
 
 const CACHE_KEY = 'cnw_weather';
-const CACHE_VERSION = 'v4'; // bump this to bust all device caches
+const CACHE_VERSION = 'v2'; // bump this to bust all device caches
 
 function getTodayKey() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+  return new Date().toDateString();
 }
 
 function getCachedWeather() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const { dateKey, data, version, cachedAt } = JSON.parse(raw);
+    const { dateKey, data, version } = JSON.parse(raw);
+    // Bust cache if version mismatch OR stale date OR missing approval state
     if (version !== CACHE_VERSION) return null;
     if (dateKey !== getTodayKey()) return null;
-    if (!cachedAt || (Date.now() - cachedAt) > 3 * 60 * 60 * 1000) return null;
     return data;
   } catch(e) {
     return null;
@@ -498,7 +498,6 @@ function setCachedWeather(data) {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       dateKey: getTodayKey(),
       version: CACHE_VERSION,
-      cachedAt: Date.now(),
       data
     }));
   } catch(e) {}
@@ -519,7 +518,6 @@ async function fetchWeather() {
 
     const data = {
       temp: row.temp,
-      high: row.high,
       feelsLike: row.feels_like,
       condition: row.condition,
       humidity: row.humidity,
@@ -555,11 +553,12 @@ async function fetchWeather() {
 function scoreWeather(w) {
   let score = 10;
   const penalties = [];
-  const t = w.high;
+  const t = w.temp;
 
   if (t >= 70 && t <= 77)      {}
-  else if ((t >= 58 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
-  else if (t >= 50 && t < 58)  { score -= 2; penalties.push("a bit cool"); }
+  else if ((t >= 65 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
+  else if (t >= 58 && t < 65)  { score -= 2; penalties.push("a bit cool"); }
+  else if (t >= 50 && t < 58)  { score -= 3; penalties.push("chilly"); }
   else if (t >= 42 && t < 50)  { score -= 4; penalties.push("cold out"); }
   else if (t >= 35 && t < 42)  { score -= 5; penalties.push("cold af"); }
   else if (t >= 28 && t < 35)  { score -= 7; penalties.push("freezing"); }
@@ -633,8 +632,7 @@ function outfitForWeather(temp, rain) {
 // ── RENDER ──
 async function init() {
   const weather = await fetchWeather();
-  const score = weather.score;
-  const penalties = weather.penalties || [];
+  const { score, penalties } = scoreWeather(weather);
 
   document.getElementById('weather-headline').textContent = gradeHeadline(score);
   document.getElementById('score-num').textContent = score;
@@ -642,7 +640,7 @@ async function init() {
   document.getElementById('penalties').innerHTML = penalties
     .map(p => `<span class="penalty-pill">↓ ${p}</span>`).join('');
 
-  document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.high || weather.temp, weather.precipChance)
+  document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.temp, weather.precipChance)
     .map((item, i) => `<span class="outfit-tag" style="animation-delay:${i*0.06}s">${item}</span>`).join('');
 
   document.getElementById('forecast-strip').innerHTML = weather.forecast.map(d => `
@@ -652,32 +650,29 @@ async function init() {
       <div class="f-rain">${d.rain > 0 ? d.rain + '%' : 'dry'}</div>
     </div>`).join('');
 
-  // Load synopsis — always fetch fresh so admin approvals show immediately
+  // Load synopsis — server is source of truth now
   const synopsisEl = document.getElementById('synopsis-text');
   const now = new Date();
   const pastCutoff = now.getHours() >= 9;
 
-  fetch('/.netlify/functions/get-daily')
-    .then(r => r.json())
-    .then(row => {
-      if (row.approved && row.synopsis_approved) {
-        synopsisEl.textContent = row.synopsis_approved;
-      } else if (pastCutoff && row.synopsis_draft) {
-        synopsisEl.textContent = row.synopsis_draft;
-      } else if (pastCutoff) {
-        generateSynopsis(weather, score, penalties).then(text => {
-          synopsisEl.textContent = text;
-        });
-        return;
-      } else {
-        synopsisEl.textContent = "check back at 9 AM for today's vibe.";
-      }
-      synopsisEl.classList.remove('loading');
-    })
-    .catch(() => {
-      synopsisEl.textContent = "check back at 9 AM for today's vibe.";
+  if (weather.approved && weather.synopsisApproved) {
+    // Admin approved — show it
+    synopsisEl.textContent = weather.synopsisApproved;
+    synopsisEl.classList.remove('loading');
+  } else if (pastCutoff && weather.synopsisDraft) {
+    // Past 9 AM — auto-publish draft
+    synopsisEl.textContent = weather.synopsisDraft;
+    synopsisEl.classList.remove('loading');
+  } else if (pastCutoff) {
+    // Past 9 AM, no draft — generate one now
+    generateSynopsis(weather, score, penalties).then(text => {
+      synopsisEl.textContent = text;
       synopsisEl.classList.remove('loading');
     });
+  } else {
+    synopsisEl.textContent = "check back at 9 AM for today's vibe.";
+    synopsisEl.classList.remove('loading');
+  }
 }
 
 init();

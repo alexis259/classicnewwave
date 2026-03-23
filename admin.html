@@ -478,7 +478,7 @@
 <div id="login-screen">
   <div class="login-card">
     <div class="login-title">CNW Admin</div>
-    <div class="login-sub">classicnewwave.com</div>
+    <div class="login-sub">classicnewweather.com</div>
     <input class="login-input" type="password" id="pw-input" placeholder="password" />
     <button class="login-btn" onclick="tryLogin()">Enter</button>
     <div class="login-error" id="login-error">wrong password</div>
@@ -654,22 +654,21 @@ if (sessionStorage.getItem('cnw_admin') === '1') showAdmin();
 
 // ── SHARED CONFIG ──
 const CACHE_KEY = 'cnw_weather';
-const CACHE_VERSION = 'v4'; // must match index.html — bump both to bust all caches
+const CACHE_VERSION = 'v2'; // must match index.html — bump both to bust all caches
 
 function bustCache() {
   try { localStorage.removeItem(CACHE_KEY); } catch(e) {}
 }
 
-function getTodayKey() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()); }
+function getTodayKey() { return new Date().toDateString(); }
 
 function getCachedWeather() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const { dateKey, data, version, cachedAt } = JSON.parse(raw);
+    const { dateKey, data, version } = JSON.parse(raw);
     if (version !== CACHE_VERSION) return null;
     if (dateKey !== getTodayKey()) return null;
-    if (!cachedAt || (Date.now() - cachedAt) > 3 * 60 * 60 * 1000) return null;
     return data;
   } catch(e) { return null; }
 }
@@ -679,7 +678,6 @@ function setCachedWeather(data) {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       dateKey: getTodayKey(),
       version: CACHE_VERSION,
-      cachedAt: Date.now(),
       data
     }));
   } catch(e) {}
@@ -696,7 +694,7 @@ async function fetchWeather() {
     const row = await res.json();
     if (!row || row.error) throw new Error('Function error');
     const data = {
-      temp: row.temp, high: row.high, feelsLike: row.feels_like,
+      temp: row.temp, feelsLike: row.feels_like,
       condition: row.condition, humidity: row.humidity,
       precipChance: row.precip_chance, windSpeed: row.wind_speed,
       forecast: row.forecast,
@@ -718,10 +716,11 @@ async function fetchWeather() {
 
 // ── SCORING ──
 function scoreWeather(w) {
-  let score = 10; const penalties = []; const t = w.high;
+  let score = 10; const penalties = []; const t = w.temp;
   if (t >= 70 && t <= 77) {}
-  else if ((t >= 58 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
-  else if (t >= 50 && t < 58) { score -= 2; penalties.push("a bit cool"); }
+  else if ((t >= 65 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
+  else if (t >= 58 && t < 65) { score -= 2; penalties.push("a bit cool"); }
+  else if (t >= 50 && t < 58) { score -= 3; penalties.push("chilly"); }
   else if (t >= 42 && t < 50) { score -= 4; penalties.push("cold out"); }
   else if (t >= 35 && t < 42) { score -= 5; penalties.push("cold af"); }
   else if (t >= 28 && t < 35) { score -= 7; penalties.push("freezing"); }
@@ -867,8 +866,7 @@ async function regenSynopsis() {
 async function loadAll() {
   const weather = await fetchWeather();
   currentWeather = weather;
-  const score = weather.score;
-  const penalties = weather.penalties || [];
+  const { score, penalties } = scoreWeather(weather);
   currentScore = score;
   currentPenalties = penalties;
 
@@ -887,7 +885,7 @@ async function loadAll() {
     .map(p => `<span class="penalty-pill">↓ ${p}</span>`).join('');
 
   // Outfit
-  document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.high || weather.temp, weather.precipChance)
+  document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.temp, weather.precipChance)
     .map(item => `<span class="outfit-tag">${item}</span>`).join('');
 
   // Forecast
@@ -1000,14 +998,13 @@ async function drawStory() {
 
   // Get current data
   const weather = await fetchWeather();
-  const score = weather.score;
-  const penalties = weather.penalties || [];
+  const { score, penalties } = scoreWeather(weather);
   const synopsis = document.getElementById('synopsis-textarea').value || '';
-  const outfit = outfitForWeather(weather.high || weather.temp, weather.precipChance);
+  const outfit = outfitForWeather(weather.temp, weather.precipChance);
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   // ── BACKGROUND GRADIENT ──
-  const [c1, c2, c3] = getBgGradient(weather.high || weather.temp, weather.condition, weather.precipChance);
+  const [c1, c2, c3] = getBgGradient(weather.temp, weather.condition, weather.precipChance);
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, c1);
   grad.addColorStop(0.5, c2);
@@ -1024,7 +1021,7 @@ async function drawStory() {
     ctx.fillRect(x, y, 1, 1);
   }
 
-  const accent = getAccentColor(weather.high || weather.temp, weather.precipChance);
+  const accent = getAccentColor(weather.temp, weather.precipChance);
 
   // ── TOP LABEL ──
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
@@ -1097,16 +1094,14 @@ async function drawStory() {
   // Logo bottom left
   const logo = new Image();
   logo.onload = () => {
-    ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(logo, 60, H - 200, 280, 140);
-    ctx.globalCompositeOperation = 'source-over';
 
     // site URL bottom right
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.font = '500 32px IBM Plex Mono, monospace';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';
-    ctx.fillText("classicnewwave.com", W - 70, H - 110);
+    ctx.fillText("classicnewweather.com", W - 70, H - 110);
     ctx.textAlign = 'left';
 
     // Update info + enable download
