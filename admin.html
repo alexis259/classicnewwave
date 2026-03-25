@@ -466,6 +466,109 @@
     }
     .btn-regen-story:hover { border-color: var(--white); }
 
+    /* ── EXAMPLES ── */
+    .example-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .example-form-full { grid-column: 1 / -1; }
+
+    .ex-input {
+      width: 100%;
+      background: #0e0e0e;
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.8rem;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .ex-input:focus { border-color: var(--red); }
+    .ex-input::placeholder { color: var(--muted); }
+
+    .ex-textarea {
+      width: 100%;
+      background: #0e0e0e;
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      padding: 10px 12px;
+      outline: none;
+      resize: vertical;
+      min-height: 70px;
+      transition: border-color 0.2s;
+    }
+    .ex-textarea:focus { border-color: var(--red); }
+    .ex-textarea::placeholder { color: var(--muted); }
+
+    .btn-add-example {
+      background: var(--red);
+      color: white;
+      border: none;
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-add-example:hover { background: #c01e07; }
+    .btn-add-example:disabled { background: #333; cursor: default; }
+
+    .example-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+
+    .example-item {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .example-item-body { flex: 1; }
+
+    .example-conditions {
+      font-size: 0.52rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 5px;
+    }
+
+    .example-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--white);
+    }
+
+    .example-source {
+      font-size: 0.48rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .btn-delete-example {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 0 4px;
+      flex-shrink: 0;
+      transition: color 0.2s;
+    }
+    .btn-delete-example:hover { color: var(--red); }
+
     /* ── ANALYTICS ── */
     .analytics-grid {
       display: grid;
@@ -673,6 +776,35 @@
       </div>
     </div>
 
+    <!-- WRITING EXAMPLES -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Writing Examples</div>
+        <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em" id="examples-count">loading…</div>
+      </div>
+      <div class="panel-body">
+
+        <div class="example-form">
+          <input class="ex-input" type="number" id="ex-temp" placeholder="Temp (°F)" />
+          <input class="ex-input" type="number" id="ex-feels" placeholder="Feels like (°F)" />
+          <input class="ex-input" type="text" id="ex-condition" placeholder="Condition (e.g. Rain, Clear)" />
+          <input class="ex-input" type="number" id="ex-rain" placeholder="Rain %" min="0" max="100" />
+          <input class="ex-input" type="number" id="ex-score" placeholder="Score (1–10)" min="1" max="10" />
+          <div></div>
+          <textarea class="ex-textarea example-form-full" id="ex-synopsis" placeholder="Paste your synopsis copy here…"></textarea>
+          <div class="example-form-full" style="display:flex;align-items:center;gap:12px">
+            <button class="btn-add-example" id="add-example-btn" onclick="addExample()">+ Add Example</button>
+            <span id="add-example-status" style="font-size:0.6rem;letter-spacing:0.1em;color:var(--muted)"></span>
+          </div>
+        </div>
+
+        <div class="example-list" id="example-list">
+          <span class="loading-text">loading…</span>
+        </div>
+
+      </div>
+    </div>
+
     <!-- OUTFIT PREVIEW -->
     <div class="panel">
       <div class="panel-header">
@@ -757,7 +889,11 @@
 
 <script>
 // ── AUTH ──
-const ADMIN_PW = "cnw2026"; // change this to whatever you want
+const ADMIN_PW = "cnw2026";
+
+// ── SUPABASE (anon key is safe to expose — protected by RLS) ──
+const SUPABASE_URL = 'https://krwwmwhiblibkfiwrwvk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtyd3dtd2hpYmxpYmtmaXdyd3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NTM3MDIsImV4cCI6MjA4ODMyOTcwMn0.TxrUl51OHAL-4hjD3O82_h10lsNDV439aOt42tD583s'; // change this to whatever you want
 
 function tryLogin() {
   const val = document.getElementById('pw-input').value;
@@ -789,6 +925,7 @@ function showAdmin() {
   });
   loadAll();
   loadAnalytics();
+  loadExamples();
 }
 
 if (sessionStorage.getItem('cnw_admin') === '1') showAdmin();
@@ -1263,6 +1400,110 @@ function downloadStory() {
   link.download = `cnw-story-${date}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
+}
+
+// ── WRITING EXAMPLES ──
+async function loadExamples() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples?select=id,synopsis,temp,feels_like,condition,precip_chance,score&order=created_at.desc`, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    const rows = await res.json();
+    renderExamples(rows, 'seeded');
+    document.getElementById('examples-count').textContent = `${rows.length} seeded`;
+  } catch(e) {
+    document.getElementById('example-list').innerHTML = '<span class="an-empty">could not load examples</span>';
+    document.getElementById('examples-count').textContent = 'error';
+  }
+}
+
+function renderExamples(rows, source) {
+  const el = document.getElementById('example-list');
+  if (!rows.length) {
+    el.innerHTML = '<span class="an-empty">no examples yet — add your first one above</span>';
+    return;
+  }
+  el.innerHTML = rows.map(row => {
+    const parts = [];
+    if (row.temp != null) parts.push(`${row.temp}°F`);
+    if (row.feels_like != null && row.feels_like !== row.temp) parts.push(`feels ${row.feels_like}°F`);
+    if (row.condition) parts.push(row.condition);
+    if (row.precip_chance != null) parts.push(`${row.precip_chance}% rain`);
+    if (row.score != null) parts.push(`${row.score}/10`);
+    return `<div class="example-item" id="ex-item-${row.id}">
+      <div class="example-item-body">
+        ${parts.length ? `<div class="example-conditions">${parts.join(' · ')}</div>` : ''}
+        <div class="example-text">"${row.synopsis}"</div>
+        <div class="example-source">${source}</div>
+      </div>
+      <button class="btn-delete-example" onclick="deleteExample(${row.id})" title="Delete">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function addExample() {
+  const synopsis = document.getElementById('ex-synopsis').value.trim();
+  if (!synopsis) return;
+
+  const btn = document.getElementById('add-example-btn');
+  const status = document.getElementById('add-example-status');
+  btn.disabled = true;
+  btn.textContent = 'saving…';
+
+  const payload = {
+    synopsis,
+    temp: parseInt(document.getElementById('ex-temp').value) || null,
+    feels_like: parseInt(document.getElementById('ex-feels').value) || null,
+    condition: document.getElementById('ex-condition').value.trim() || null,
+    precip_chance: parseInt(document.getElementById('ex-rain').value) ?? null,
+    score: parseInt(document.getElementById('ex-score').value) || null
+  };
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Insert failed');
+
+    // Clear form
+    ['ex-temp','ex-feels','ex-condition','ex-rain','ex-score','ex-synopsis'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    status.textContent = 'saved ✓';
+    setTimeout(() => status.textContent = '', 2000);
+    await loadExamples();
+  } catch(e) {
+    status.textContent = 'error — try again';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '+ Add Example';
+}
+
+async function deleteExample(id) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+    document.getElementById(`ex-item-${id}`)?.remove();
+    const remaining = document.querySelectorAll('[id^="ex-item-"]').length;
+    document.getElementById('examples-count').textContent = `${remaining} seeded`;
+    if (!remaining) {
+      document.getElementById('example-list').innerHTML = '<span class="an-empty">no examples yet — add your first one above</span>';
+    }
+  } catch(e) {}
 }
 
 // ── ANALYTICS ──
