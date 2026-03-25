@@ -462,7 +462,8 @@ const OWM_KEY = "4d80518071601acf124540cccbb5659b";
 const OWM_CITY = "New York";
 
 const CACHE_KEY = 'cnw_weather';
-const CACHE_VERSION = 'v2'; // bump this to bust all device caches
+const CACHE_VERSION = 'v3'; // bump this to bust all device caches
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function getTodayKey() {
   return new Date().toDateString();
@@ -472,10 +473,11 @@ function getCachedWeather() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const { dateKey, data, version } = JSON.parse(raw);
-    // Bust cache if version mismatch OR stale date OR missing approval state
+    const { dateKey, data, version, cachedAt } = JSON.parse(raw);
+    // Bust cache if version mismatch OR stale date OR TTL expired
     if (version !== CACHE_VERSION) return null;
     if (dateKey !== getTodayKey()) return null;
+    if (Date.now() - cachedAt > CACHE_TTL_MS) return null;
     return data;
   } catch(e) {
     return null;
@@ -487,6 +489,7 @@ function setCachedWeather(data) {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       dateKey: getTodayKey(),
       version: CACHE_VERSION,
+      cachedAt: Date.now(),
       data
     }));
   } catch(e) {}
@@ -746,6 +749,33 @@ async function handleSignup() {
     btn.textContent = 'TEXT ME →';
   }
 }
+</script>
+
+<script>
+// ── VISIT TRACKING ──
+(function() {
+  try {
+    let visitorId = localStorage.getItem('cnw_visitor_id');
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      localStorage.setItem('cnw_visitor_id', visitorId);
+    }
+    let sessionId = sessionStorage.getItem('cnw_session_id');
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem('cnw_session_id', sessionId);
+    }
+    fetch('/.netlify/functions/track-visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visitor_id: visitorId,
+        session_id: sessionId,
+        referrer: document.referrer || null
+      })
+    }).catch(() => {});
+  } catch(e) {}
+})();
 </script>
 </body>
 </html>

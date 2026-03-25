@@ -466,9 +466,113 @@
     }
     .btn-regen-story:hover { border-color: var(--white); }
 
+    /* ── ANALYTICS ── */
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .an-stat {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+
+    .an-stat-label {
+      font-size: 0.52rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .an-stat-val {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 1.8rem;
+      color: var(--cyan);
+    }
+
+    .an-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 60px;
+      margin-bottom: 8px;
+    }
+
+    .an-bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+
+    .an-bar {
+      width: 100%;
+      background: var(--red);
+      opacity: 0.7;
+      min-height: 2px;
+      transition: opacity 0.2s;
+    }
+    .an-bar:hover { opacity: 1; }
+    .an-bar.today { background: var(--cyan); opacity: 1; }
+
+    .an-bar-label {
+      font-size: 0.42rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .an-chart-legend {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .an-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.52rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .an-legend-dot {
+      width: 8px;
+      height: 8px;
+    }
+
+    .an-ref-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.7rem;
+    }
+    .an-ref-row:last-child { border-bottom: none; }
+    .an-ref-source { color: var(--white); }
+    .an-ref-count { color: var(--cyan); font-family: 'Archivo Black', sans-serif; }
+
+    .an-empty {
+      font-size: 0.65rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
     @media (max-width: 500px) {
       .topbar { padding: 12px 16px; }
       .admin-wrap { padding: 20px 16px 48px; }
+      .analytics-grid { grid-template-columns: repeat(3, 1fr); }
     }
   </style>
 </head>
@@ -592,6 +696,42 @@
     </div>
 
 
+    <!-- ANALYTICS -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Site Analytics</div>
+        <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em" id="analytics-source">loading…</div>
+      </div>
+      <div class="panel-body">
+
+        <div class="analytics-grid">
+          <div class="an-stat">
+            <div class="an-stat-label">Views today</div>
+            <div class="an-stat-val" id="an-views">—</div>
+          </div>
+          <div class="an-stat">
+            <div class="an-stat-label">Unique visitors</div>
+            <div class="an-stat-val" id="an-visitors">—</div>
+          </div>
+          <div class="an-stat">
+            <div class="an-stat-label">Sessions</div>
+            <div class="an-stat-val" id="an-sessions">—</div>
+          </div>
+        </div>
+
+        <div style="font-size:0.52rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">7-Day Pageviews</div>
+        <div class="an-chart" id="an-chart"><span class="loading-text">loading…</span></div>
+        <div class="an-chart-legend">
+          <div class="an-legend-item"><div class="an-legend-dot" style="background:var(--red);opacity:0.7"></div>past days</div>
+          <div class="an-legend-item"><div class="an-legend-dot" style="background:var(--cyan)"></div>today</div>
+        </div>
+
+        <div style="font-size:0.52rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Top Referrers — 7 Days</div>
+        <div id="an-referrers"><span class="loading-text">loading…</span></div>
+
+      </div>
+    </div>
+
     <!-- STORY GENERATOR -->
     <div class="panel">
       <div class="panel-header">
@@ -648,13 +788,15 @@ function showAdmin() {
     weekday: 'long', month: 'long', day: 'numeric'
   });
   loadAll();
+  loadAnalytics();
 }
 
 if (sessionStorage.getItem('cnw_admin') === '1') showAdmin();
 
 // ── SHARED CONFIG ──
 const CACHE_KEY = 'cnw_weather';
-const CACHE_VERSION = 'v2'; // must match index.html — bump both to bust all caches
+const CACHE_VERSION = 'v3'; // must match index.html — bump both to bust all caches
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function bustCache() {
   try { localStorage.removeItem(CACHE_KEY); } catch(e) {}
@@ -666,9 +808,10 @@ function getCachedWeather() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const { dateKey, data, version } = JSON.parse(raw);
+    const { dateKey, data, version, cachedAt } = JSON.parse(raw);
     if (version !== CACHE_VERSION) return null;
     if (dateKey !== getTodayKey()) return null;
+    if (Date.now() - cachedAt > CACHE_TTL_MS) return null;
     return data;
   } catch(e) { return null; }
 }
@@ -678,6 +821,7 @@ function setCachedWeather(data) {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       dateKey: getTodayKey(),
       version: CACHE_VERSION,
+      cachedAt: Date.now(),
       data
     }));
   } catch(e) {}
@@ -1119,6 +1263,50 @@ function downloadStory() {
   link.download = `cnw-story-${date}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
+}
+
+// ── ANALYTICS ──
+async function loadAnalytics() {
+  try {
+    const res = await fetch('/.netlify/functions/get-analytics');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById('analytics-source').textContent = 'live · supabase';
+    document.getElementById('an-views').textContent = data.today.views;
+    document.getElementById('an-visitors').textContent = data.today.visitors;
+    document.getElementById('an-sessions').textContent = data.today.sessions;
+
+    // Bar chart
+    const maxViews = Math.max(...data.daily.map(d => d.views), 1);
+    const todayKey = data.daily[data.daily.length - 1].date;
+    const chartEl = document.getElementById('an-chart');
+    chartEl.innerHTML = data.daily.map(d => {
+      const pct = Math.round((d.views / maxViews) * 100);
+      const isToday = d.date === todayKey;
+      const label = d.date.slice(5); // MM-DD
+      return `<div class="an-bar-wrap" title="${d.date}: ${d.views} views, ${d.visitors} visitors">
+        <div class="an-bar${isToday ? ' today' : ''}" style="height:${Math.max(pct, 3)}%"></div>
+        <div class="an-bar-label">${label}</div>
+      </div>`;
+    }).join('');
+
+    // Referrers
+    const refEl = document.getElementById('an-referrers');
+    if (!data.topReferrers.length) {
+      refEl.innerHTML = '<span class="an-empty">no external referrers yet</span>';
+    } else {
+      refEl.innerHTML = data.topReferrers.map(r =>
+        `<div class="an-ref-row">
+          <span class="an-ref-source">${r.source}</span>
+          <span class="an-ref-count">${r.count}</span>
+        </div>`
+      ).join('');
+    }
+  } catch(e) {
+    document.getElementById('analytics-source').textContent = 'error';
+    document.getElementById('an-chart').innerHTML = '<span class="an-empty">could not load analytics</span>';
+  }
 }
 
 </script>

@@ -5,3 +5,9 @@
 
 [functions]
   node_bundler = "esbuild"
+
+[[redirects]]
+  from = "https://classicnewwave.com/*"
+  to = "https://classicnewweather.com/:splat"
+  status = 301
+  force = true
