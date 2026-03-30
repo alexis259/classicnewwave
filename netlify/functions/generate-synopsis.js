@@ -77,7 +77,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
   try {
-    const { temp, feelsLike, condition, precipChance, humidity, windSpeed, score, penalties } = JSON.parse(event.body);
+    const { temp, high, feelsLike, condition, precipChance, humidity, windSpeed, score, penalties } = JSON.parse(event.body);
 
     // Fetch examples (falls back gracefully if Supabase is unavailable)
     let exampleBlock = '';
@@ -108,7 +108,7 @@ VOICE RULES:
 ${exampleBlock || fallbackExamples}
 
 TODAY:
-- Temp: ${Math.round(temp)}°F, feels like ${Math.round(feelsLike)}°F
+- Temp: ${Math.round(temp)}°F${high != null ? `, high of ${Math.round(high)}°F` : ''}, feels like ${Math.round(feelsLike)}°F
 - Condition: ${condition}
 - Rain: ${precipChance}%
 - Humidity: ${humidity}%

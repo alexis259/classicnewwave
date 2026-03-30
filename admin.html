@@ -735,6 +735,10 @@
             <div class="w-stat-val red" id="stat-temp">—</div>
           </div>
           <div class="w-stat">
+            <div class="w-stat-label">High</div>
+            <div class="w-stat-val red" id="stat-high">—</div>
+          </div>
+          <div class="w-stat">
             <div class="w-stat-label">Feels Like</div>
             <div class="w-stat-val" id="stat-feels">—</div>
           </div>
@@ -1095,7 +1099,7 @@ async function generateSynopsis(w, score, penalties) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        temp: w.temp, feelsLike: w.feelsLike, condition: w.condition,
+        temp: w.temp, high: w.forecast?.[0]?.high, feelsLike: w.feelsLike, condition: w.condition,
         precipChance: w.precipChance, humidity: w.humidity,
         windSpeed: w.windSpeed, score, penalties
       })
@@ -1187,6 +1191,7 @@ async function loadAll() {
 
   // Weather stats
   document.getElementById('stat-temp').textContent = Math.round(weather.temp) + '°F';
+  document.getElementById('stat-high').textContent = weather.forecast?.[0]?.high != null ? Math.round(weather.forecast[0].high) + '°F' : '—';
   document.getElementById('stat-feels').textContent = Math.round(weather.feelsLike) + '°F';
   document.getElementById('stat-rain').textContent = weather.precipChance + '%';
   document.getElementById('stat-humidity').textContent = weather.humidity + '%';
