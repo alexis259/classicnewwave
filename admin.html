@@ -713,7 +713,10 @@
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">Today's Conditions — NYC</div>
-        <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em" id="data-source">loading…</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em" id="data-source">loading…</div>
+          <button id="force-refresh-btn" onclick="forceRefresh()" style="font-family:'IBM Plex Mono',monospace;font-size:0.55rem;letter-spacing:0.12em;text-transform:uppercase;background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.color='var(--white)';this.style.borderColor='var(--white)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">↻ Force Refresh</button>
+        </div>
       </div>
       <div class="panel-body">
 
@@ -962,6 +965,35 @@ function setCachedWeather(data) {
       data
     }));
   } catch(e) {}
+}
+
+async function forceRefresh() {
+  const btn = document.getElementById('force-refresh-btn');
+  btn.textContent = 'Refreshing…';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/.netlify/functions/get-daily?force=true');
+    const row = await res.json();
+    if (!row || row.error) throw new Error('Function error');
+    const data = {
+      temp: row.temp, feelsLike: row.feels_like,
+      condition: row.condition, humidity: row.humidity,
+      precipChance: row.precip_chance, windSpeed: row.wind_speed,
+      forecast: row.forecast,
+      synopsisApproved: row.synopsis_approved,
+      synopsisDraft: row.synopsis_draft,
+      approved: row.approved,
+      score: row.score, penalties: row.penalties
+    };
+    setCachedWeather(data);
+    document.getElementById('data-source').textContent = 'force-refreshed · live';
+    await loadAll();
+    btn.textContent = '✓ Refreshed';
+    setTimeout(() => { btn.textContent = '↻ Force Refresh'; btn.disabled = false; }, 2000);
+  } catch(e) {
+    btn.textContent = '✗ Error';
+    setTimeout(() => { btn.textContent = '↻ Force Refresh'; btn.disabled = false; }, 2000);
+  }
 }
 
 async function fetchWeather() {

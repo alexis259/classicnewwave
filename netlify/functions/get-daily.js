@@ -50,12 +50,6 @@ async function fetchFreshWeather() {
     }
   });
 
-  const forecast = Object.entries(days).slice(0, 5).map(([, { slot }]) => ({
-    day: dayNames[new Date(slot.dt * 1000).getDay()],
-    high: slot.main.temp_max,
-    rain: Math.round((slot.pop || 0) * 100)
-  }));
-
   // Compute true daily high from all forecast slots that fall on today's NYC date
   const todayKey = toNYCDateKey(new Date());
   const todaySlots = forecastData.list.filter(slot =>
@@ -64,6 +58,12 @@ async function fetchFreshWeather() {
   const dailyHigh = todaySlots.length > 0
     ? Math.max(...todaySlots.map(s => s.main.temp_max))
     : current.main.temp_max;
+
+  const forecast = Object.entries(days).slice(0, 5).map(([key, { slot }]) => ({
+    day: dayNames[new Date(slot.dt * 1000).getDay()],
+    high: key === todayKey ? dailyHigh : slot.main.temp_max,
+    rain: Math.round((slot.pop || 0) * 100)
+  }));
 
   return {
     temp: current.main.temp,
