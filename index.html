@@ -634,7 +634,7 @@ async function init() {
   document.getElementById('penalties').innerHTML = penalties
     .map(p => `<span class="penalty-pill">↓ ${p}</span>`).join('');
 
-  document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.temp, weather.precipChance)
+  document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.high, weather.precipChance)
     .map((item, i) => `<span class="outfit-tag" style="animation-delay:${i*0.06}s">${item}</span>`).join('');
 
   document.getElementById('forecast-strip').innerHTML = weather.forecast.map(d => `
