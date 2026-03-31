@@ -291,6 +291,14 @@
       animation: popIn 0.3s ease both;
     }
 
+    .outfit-sublabel {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
     /* ── FORECAST ROW ── */
     .forecast-strip {
       display: grid;
@@ -434,7 +442,14 @@
       <!-- OUTFIT -->
       <div class="outfit-block">
         <div class="label">Today's Outfit</div>
-        <div class="outfit-tags" id="outfit-tags"></div>
+        <div class="outfit-row" id="outfit-day-row">
+          <div class="outfit-sublabel" id="outfit-day-label"></div>
+          <div class="outfit-tags" id="outfit-tags"></div>
+        </div>
+        <div class="outfit-row" id="outfit-night-row" style="display:none;margin-top:12px">
+          <div class="outfit-sublabel">Tonight</div>
+          <div class="outfit-tags" id="outfit-tags-night"></div>
+        </div>
       </div>
 
       <!-- FORECAST -->
@@ -634,8 +649,18 @@ async function init() {
   document.getElementById('penalties').innerHTML = penalties
     .map(p => `<span class="penalty-pill">↓ ${p}</span>`).join('');
 
+  const tempSwing = (weather.high ?? 0) - (weather.low ?? 0);
+  const showNightOutfit = tempSwing >= 15 && weather.low != null;
+
+  document.getElementById('outfit-day-label').textContent = showNightOutfit ? 'Daytime' : '';
   document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.high, weather.precipChance)
     .map((item, i) => `<span class="outfit-tag" style="animation-delay:${i*0.06}s">${item}</span>`).join('');
+
+  if (showNightOutfit) {
+    document.getElementById('outfit-night-row').style.display = '';
+    document.getElementById('outfit-tags-night').innerHTML = outfitForWeather(weather.low, weather.precipChance)
+      .map((item, i) => `<span class="outfit-tag" style="animation-delay:${i*0.06}s">${item}</span>`).join('');
+  }
 
   document.getElementById('forecast-strip').innerHTML = weather.forecast.map(d => `
     <div class="forecast-day">

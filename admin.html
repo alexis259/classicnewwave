@@ -349,6 +349,14 @@
       color: #c8a882;
     }
 
+    .outfit-sublabel {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
     /* ── FORECAST ── */
     .forecast-row {
       display: flex;
@@ -818,8 +826,15 @@
         <div class="panel-title">Today's Outfit Suggestion</div>
       </div>
       <div class="panel-body">
-        <div class="outfit-tags" id="outfit-tags">
-          <span class="loading-text">loading…</span>
+        <div id="outfit-day-row">
+          <div class="outfit-sublabel" id="outfit-day-label"></div>
+          <div class="outfit-tags" id="outfit-tags">
+            <span class="loading-text">loading…</span>
+          </div>
+        </div>
+        <div id="outfit-night-row" style="display:none;margin-top:12px">
+          <div class="outfit-sublabel">Tonight</div>
+          <div class="outfit-tags" id="outfit-tags-night"></div>
         </div>
       </div>
     </div>
@@ -1205,8 +1220,18 @@ async function loadAll() {
     .map(p => `<span class="penalty-pill">↓ ${p}</span>`).join('');
 
   // Outfit
+  const tempSwing = (weather.high ?? 0) - (weather.low ?? 0);
+  const showNightOutfit = tempSwing >= 15 && weather.low != null;
+
+  document.getElementById('outfit-day-label').textContent = showNightOutfit ? 'Daytime' : '';
   document.getElementById('outfit-tags').innerHTML = outfitForWeather(weather.high, weather.precipChance)
     .map(item => `<span class="outfit-tag">${item}</span>`).join('');
+
+  if (showNightOutfit) {
+    document.getElementById('outfit-night-row').style.display = '';
+    document.getElementById('outfit-tags-night').innerHTML = outfitForWeather(weather.low, weather.precipChance)
+      .map(item => `<span class="outfit-tag">${item}</span>`).join('');
+  }
 
   // Forecast
   document.getElementById('forecast-body').innerHTML = weather.forecast.map(d => `

@@ -50,7 +50,7 @@ async function fetchFreshWeather() {
     }
   });
 
-  // Compute true daily high from all forecast slots that fall on today's NYC date
+  // Compute true daily high/low from all forecast slots that fall on today's NYC date
   const todayKey = toNYCDateKey(new Date());
   const todaySlots = forecastData.list.filter(slot =>
     toNYCDateKey(new Date(slot.dt * 1000)) === todayKey
@@ -58,6 +58,9 @@ async function fetchFreshWeather() {
   const dailyHigh = todaySlots.length > 0
     ? Math.max(...todaySlots.map(s => s.main.temp_max))
     : current.main.temp_max;
+  const dailyLow = todaySlots.length > 0
+    ? Math.min(...todaySlots.map(s => s.main.temp_min))
+    : current.main.temp_min;
 
   const forecast = Object.entries(days).slice(0, 5).map(([key, { slot }]) => ({
     day: dayNames[new Date(slot.dt * 1000).getDay()],
@@ -70,6 +73,7 @@ async function fetchFreshWeather() {
     feelsLike: current.main.feels_like,
     condition: current.weather[0].main,
     high: dailyHigh,
+    low: dailyLow,
     humidity: current.main.humidity,
     precipChance,
     windSpeed: Math.round(current.wind.speed),
@@ -142,6 +146,7 @@ exports.handler = async (event) => {
       const refreshed = {
         temp: weather.temp,
         high: weather.high,
+        low: weather.low,
         feels_like: weather.feelsLike,
         condition: weather.condition,
         humidity: weather.humidity,
@@ -177,6 +182,7 @@ exports.handler = async (event) => {
       date_key: dateKey,
       temp: weather.temp,
       high: weather.high,
+      low: weather.low,
       feels_like: weather.feelsLike,
       condition: weather.condition,
       humidity: weather.humidity,
