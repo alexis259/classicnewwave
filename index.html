@@ -722,14 +722,6 @@ function fallback(score, w) {
   return `${Math.round(w.temp)}° out there. ${score}/10 — could be worse cousins.`;
 }
 
-generateSynopsis(weather, score, penalties).then(text => {
-  const el = document.getElementById('synopsis-text');
-  el.textContent = text;
-  el.classList.remove('loading');
-  document.getElementById('edit-btn').style.display = 'inline-block';
-  document.getElementById('synopsis-textarea').value = text;
-});
-
 // Synopsis editing moved to /admin.html
 
 // ── PHONE FORMAT ──
