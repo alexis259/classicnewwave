@@ -1348,6 +1348,9 @@ async function drawStory() {
   const penalties = weather.penalties?.length ? weather.penalties : _scored.penalties;
   const synopsis = document.getElementById('synopsis-textarea').value || '';
   const outfit = outfitForWeather(weather.high, weather.precipChance);
+  const tempSwing = (weather.high ?? 0) - (weather.low ?? 0);
+  const showNightOutfit = tempSwing >= 15 && weather.low != null;
+  const outfitNight = showNightOutfit ? outfitForWeather(weather.low, weather.precipChance) : [];
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   // ── BACKGROUND GRADIENT ──
@@ -1381,6 +1384,13 @@ async function drawStory() {
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '500 38px IBM Plex Mono, monospace';
   ctx.fillText(dateStr.toUpperCase(), 80, 175);
+
+  // ── HIGH TEMP ──
+  ctx.fillStyle = accent;
+  ctx.font = '500 38px IBM Plex Mono, monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(`HIGH ${Math.round(weather.high)}°F`, W - 80, 175);
+  ctx.textAlign = 'left';
 
   // ── DIVIDER LINE ──
   ctx.strokeStyle = accent;
@@ -1428,36 +1438,28 @@ async function drawStory() {
     // ── OUTFIT ──
     ctx.fillStyle = accent;
     ctx.font = '500 34px IBM Plex Mono, monospace';
-    ctx.fillText("TODAY'S OUTFIT", 80, synBottom + 80);
+    ctx.fillText(showNightOutfit ? "DAYTIME OUTFIT" : "TODAY'S OUTFIT", 80, synBottom + 80);
 
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.font = '500 48px IBM Plex Mono, monospace';
-    wrapText(ctx, outfit.join('  ·  '), 80, synBottom + 140, W - 160, 66);
+    const dayLines = wrapText(ctx, outfit.join('  ·  '), 80, synBottom + 140, W - 160, 66);
+
+    if (showNightOutfit) {
+      const nightY = synBottom + 140 + dayLines * 66 + 40;
+      ctx.fillStyle = accent;
+      ctx.font = '500 34px IBM Plex Mono, monospace';
+      ctx.fillText("TONIGHT'S OUTFIT", 80, nightY);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.font = '500 48px IBM Plex Mono, monospace';
+      wrapText(ctx, outfitNight.join('  ·  '), 80, nightY + 60, W - 160, 66);
+    }
   }
 
-  // ── BOTTOM BAR ──
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.fillRect(0, H - 220, W, 220);
-
-  // Logo bottom left
-  const logo = new Image();
-  logo.onload = () => {
-    ctx.drawImage(logo, 60, H - 200, 280, 140);
-
-    // site URL bottom right
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.font = '500 32px IBM Plex Mono, monospace';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'right';
-    ctx.fillText("classicnewweather.com", W - 70, H - 110);
-    ctx.textAlign = 'left';
-
-    // Update info + enable download
-    document.getElementById('story-info').innerHTML =
-      `Temp: ${Math.round(weather.temp)}°F<br>Score: ${score}/10<br>Rain: ${weather.precipChance}%<br><br>1080 × 1920px<br>Ready to download`;
-    document.getElementById('dl-btn').disabled = false;
-  };
-  logo.src = BLUR_LOGO_B64;
+  // Update info + enable download
+  document.getElementById('story-info').innerHTML =
+    `Temp: ${Math.round(weather.temp)}°F · High: ${Math.round(weather.high)}°F<br>Score: ${score}/10<br>Rain: ${weather.precipChance}%<br><br>1080 × 1920px<br>Ready to download`;
+  document.getElementById('dl-btn').disabled = false;
 }
 
 function downloadStory() {
