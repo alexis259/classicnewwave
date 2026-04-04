@@ -1316,7 +1316,7 @@ function getAccentColor(temp, rain) {
   return '#e86020';
 }
 
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = Infinity) {
   const words = text.split(' ');
   let line = '';
   let lines = [];
@@ -1326,11 +1326,20 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
     if (metrics.width > maxWidth && n > 0) {
       lines.push(line.trim());
       line = words[n] + ' ';
+      if (lines.length >= maxLines) break;
     } else {
       line = testLine;
     }
   }
-  lines.push(line.trim());
+  if (lines.length < maxLines) lines.push(line.trim());
+  // if capped, add ellipsis to last line
+  if (lines.length === maxLines && line.trim()) {
+    let last = lines[lines.length - 1];
+    while (ctx.measureText(last + '…').width > maxWidth && last.length > 0) {
+      last = last.slice(0, last.lastIndexOf(' '));
+    }
+    lines[lines.length - 1] = last + '…';
+  }
   lines.forEach((l, i) => ctx.fillText(l, x, y + i * lineHeight));
   return lines.length;
 }
@@ -1373,87 +1382,123 @@ async function drawStory() {
   }
 
   const accent = getAccentColor(storyTemp, weather.precipChance);
+  const PAD = 100; // left/right padding
 
-  // ── TOP LABEL ──
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.font = '500 36px IBM Plex Mono, monospace';
-  ctx.letterSpacing = '8px';
-  ctx.fillText("NEW YORK CITY · WEATHER", 80, 110);
+  // helper: draw a full-width section divider
+  function divider(y) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+  }
 
-  // ── DATE ──
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = '500 38px IBM Plex Mono, monospace';
-  ctx.fillText(dateStr.toUpperCase(), 80, 175);
+  // helper: draw a section label (muted, wide tracking)
+  function sectionLabel(text, x, y) {
+    ctx.fillStyle = 'rgba(255,255,255,0.38)';
+    ctx.font = '500 28px IBM Plex Mono, monospace';
+    ctx.letterSpacing = '6px';
+    ctx.textBaseline = 'top';
+    ctx.fillText(text, x, y);
+    ctx.letterSpacing = '0px';
+  }
 
-  // ── HIGH TEMP ──
+  // ── HEADER PILL ──
+  // Background pill behind city/date/high
+  const pillH = 180, pillY = 70;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.roundRect(PAD - 24, pillY, W - (PAD - 24) * 2, pillH, 16);
+  ctx.fill();
+
   ctx.fillStyle = accent;
-  ctx.font = '500 38px IBM Plex Mono, monospace';
+  ctx.font = '500 30px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '6px';
+  ctx.textBaseline = 'top';
+  ctx.fillText("NEW YORK CITY · WEATHER", PAD, pillY + 20);
+  ctx.letterSpacing = '0px';
+
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = '500 40px IBM Plex Mono, monospace';
+  ctx.fillText(dateStr.toUpperCase(), PAD, pillY + 72);
+
+  ctx.fillStyle = accent;
+  ctx.font = '500 40px IBM Plex Mono, monospace';
   ctx.textAlign = 'right';
-  ctx.fillText(`HIGH ${Math.round(weather.high)}°F`, W - 80, 175);
+  ctx.fillText(`HIGH ${Math.round(weather.high)}°F`, W - PAD, pillY + 72);
   ctx.textAlign = 'left';
 
-  // ── DIVIDER LINE ──
+  // ── ACCENT DIVIDER under header ──
   ctx.strokeStyle = accent;
   ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(80, 210); ctx.lineTo(W - 80, 210); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD, pillY + pillH + 10); ctx.lineTo(W - PAD, pillY + pillH + 10); ctx.stroke();
 
   // ── SCORE — BIG ──
+  // Score sits ~280px below header
+  const scoreTopY = pillY + pillH + 60;
   ctx.fillStyle = accent;
-  ctx.font = 'bold 420px Archivo Black, sans-serif';
+  ctx.font = 'bold 400px Archivo Black, sans-serif';
   ctx.textBaseline = 'top';
   const scoreText = String(score);
   const scoreW = ctx.measureText(scoreText).width;
-  ctx.fillText(scoreText, (W - scoreW) / 2, 270);
+  ctx.fillText(scoreText, (W - scoreW) / 2, scoreTopY);
 
-  // Score label
-  ctx.fillStyle = 'rgba(255,255,255,0.45)';
-  ctx.font = '500 52px IBM Plex Mono, monospace';
-  ctx.textBaseline = 'top';
+  // "OUT OF 10" label
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '500 48px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '4px';
   const outOf = 'OUT OF 10';
   const outOfW = ctx.measureText(outOf).width;
-  ctx.fillText(outOf, (W - outOfW) / 2, 720);
+  ctx.fillText(outOf, (W - outOfW) / 2, scoreTopY + 420);
+  ctx.letterSpacing = '0px';
 
-  // ── DIVIDER ──
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(80, 820); ctx.lineTo(W - 80, 820); ctx.stroke();
+  // ── SECTION DIVIDER after score ──
+  const afterScoreY = scoreTopY + 420 + 60 + 40;
+  divider(afterScoreY);
+
+  let cursor = afterScoreY + 48;
 
   // ── SYNOPSIS ──
   if (synopsis) {
-    ctx.fillStyle = accent;
-    ctx.font = '500 34px IBM Plex Mono, monospace';
-    ctx.textBaseline = 'top';
-    ctx.fillText("TODAY'S VIBE", 80, 860);
+    sectionLabel("TODAY'S VIBE", PAD, cursor);
+    cursor += 52;
 
+    // Cap to 3 lines max
+    const maxSynLines = 3;
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.font = '500 58px Space Grotesk, sans-serif';
-    const synLines = wrapText(ctx, synopsis, 80, 920, W - 160, 78);
-    const synBottom = 920 + synLines * 78;
+    ctx.font = '500 54px Space Grotesk, sans-serif';
+    ctx.textBaseline = 'top';
+    const synLinesDrawn = wrapText(ctx, synopsis, PAD, cursor, W - PAD * 2, 74, maxSynLines);
+    cursor += synLinesDrawn * 74 + 56;
 
-    // ── DIVIDER ──
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(80, synBottom + 40); ctx.lineTo(W - 80, synBottom + 40); ctx.stroke();
+    divider(cursor);
+    cursor += 48;
+  }
 
-    // ── OUTFIT ──
-    ctx.fillStyle = accent;
-    ctx.font = '500 34px IBM Plex Mono, monospace';
-    ctx.fillText(showNightOutfit ? "DAYTIME OUTFIT" : "TODAY'S OUTFIT", 80, synBottom + 80);
+  // ── DAYTIME OUTFIT ──
+  sectionLabel(showNightOutfit ? "DAYTIME OUTFIT" : "TODAY'S OUTFIT", PAD, cursor);
+  cursor += 52;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.font = '500 48px IBM Plex Mono, monospace';
-    const dayLines = wrapText(ctx, outfit.join('  ·  '), 80, synBottom + 140, W - 160, 66);
+  ctx.fillStyle = 'rgba(255,255,255,0.82)';
+  ctx.font = '500 46px IBM Plex Mono, monospace';
+  ctx.textBaseline = 'top';
+  const dayLines = wrapText(ctx, outfit.join('  ·  '), PAD, cursor, W - PAD * 2, 64);
+  cursor += dayLines * 64;
 
-    if (showNightOutfit) {
-      const nightY = synBottom + 140 + dayLines * 66 + 40;
-      ctx.fillStyle = accent;
-      ctx.font = '500 34px IBM Plex Mono, monospace';
-      ctx.fillText("TONIGHT'S OUTFIT", 80, nightY);
+  // ── TONIGHT'S OUTFIT ──
+  if (showNightOutfit) {
+    cursor += 40;
+    // subtle tinted background strip to separate
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    const nightBlockH = 52 + 2 * 64 + 32;
+    ctx.fillRect(0, cursor - 20, W, nightBlockH + 40);
 
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.font = '500 48px IBM Plex Mono, monospace';
-      wrapText(ctx, outfitNight.join('  ·  '), 80, nightY + 60, W - 160, 66);
-    }
+    divider(cursor - 20);
+    sectionLabel("TONIGHT'S OUTFIT", PAD, cursor + 8);
+    cursor += 60;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '500 46px IBM Plex Mono, monospace';
+    ctx.textBaseline = 'top';
+    wrapText(ctx, outfitNight.join('  ·  '), PAD, cursor, W - PAD * 2, 64);
   }
 
   // Update info + enable download
