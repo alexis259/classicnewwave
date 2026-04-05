@@ -1150,6 +1150,7 @@ async function approveSynopsis() {
         cached.approved = true;
         setCachedWeather(cached);
       }
+      localStorage.setItem('cnw_synopsis', JSON.stringify({ dateKey: getTodayKey(), text, approved: true }));
       document.getElementById('status-dot').className = 'status-dot approved';
       document.getElementById('status-label').textContent = 'approved & live';
       document.getElementById('approved-banner').style.display = 'block';
@@ -1241,25 +1242,34 @@ async function loadAll() {
       <span class="f-rain">${d.rain > 0 ? d.rain + '% rain' : 'dry'}</span>
     </div>`).join('');
 
-  // Synopsis — check if already approved today
+  // Synopsis — Supabase approved state is the source of truth
   const todayKey = getTodayKey();
   const saved = localStorage.getItem('cnw_synopsis');
   let parsed = null;
   try { parsed = saved ? JSON.parse(saved) : null; } catch(e) {}
 
-  if (parsed && parsed.dateKey === todayKey) {
+  function showApproved(text) {
+    document.getElementById('synopsis-textarea').value = text;
+    document.getElementById('status-dot').className = 'status-dot approved';
+    document.getElementById('status-label').textContent = 'approved & live';
+    document.getElementById('approved-banner').style.display = 'block';
+    document.getElementById('approve-btn').textContent = '✔ Published';
+    document.getElementById('approve-btn').classList.add('active');
+    localStorage.setItem('cnw_synopsis', JSON.stringify({ dateKey: todayKey, text, approved: true }));
+  }
+
+  if (weather.approved && weather.synopsisApproved) {
+    // Already published — never overwrite
+    showApproved(weather.synopsisApproved);
+  } else if (parsed && parsed.dateKey === todayKey && parsed.approved) {
+    // Locally marked approved (e.g. cache cleared but localStorage intact)
+    showApproved(parsed.text);
+  } else if (parsed && parsed.dateKey === todayKey) {
+    // Existing draft — restore without regenerating
     document.getElementById('synopsis-textarea').value = parsed.text;
-    if (parsed.approved) {
-      document.getElementById('status-dot').className = 'status-dot approved';
-      document.getElementById('status-label').textContent = 'approved & live';
-      document.getElementById('approved-banner').style.display = 'block';
-      document.getElementById('approve-btn').textContent = '✔ Published';
-      document.getElementById('approve-btn').classList.add('active');
-    } else {
-      document.getElementById('status-label').textContent = 'draft — not yet published';
-    }
+    document.getElementById('status-label').textContent = 'draft — not yet published';
   } else {
-    // Generate fresh
+    // No synopsis yet — generate fresh
     document.getElementById('synopsis-textarea').placeholder = 'generating synopsis…';
     const text = await generateSynopsis(weather, score, penalties);
     document.getElementById('synopsis-textarea').value = text;
