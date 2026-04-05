@@ -258,12 +258,11 @@ exports.handler = async (event) => {
         updated_at: new Date().toISOString()
       };
 
-      // Re-score unless admin has approved (force=true overrides)
-      if (!row.approved || force) {
+      // Re-score only when admin explicitly forces a refresh
+      if (force) {
         const { score, penalties } = scoreWeather(weather);
         refreshed.score = score;
         refreshed.penalties = penalties;
-        refreshed.synopsis_draft = null;
       }
 
       await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
