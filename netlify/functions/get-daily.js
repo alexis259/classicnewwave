@@ -82,6 +82,82 @@ async function fetchFreshWeather() {
   };
 }
 
+function isAfterNineAMNYC() {
+  const hour = parseInt(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: 'numeric', hour12: false
+  }).format(new Date()));
+  return hour >= 9;
+}
+
+async function fetchExamplesForSynopsis() {
+  const [seeded, approved] = await Promise.all([
+    supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score&order=created_at.desc&limit=6'),
+    supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=date_key.desc&limit=6')
+  ]);
+  const examples = [];
+  for (const row of (approved || [])) {
+    if (row.synopsis_approved) examples.push({ synopsis: row.synopsis_approved, temp: row.temp, feelsLike: row.feels_like, condition: row.condition, precipChance: row.precip_chance, score: row.score });
+  }
+  for (const row of (seeded || [])) {
+    if (examples.length >= 8) break;
+    examples.push({ synopsis: row.synopsis, temp: row.temp, feelsLike: row.feels_like, condition: row.condition, precipChance: row.precip_chance, score: row.score });
+  }
+  return examples;
+}
+
+async function autoGenerateSynopsis(weather, score, penalties) {
+  let exampleBlock = '';
+  try {
+    const examples = await fetchExamplesForSynopsis();
+    if (examples.length > 0) {
+      exampleBlock = `EXAMPLES FROM MY ACTUAL WRITING — match this voice exactly:\n` +
+        examples.map(ex => {
+          const parts = [];
+          if (ex.temp) parts.push(`${Math.round(ex.temp)}°F`);
+          if (ex.feelsLike && ex.feelsLike !== ex.temp) parts.push(`feels ${Math.round(ex.feelsLike)}°F`);
+          if (ex.condition) parts.push(ex.condition);
+          if (ex.precipChance) parts.push(`${ex.precipChance}% rain`);
+          if (ex.score) parts.push(`score ${ex.score}/10`);
+          const conditions = parts.length ? `[${parts.join(', ')}]` : '';
+          return `${conditions}\n"${ex.synopsis}"`;
+        }).join('\n\n');
+    }
+  } catch(e) { /* non-fatal */ }
+
+  const prompt = `You write short, punchy daily NYC weather updates in a very specific voice.
+
+VOICE RULES:
+- 1-2 sentences MAX. tight.
+- blend of hype and chill. never forced, never corny.
+- lowercase mostly. ALL CAPS only when it really lands.
+- natural NYC energy — like texting a homie who keeps it real
+- weather is info, not drama. matter of fact with personality.
+- no hashtags. one emoji max if it's perfect. no "hey guys".
+
+${exampleBlock || `EXAMPLES:\n"39 degrees and the city said no today. rain comin — grab that umbrella."\n"65 and sunny out here cousins. this the one."\n"wind making it feel like 28. stay bundled."`}
+
+TODAY:
+- Temp: ${Math.round(weather.temp)}°F, high of ${Math.round(weather.high)}°F, feels like ${Math.round(weather.feelsLike)}°F
+- Condition: ${weather.condition}
+- Rain: ${weather.precipChance}%
+- Humidity: ${weather.humidity}%
+- Wind: ${weather.windSpeed} mph
+- Score: ${score}/10
+- Issues: ${penalties && penalties.length ? penalties.join(', ') : 'none — clean day'}
+
+Write it. Just the text.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 150, messages: [{ role: 'user', content: prompt }] })
+  });
+  const data = await res.json();
+  const text = data.content?.[0]?.text?.trim();
+  if (!text) throw new Error('No text from Claude');
+  return text;
+}
+
 function scoreWeather(w) {
   let score = 10;
   const penalties = [];
@@ -118,6 +194,30 @@ function scoreWeather(w) {
   return { score: Math.max(1, Math.min(10, score)), penalties };
 }
 
+// If past 9AM and no synopsis yet, generate one server-side and save it
+async function maybeAutoGenerate(row, dateKey) {
+  if (row.synopsis_approved || !isAfterNineAMNYC()) return row;
+
+  try {
+    const weather = {
+      temp: row.temp, high: row.high, low: row.low, feelsLike: row.feels_like,
+      condition: row.condition, humidity: row.humidity, precipChance: row.precip_chance,
+      windSpeed: row.wind_speed
+    };
+    const text = await autoGenerateSynopsis(weather, row.score, row.penalties);
+    const update = { synopsis_approved: text, approved: true, updated_at: new Date().toISOString() };
+    await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
+      method: 'PATCH',
+      headers: { 'Prefer': 'return=minimal' },
+      body: JSON.stringify(update)
+    });
+    return { ...row, ...update };
+  } catch(e) {
+    console.error('auto-gen synopsis error:', e);
+    return row; // non-fatal — return row without synopsis
+  }
+}
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -139,7 +239,8 @@ exports.handler = async (event) => {
       const stale = force || (Date.now() - lastUpdated) > 3 * 60 * 60 * 1000;
 
       if (!stale) {
-        return { statusCode: 200, headers, body: JSON.stringify(row) };
+        const finalRow = await maybeAutoGenerate(row, dateKey);
+        return { statusCode: 200, headers, body: JSON.stringify(finalRow) };
       }
 
       // Row is older than 3 hours — refresh weather from OWM
@@ -162,7 +263,7 @@ exports.handler = async (event) => {
         const { score, penalties } = scoreWeather(weather);
         refreshed.score = score;
         refreshed.penalties = penalties;
-        refreshed.synopsis_draft = null; // force fresh synopsis on next load
+        refreshed.synopsis_draft = null;
       }
 
       await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
@@ -171,7 +272,9 @@ exports.handler = async (event) => {
         body: JSON.stringify(refreshed)
       });
 
-      return { statusCode: 200, headers, body: JSON.stringify({ ...row, ...refreshed }) };
+      const mergedRow = { ...row, ...refreshed };
+      const finalRow = await maybeAutoGenerate(mergedRow, dateKey);
+      return { statusCode: 200, headers, body: JSON.stringify(finalRow) };
     }
 
     // No data yet — fetch fresh from OWM
@@ -203,11 +306,9 @@ exports.handler = async (event) => {
       body: JSON.stringify(row)
     });
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(Array.isArray(inserted) ? inserted[0] : row)
-    };
+    const insertedRow = Array.isArray(inserted) ? inserted[0] : row;
+    const finalRow = await maybeAutoGenerate(insertedRow, dateKey);
+    return { statusCode: 200, headers, body: JSON.stringify(finalRow) };
 
   } catch (err) {
     console.error('get-daily error:', err);

@@ -1256,6 +1256,20 @@ async function loadAll() {
     document.getElementById('approve-btn').textContent = '✔ Published';
     document.getElementById('approve-btn').classList.add('active');
     localStorage.setItem('cnw_synopsis', JSON.stringify({ dateKey: todayKey, text, approved: true }));
+
+    // Allow overriding — reset button when user edits the textarea
+    const textarea = document.getElementById('synopsis-textarea');
+    const btn = document.getElementById('approve-btn');
+    function onEdit() {
+      const changed = textarea.value.trim() !== text.trim();
+      btn.textContent = changed ? '↑ Override & Publish' : '✔ Published';
+      changed ? btn.classList.remove('active') : btn.classList.add('active');
+      document.getElementById('approved-banner').style.display = changed ? 'none' : 'block';
+      document.getElementById('status-label').textContent = changed ? 'edited — not yet published' : 'approved & live';
+    }
+    textarea.removeEventListener('input', textarea._overrideListener);
+    textarea._overrideListener = onEdit;
+    textarea.addEventListener('input', onEdit);
   }
 
   if (weather.approved && weather.synopsisApproved) {
