@@ -673,58 +673,20 @@ async function init() {
 
   // Load synopsis — server is source of truth now
   const synopsisEl = document.getElementById('synopsis-text');
-  const now = new Date();
-  const pastCutoff = now.getHours() >= 9;
 
   if (weather.approved && weather.synopsisApproved) {
-    // Admin approved — show it
+    // Admin approved — always the source of truth
     synopsisEl.textContent = weather.synopsisApproved;
     synopsisEl.classList.remove('loading');
-  } else if (pastCutoff && weather.synopsisDraft) {
-    // Past 9 AM — auto-publish draft
-    synopsisEl.textContent = weather.synopsisDraft;
-    synopsisEl.classList.remove('loading');
-  } else if (pastCutoff) {
-    // Past 9 AM, no draft — generate one now
-    generateSynopsis(weather, score, penalties).then(text => {
-      synopsisEl.textContent = text;
-      synopsisEl.classList.remove('loading');
-    });
   } else {
-    synopsisEl.textContent = "check back at 9 AM for today's vibe.";
+    synopsisEl.textContent = "today's vibe dropping soon.";
     synopsisEl.classList.remove('loading');
   }
 }
 
 init();
 
-// ── CLAUDE API SYNOPSIS ──
-async function generateSynopsis(w, score, penalties) {
-  try {
-    const res = await fetch('/.netlify/functions/generate-synopsis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        temp: w.temp, feelsLike: w.feelsLike, condition: w.condition,
-        precipChance: w.precipChance, humidity: w.humidity,
-        windSpeed: w.windSpeed, score, penalties
-      })
-    });
-    const data = await res.json();
-    return data.text || fallback(score, w);
-  } catch(e) {
-    return fallback(score, w);
-  }
-}
-
-function fallback(score, w) {
-  if (w.temp < 40 && w.precipChance > 60) return `${Math.round(w.temp)}° and wet out here. not the day. ${score}/10.`;
-  if (w.temp < 40) return `cold af — bundle up. ${Math.round(w.temp)}° and the wind not playing. ${score}/10.`;
-  if (w.precipChance > 60) return `rain coming through today. umbrella up no cap. ${score}/10.`;
-  return `${Math.round(w.temp)}° out there. ${score}/10 — could be worse cousins.`;
-}
-
-// Synopsis editing moved to /admin.html
+// Synopsis is set exclusively via admin.html
 
 // ── PHONE FORMAT ──
 document.getElementById('phone-input').addEventListener('input', function(e) {
