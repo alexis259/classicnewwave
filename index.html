@@ -493,6 +493,9 @@ function getCachedWeather() {
     if (version !== CACHE_VERSION) return null;
     if (dateKey !== getTodayKey()) return null;
     if (Date.now() - cachedAt > CACHE_TTL_MS) return null;
+    // Always re-fetch if synopsis hasn't been approved yet — ensures all devices
+    // see the synopsis as soon as admin publishes it, not after cache expires
+    if (!data.approved || !data.synopsisApproved) return null;
     return data;
   } catch(e) {
     return null;
