@@ -1283,13 +1283,10 @@ async function loadAll() {
     document.getElementById('synopsis-textarea').value = parsed.text;
     document.getElementById('status-label').textContent = 'draft — not yet published';
   } else {
-    // No synopsis yet — generate fresh
-    document.getElementById('synopsis-textarea').placeholder = 'generating synopsis…';
-    const text = await generateSynopsis(weather, score, penalties);
-    document.getElementById('synopsis-textarea').value = text;
-    document.getElementById('synopsis-textarea').placeholder = '';
-    document.getElementById('status-label').textContent = 'draft — not yet published';
-    localStorage.setItem('cnw_synopsis', JSON.stringify({ dateKey: todayKey, text, approved: false }));
+    // No synopsis yet — wait for user to click Regenerate
+    document.getElementById('synopsis-textarea').value = '';
+    document.getElementById('synopsis-textarea').placeholder = 'No synopsis yet — click ↻ Regenerate to generate one';
+    document.getElementById('status-label').textContent = 'not generated';
   }
 
   // Show cutoff notice
