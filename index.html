@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classic New Weather — Daily Weather</title>
+  <title>Classic New Wave — Daily Weather</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#080808" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CNW" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Archivo+Black&family=IBM+Plex+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -565,14 +571,15 @@ async function fetchWeather() {
 function scoreWeather(w) {
   let score = 10;
   const penalties = [];
-  const t = w.temp;
+  const t = w.high ?? w.temp; // use daily high, same as server
 
   if (t >= 70 && t <= 77)      {}
   else if ((t >= 65 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
-  else if (t >= 58 && t < 65)  { score -= 2; penalties.push("a bit cool"); }
-  else if (t >= 50 && t < 58)  { score -= 3; penalties.push("chilly"); }
-  else if (t >= 42 && t < 50)  { score -= 4; penalties.push("cold out"); }
-  else if (t >= 35 && t < 42)  { score -= 5; penalties.push("cold af"); }
+  else if (t >= 60 && t < 65)  { score -= 2; penalties.push("a bit cool"); }
+  else if (t >= 55 && t < 60)  { score -= 3; penalties.push("kinda cool"); }
+  else if (t >= 50 && t < 55)  { score -= 4; penalties.push("chilly"); }
+  else if (t >= 42 && t < 50)  { score -= 5; penalties.push("cold out"); }
+  else if (t >= 35 && t < 42)  { score -= 6; penalties.push("cold af"); }
   else if (t >= 28 && t < 35)  { score -= 7; penalties.push("freezing"); }
   else if (t < 28)              { score -= 8; penalties.push("BRUTAL"); }
   else if (t > 82 && t <= 88)  { score -= 2; penalties.push("hot"); }
