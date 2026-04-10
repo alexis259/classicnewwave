@@ -304,6 +304,9 @@ exports.handler = async (event) => {
       method: 'POST',
       body: JSON.stringify(row)
     });
+    if (!Array.isArray(inserted)) {
+      console.error('Supabase insert failed:', JSON.stringify(inserted));
+    }
 
     const insertedRow = Array.isArray(inserted) ? inserted[0] : row;
     const finalRow = await maybeAutoGenerate(insertedRow, dateKey);

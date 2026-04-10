@@ -698,50 +698,6 @@ init();
 
 // Synopsis is set exclusively via admin.html
 
-// ── PHONE FORMAT ──
-document.getElementById('phone-input').addEventListener('input', function(e) {
-  let val = e.target.value.replace(/\D/g,'').slice(0,10);
-  let fmt = '';
-  if (val.length >= 1) fmt = '+1 (' + val.slice(0,3);
-  if (val.length >= 4) fmt += ') ' + val.slice(3,6);
-  if (val.length >= 7) fmt += '-' + val.slice(6,10);
-  e.target.value = fmt;
-});
-
-// ── SIGNUP ──
-async function handleSignup() {
-  const phone = document.getElementById('phone-input').value;
-  const name = document.getElementById('name-input').value;
-  if (phone.replace(/\D/g,'').length < 10) {
-    document.getElementById('phone-input').style.borderColor = 'var(--red)';
-    document.getElementById('phone-input').focus();
-    return;
-  }
-  const btn = document.getElementById('sms-btn');
-  btn.disabled = true;
-  btn.textContent = 'SAVING…';
-
-  try {
-    const res = await fetch('/.netlify/functions/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, name })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      document.getElementById('success-msg').style.display = 'block';
-      document.getElementById('phone-input').disabled = true;
-      document.getElementById('name-input').disabled = true;
-      btn.textContent = 'SUBSCRIBED ✔';
-    } else {
-      btn.disabled = false;
-      btn.textContent = 'TEXT ME →';
-    }
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = 'TEXT ME →';
-  }
-}
 </script>
 
 <script>
