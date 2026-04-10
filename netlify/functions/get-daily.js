@@ -51,16 +51,23 @@ async function fetchFreshWeather() {
     }
   });
 
-  // Compute true daily high/low from all forecast slots that fall on today's NYC date
+  // Compute true daily high/low from today's forecast slots
+  // Use only daytime slots (6AM–9PM NYC) to avoid inflated overnight temp_max values
+  // Use slot temp (not temp_max) which is more accurate for the actual period
   const todayKey = toNYCDateKey(new Date());
   const todaySlots = forecastData.list.filter(slot =>
     toNYCDateKey(new Date(slot.dt * 1000)) === todayKey
   );
-  const dailyHigh = todaySlots.length > 0
-    ? Math.max(...todaySlots.map(s => s.main.temp_max))
+  const daytimeSlots = todaySlots.filter(slot => {
+    const hourNYC = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(new Date(slot.dt * 1000)));
+    return hourNYC >= 6 && hourNYC <= 21;
+  });
+  const slotsForHigh = daytimeSlots.length > 0 ? daytimeSlots : todaySlots;
+  const dailyHigh = slotsForHigh.length > 0
+    ? Math.max(...slotsForHigh.map(s => s.main.temp))
     : current.main.temp_max;
   const dailyLow = todaySlots.length > 0
-    ? Math.min(...todaySlots.map(s => s.main.temp_min))
+    ? Math.min(...todaySlots.map(s => s.main.temp))
     : current.main.temp_min;
 
   const forecast = Object.entries(days).slice(0, 5).map(([key, { slot }]) => ({
