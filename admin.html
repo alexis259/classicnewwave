@@ -680,6 +680,53 @@
       font-style: italic;
     }
 
+    /* ── SCORE OVERRIDE ── */
+    .score-override-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .score-override-input {
+      width: 68px;
+      background: #0e0e0e;
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 1.4rem;
+      padding: 7px 10px;
+      outline: none;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .score-override-input:focus { border-color: var(--yellow); }
+
+    .btn-override-score {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-override-score:hover { color: var(--yellow); border-color: var(--yellow); }
+    .btn-override-score:disabled { opacity: 0.4; cursor: default; }
+
+    .score-override-badge {
+      font-size: 0.52rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--yellow);
+      border: 1px solid var(--yellow);
+      padding: 3px 8px;
+      display: none;
+    }
+
     @media (max-width: 500px) {
       .topbar { padding: 12px 16px; }
       .admin-wrap { padding: 20px 16px 48px; }
@@ -735,6 +782,13 @@
             <div class="score-headline" id="score-headline">—</div>
             <div class="penalty-list" id="penalty-list"></div>
           </div>
+        </div>
+
+        <div class="score-override-row">
+          <input class="score-override-input" type="number" id="override-score-input" min="1" max="10" placeholder="–" />
+          <button class="btn-override-score" id="override-score-btn" onclick="overrideScore()">Set Score</button>
+          <span class="score-override-badge" id="override-badge">overridden</span>
+          <span id="override-status" style="font-size:0.6rem;letter-spacing:0.1em;color:var(--muted)"></span>
         </div>
 
         <div class="weather-grid">
@@ -1195,6 +1249,51 @@ async function regenSynopsis() {
   }));
 }
 
+// ── SCORE OVERRIDE ──
+async function overrideScore() {
+  const input = document.getElementById('override-score-input');
+  const score = parseInt(input.value);
+  if (!score || score < 1 || score > 10) return;
+
+  const btn = document.getElementById('override-score-btn');
+  const statusEl = document.getElementById('override-status');
+  btn.textContent = 'saving…';
+  btn.disabled = true;
+  statusEl.textContent = '';
+
+  try {
+    const res = await fetch('/.netlify/functions/override-score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ score, password: ADMIN_PW })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('score-big').textContent = score;
+      document.getElementById('score-headline').textContent = gradeHeadline(score);
+      document.getElementById('override-badge').style.display = 'inline-block';
+      statusEl.textContent = '✓ saved';
+      const cached = getCachedWeather();
+      if (cached) { cached.score = score; setCachedWeather(cached); }
+      currentScore = score;
+      btn.textContent = '✓ Set';
+      setTimeout(() => {
+        btn.textContent = 'Set Score';
+        btn.disabled = false;
+        statusEl.textContent = '';
+      }, 2500);
+    } else {
+      statusEl.textContent = '✗ error';
+      btn.textContent = 'Set Score';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    statusEl.textContent = '✗ error';
+    btn.textContent = 'Set Score';
+    btn.disabled = false;
+  }
+}
+
 // ── LOAD EVERYTHING ──
 async function loadAll() {
   const weather = await fetchWeather();
@@ -1217,6 +1316,7 @@ async function loadAll() {
   // Score
   document.getElementById('score-big').textContent = score;
   document.getElementById('score-headline').textContent = gradeHeadline(score);
+  document.getElementById('override-score-input').value = score;
   document.getElementById('penalty-list').innerHTML = penalties
     .map(p => `<span class="penalty-pill">↓ ${p}</span>`).join('');
 
