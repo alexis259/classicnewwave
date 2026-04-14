@@ -265,13 +265,6 @@ exports.handler = async (event) => {
         updated_at: new Date().toISOString()
       };
 
-      // Re-score only when admin explicitly forces a refresh
-      if (force) {
-        const { score, penalties } = scoreWeather(weather);
-        refreshed.score = score;
-        refreshed.penalties = penalties;
-      }
-
       await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
         method: 'PATCH',
         headers: { 'Prefer': 'return=minimal' },
