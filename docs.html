@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CNW — System Docs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:ital,wght@0,300;0,400;1,300&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #080808;
+      --card: #141414;
+      --card2: #1a1a1a;
+      --border: #2a2a2a;
+      --red: #E8230A;
+      --red-dim: #9e1a07;
+      --green: #2a7a3a;
+      --green-bright: #4caf62;
+      --cyan: #00C8C8;
+      --white: #f0f0f0;
+      --muted: #666;
+      --yellow: #f0c040;
+    }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'IBM Plex Mono', monospace;
+      min-height: 100vh;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+
+    .topbar-brand {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+    }
+    .topbar-brand span { color: var(--red); }
+
+    .docs-badge {
+      font-size: 0.55rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 3px 8px;
+    }
+
+    .back-btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      transition: all 0.2s;
+    }
+    .back-btn:hover { color: var(--white); border-color: var(--white); }
+
+    /* ── LAYOUT ── */
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* ── SECTION ── */
+    .section {
+      background: var(--card);
+      border: 1px solid var(--border);
+    }
+
+    .section-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-title {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .section-body { padding: 20px; }
+
+    /* ── TEXT ── */
+    .doc-p {
+      font-size: 0.78rem;
+      line-height: 1.8;
+      color: #b0b0b0;
+      margin-bottom: 16px;
+    }
+    .doc-p:last-child { margin-bottom: 0; }
+
+    .doc-label {
+      font-size: 0.52rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+      margin-top: 20px;
+    }
+    .doc-label:first-child { margin-top: 0; }
+
+    /* ── FLOW DIAGRAM ── */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .flow-step:last-child { border-bottom: none; }
+
+    .flow-num {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 0.7rem;
+      color: var(--red);
+      min-width: 22px;
+      padding-top: 1px;
+    }
+
+    .flow-text {
+      font-size: 0.75rem;
+      line-height: 1.7;
+      color: #b0b0b0;
+    }
+
+    .flow-text strong {
+      color: var(--white);
+      font-style: normal;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 400;
+    }
+
+    .flow-sub {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* ── SCORE TABLE ── */
+    .score-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.72rem;
+    }
+
+    .score-table th {
+      font-size: 0.52rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 400;
+    }
+
+    .score-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #1e1e1e;
+      color: #b0b0b0;
+      vertical-align: middle;
+    }
+    .score-table tr:last-child td { border-bottom: none; }
+    .score-table tr:hover td { background: var(--card2); }
+
+    .score-table td:first-child { color: var(--white); font-family: 'Archivo Black', sans-serif; font-size: 0.68rem; }
+
+    .penalty-num { color: var(--red); font-family: 'Archivo Black', sans-serif; }
+    .penalty-label { color: var(--muted); font-size: 0.62rem; font-style: italic; }
+    .penalty-zero { color: var(--green-bright); }
+
+    /* ── FUNCTIONS TABLE ── */
+    .fn-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.72rem;
+    }
+
+    .fn-table th {
+      font-size: 0.52rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 400;
+    }
+
+    .fn-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #1e1e1e;
+      color: #b0b0b0;
+      vertical-align: top;
+      line-height: 1.6;
+    }
+    .fn-table tr:last-child td { border-bottom: none; }
+    .fn-table tr:hover td { background: var(--card2); }
+
+    .fn-name {
+      color: var(--cyan);
+      font-size: 0.68rem;
+      white-space: nowrap;
+    }
+
+    .fn-caller { color: var(--muted); font-size: 0.65rem; }
+
+    /* ── CACHE / RULE PILLS ── */
+    .rule-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rule-item {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--red);
+      padding: 10px 14px;
+      font-size: 0.72rem;
+      line-height: 1.6;
+      color: #b0b0b0;
+    }
+    .rule-item strong { color: var(--white); font-weight: 400; }
+    .rule-item.green { border-left-color: var(--green-bright); }
+    .rule-item.yellow { border-left-color: var(--yellow); }
+    .rule-item.cyan { border-left-color: var(--cyan); }
+
+    /* ── SYNOPSIS STATES ── */
+    .states-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .state-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+    }
+
+    .state-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .state-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--white);
+      min-width: 200px;
+    }
+
+    .state-desc {
+      font-size: 0.68rem;
+      color: #b0b0b0;
+      line-height: 1.5;
+    }
+
+    /* ── CHANGELOG ── */
+    .changelog-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .log-entry {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .log-meta {
+      flex-shrink: 0;
+      min-width: 110px;
+    }
+
+    .log-date {
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 4px;
+    }
+
+    .log-tag {
+      font-size: 0.5rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border: 1px solid;
+    }
+    .log-tag.fix { color: var(--green-bright); border-color: var(--green); }
+    .log-tag.feature { color: var(--cyan); border-color: #005a5a; }
+    .log-tag.change { color: var(--yellow); border-color: #7a6020; }
+    .log-tag.note { color: var(--muted); border-color: var(--border); }
+
+    .log-body { flex: 1; }
+
+    .log-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.85rem;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+
+    .log-detail {
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .btn-delete-log {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0 4px;
+      flex-shrink: 0;
+      transition: color 0.2s;
+    }
+    .btn-delete-log:hover { color: var(--red); }
+
+    /* ── LOG FORM ── */
+    .log-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+    }
+
+    .log-form-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .log-input {
+      flex: 1;
+      background: #0e0e0e;
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.8rem;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .log-input:focus { border-color: var(--red); }
+    .log-input::placeholder { color: var(--muted); }
+
+    .log-select {
+      background: #0e0e0e;
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.72rem;
+      padding: 10px 12px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      min-width: 110px;
+    }
+    .log-select:focus { border-color: var(--red); }
+
+    .log-textarea {
+      background: #0e0e0e;
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      padding: 10px 12px;
+      outline: none;
+      resize: vertical;
+      min-height: 70px;
+      transition: border-color 0.2s;
+    }
+    .log-textarea:focus { border-color: var(--red); }
+    .log-textarea::placeholder { color: var(--muted); }
+
+    .btn-add-log {
+      background: var(--red);
+      color: white;
+      border: none;
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+      align-self: flex-start;
+    }
+    .btn-add-log:hover { background: #c01e07; }
+
+    .log-empty {
+      font-size: 0.68rem;
+      color: var(--muted);
+      font-style: italic;
+      padding: 10px 0;
+    }
+
+    /* ── INLINE CODE ── */
+    code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82em;
+      background: #1e1e1e;
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      color: var(--cyan);
+    }
+
+    @media (max-width: 600px) {
+      .topbar { padding: 12px 16px; }
+      .wrap { padding: 24px 16px 60px; }
+      .log-form-row { flex-direction: column; }
+      .state-label { min-width: 160px; }
+      .fn-table, .score-table { font-size: 0.65rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-brand">Classic<span>New</span>Wave</div>
+    <div class="docs-badge">System Docs</div>
+  </div>
+  <a href="admin.html" class="back-btn">← Admin</a>
+</div>
+
+<div class="wrap">
+
+  <!-- DATA FLOW -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Data Flow</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">every page load</div>
+    </div>
+    <div class="section-body">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-text">
+            Visitor loads <strong>index.html</strong> — check <strong>localStorage</strong> for cached weather
+            <div class="flow-sub">Cache is valid if: version matches <code>v4</code>, date matches today, age &lt; 30 min</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-text">
+            Cache miss → call <strong>/.netlify/functions/get-daily</strong>
+            <div class="flow-sub">Server checks Supabase for today's row (keyed by NYC date YYYY-MM-DD)</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3a</div>
+          <div class="flow-text">
+            <strong>Row exists + under 3 hours old</strong> → return cached row, skip OWM call
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3b</div>
+          <div class="flow-text">
+            <strong>Row exists + over 3 hours old</strong> → fetch fresh weather from OpenWeatherMap, PATCH weather fields only (score never changes here)
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3c</div>
+          <div class="flow-text">
+            <strong>No row yet</strong> → fetch OWM, run scoring algorithm, INSERT full row into Supabase
+            <div class="flow-sub">Score is set once here and never touched by refresh again</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-text">
+            <strong>After returning the row:</strong> if past 9AM NYC and no <code>synopsis_approved</code> exists, auto-generate synopsis via Claude Haiku and save it
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-text">
+            Client renders: score, headline, penalty pills, outfit tags, 5-day forecast, synopsis
+            <div class="flow-sub">Supabase score always wins over client-side score. Synopsis only shows if <code>approved = true</code>.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">6</div>
+          <div class="flow-text">
+            <strong>track-visit</strong> fires in background — logs the visit for analytics, no UI impact
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCORING -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Scoring Algorithm</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">starts at 10 · floor 1 · server wins</div>
+    </div>
+    <div class="section-body">
+
+      <div class="doc-label">Temperature — uses daily HIGH</div>
+      <table class="score-table">
+        <thead>
+          <tr>
+            <th>Range</th>
+            <th>Penalty</th>
+            <th>Label</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>70–77°F</td><td class="penalty-zero">0</td><td class="penalty-label">perfect zone</td></tr>
+          <tr><td>65–69°F or 78–82°F</td><td class="penalty-num">−1</td><td class="penalty-label">—</td></tr>
+          <tr><td>60–64°F</td><td class="penalty-num">−2</td><td class="penalty-label">a bit cool</td></tr>
+          <tr><td>55–59°F</td><td class="penalty-num">−3</td><td class="penalty-label">kinda cool</td></tr>
+          <tr><td>50–54°F</td><td class="penalty-num">−4</td><td class="penalty-label">chilly</td></tr>
+          <tr><td>42–49°F</td><td class="penalty-num">−5</td><td class="penalty-label">cold out</td></tr>
+          <tr><td>35–41°F</td><td class="penalty-num">−6</td><td class="penalty-label">cold af</td></tr>
+          <tr><td>28–34°F</td><td class="penalty-num">−7</td><td class="penalty-label">freezing</td></tr>
+          <tr><td>&lt;28°F</td><td class="penalty-num">−8</td><td class="penalty-label">BRUTAL</td></tr>
+          <tr><td>83–88°F</td><td class="penalty-num">−2</td><td class="penalty-label">hot</td></tr>
+          <tr><td>&gt;88°F</td><td class="penalty-num">−4</td><td class="penalty-label">too hot</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Wind Chill (temp − feels like)</div>
+      <table class="score-table">
+        <thead><tr><th>Gap</th><th>Penalty</th><th>Label</th></tr></thead>
+        <tbody>
+          <tr><td>4–7°F</td><td class="penalty-num">−1</td><td class="penalty-label">some wind chill</td></tr>
+          <tr><td>8–14°F</td><td class="penalty-num">−2</td><td class="penalty-label">wind making it worse</td></tr>
+          <tr><td>15°F+</td><td class="penalty-num">−3</td><td class="penalty-label">wind chill nasty</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Rain</div>
+      <table class="score-table">
+        <thead><tr><th>Precip Chance</th><th>Penalty</th><th>Label</th></tr></thead>
+        <tbody>
+          <tr><td>21–45%</td><td class="penalty-num">−1</td><td class="penalty-label">light rain possible</td></tr>
+          <tr><td>46–70%</td><td class="penalty-num">−2</td><td class="penalty-label">real rain chance</td></tr>
+          <tr><td>71%+</td><td class="penalty-num">−3</td><td class="penalty-label">heavy rain</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Humidity</div>
+      <table class="score-table">
+        <thead><tr><th>Level</th><th>Penalty</th><th>Label</th></tr></thead>
+        <tbody>
+          <tr><td>69–80%</td><td class="penalty-num">−1</td><td class="penalty-label">a lil humid</td></tr>
+          <tr><td>81%+</td><td class="penalty-num">−2</td><td class="penalty-label">humid & heavy</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Overcast</div>
+      <div class="rule-list">
+        <div class="rule-item yellow">Condition contains "cloud" AND precip chance &lt; 20% → <strong>−1 "overcast"</strong></div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Score → Headline</div>
+      <table class="score-table">
+        <thead><tr><th>Score</th><th>Headline</th></tr></thead>
+        <tbody>
+          <tr><td>9–10</td><td style="color:var(--green-bright)">A Perfect Day</td></tr>
+          <tr><td>7–8</td><td style="color:var(--cyan)">Pretty Solid</td></tr>
+          <tr><td>5–6</td><td style="color:var(--white)">Decent Enough</td></tr>
+          <tr><td>3–4</td><td style="color:var(--yellow)">Rough Out There</td></tr>
+          <tr><td>1–2</td><td style="color:var(--red)">Stay Inside</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SCORE RULES -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Score Rules</div>
+    </div>
+    <div class="section-body">
+      <div class="rule-list">
+        <div class="rule-item"><strong>Set once</strong> — score is calculated and saved when the daily row is first created. Never recalculated by a refresh.</div>
+        <div class="rule-item yellow"><strong>Force Refresh</strong> — updates all weather data (temp, high, rain, etc.) from OWM but does not touch the score.</div>
+        <div class="rule-item green"><strong>Score Override</strong> — the only way to change the score after row creation. Admin panel → weather section → type a number and click Set Score. Writes directly to Supabase.</div>
+        <div class="rule-item"><strong>Client vs server</strong> — both pages run <code>scoreWeather()</code> client-side as a fallback, but <code>weather.score</code> from Supabase always wins if it exists.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SYNOPSIS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Synopsis System</div>
+    </div>
+    <div class="section-body">
+
+      <div class="doc-label">Auto-Generation (server-side)</div>
+      <div class="rule-list">
+        <div class="rule-item cyan">Triggers inside <code>get-daily.js</code> after returning the row — if past 9AM NYC and no <code>synopsis_approved</code> on today's row</div>
+        <div class="rule-item cyan">Pulls up to 8 writing examples from Supabase: recent approved daily rows take priority, then seeded <code>synopsis_examples</code> table entries fill remaining slots</div>
+        <div class="rule-item cyan">Sends to Claude Haiku with weather data + examples. Prompt requires: 1–2 sentences, NYC energy, lowercase, no hashtags, one emoji max</div>
+        <div class="rule-item cyan">Saves result directly to <code>synopsis_approved</code> + sets <code>approved = true</code> — live immediately</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Manual (Admin Panel)</div>
+      <div class="rule-list">
+        <div class="rule-item">Click <strong>↻ Regenerate</strong> → calls <code>generate-synopsis.js</code> (same Claude logic) → lands in textarea as a draft, not yet live</div>
+        <div class="rule-item green">Click <strong>✓ Approve & Publish</strong> → calls <code>approve-synopsis.js</code> → PATCHes Supabase → live to all visitors immediately</div>
+        <div class="rule-item yellow">Editing the textarea after approving shows <strong>↑ Override & Publish</strong> — you have to re-approve to push the edit live</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">States</div>
+      <div class="states-list">
+        <div class="state-row">
+          <div class="state-dot" style="background:var(--muted)"></div>
+          <div class="state-label">not generated</div>
+          <div class="state-desc">No draft or approved text. Click Regenerate.</div>
+        </div>
+        <div class="state-row">
+          <div class="state-dot" style="background:var(--yellow);animation:blink 1.5s ease infinite"></div>
+          <div class="state-label">draft — not yet published</div>
+          <div class="state-desc">AI wrote it, not approved. Visitors see "today's vibe dropping soon."</div>
+        </div>
+        <div class="state-row">
+          <div class="state-dot" style="background:var(--yellow);animation:blink 1.5s ease infinite"></div>
+          <div class="state-label">edited — not yet published</div>
+          <div class="state-desc">You edited the textarea after approval. Hit Override & Publish to go live.</div>
+        </div>
+        <div class="state-row">
+          <div class="state-dot" style="background:var(--green-bright)"></div>
+          <div class="state-label">approved & live</div>
+          <div class="state-desc">In Supabase, visible to all visitors. Source of truth.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CACHING -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Caching</div>
+    </div>
+    <div class="section-body">
+      <div class="rule-list">
+        <div class="rule-item"><strong>Client cache</strong> — stored in <code>localStorage</code> under key <code>cnw_weather</code>. TTL: 30 minutes. Busted if date changes, version mismatch, or TTL expired.</div>
+        <div class="rule-item yellow"><strong>Cache version</strong> — currently <code>v4</code>. Must match in both <code>index.html</code> and <code>admin.html</code>. Bump both to force all devices to re-fetch.</div>
+        <div class="rule-item"><strong>Server cache</strong> — Supabase row is the cache. Stale threshold: 3 hours. Exceeded → fresh OWM fetch + PATCH to Supabase.</div>
+        <div class="rule-item green"><strong>Force Refresh</strong> (admin only) — bypasses 3hr threshold, fetches OWM immediately, writes to Supabase, busts local client cache.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTFIT LOGIC -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Outfit Logic</div>
+    </div>
+    <div class="section-body">
+      <div class="rule-list">
+        <div class="rule-item">Daytime outfit uses <strong>daily HIGH</strong>. Night outfit uses <strong>daily LOW</strong>.</div>
+        <div class="rule-item yellow">Night outfit row only shows if temp swing (HIGH − LOW) is <strong>15°F or more</strong> and LOW is not null.</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Outerwear</div>
+      <table class="score-table">
+        <thead><tr><th>Temp</th><th>Item</th></tr></thead>
+        <tbody>
+          <tr><td>&lt;50°F</td><td>coat / jacket</td></tr>
+          <tr><td>50–59°F</td><td>light jacket</td></tr>
+          <tr><td>60–67°F</td><td>layer up</td></tr>
+          <tr><td>68°F+</td><td>none</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Top / Bottom / Shoes</div>
+      <table class="score-table">
+        <thead><tr><th>Temp</th><th>Top</th><th>Bottom</th><th>Shoes</th></tr></thead>
+        <tbody>
+          <tr><td>&lt;40°F</td><td>heavy sweater / hoodie</td><td>heavy pants / sweats</td><td>boots</td></tr>
+          <tr><td>40–54°F</td><td>hoodie / sweatshirt</td><td>jeans / pants</td><td>boots</td></tr>
+          <tr><td>55–67°F</td><td>long sleeve</td><td>jeans / pants</td><td>sneakers</td></tr>
+          <tr><td>68°F+</td><td>tee</td><td>shorts / light pants</td><td>sneakers</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Extras</div>
+      <div class="rule-list">
+        <div class="rule-item">&lt;32°F → hat + gloves · &lt;42°F → beanie · rain &gt;30% → umbrella</div>
+        <div class="rule-item yellow">Rain &gt;60% OR temp &lt;35°F → waterproof boots override shoes</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NETLIFY FUNCTIONS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Netlify Functions</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">netlify/functions/</div>
+    </div>
+    <div class="section-body">
+      <table class="fn-table">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Called By</th>
+            <th>What It Does</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="fn-name">get-daily.js</td>
+            <td class="fn-caller">Both pages</td>
+            <td>Fetches/caches weather from OWM, runs scoring on first insert, auto-generates synopsis after 9AM if missing</td>
+          </tr>
+          <tr>
+            <td class="fn-name">generate-synopsis.js</td>
+            <td class="fn-caller">Admin panel</td>
+            <td>On-demand Claude Haiku synopsis generation with writing examples from Supabase</td>
+          </tr>
+          <tr>
+            <td class="fn-name">approve-synopsis.js</td>
+            <td class="fn-caller">Admin panel</td>
+            <td>PATCHes <code>synopsis_approved</code> + <code>approved = true</code> in Supabase. Password-protected.</td>
+          </tr>
+          <tr>
+            <td class="fn-name">override-score.js</td>
+            <td class="fn-caller">Admin panel</td>
+            <td>PATCHes <code>score</code> in today's Supabase row. Only way to change score after row creation. Password-protected.</td>
+          </tr>
+          <tr>
+            <td class="fn-name">subscribe.js</td>
+            <td class="fn-caller">Public page</td>
+            <td>Adds phone number to <code>subscribers</code> table in Supabase</td>
+          </tr>
+          <tr>
+            <td class="fn-name">track-visit.js</td>
+            <td class="fn-caller">Public page</td>
+            <td>Logs page visit (IP, referrer, timestamp) for analytics</td>
+          </tr>
+          <tr>
+            <td class="fn-name">get-analytics.js</td>
+            <td class="fn-caller">Admin panel</td>
+            <td>Returns visit stats: views today, unique visitors, sessions, 7-day chart, top referrers</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SUPABASE TABLES -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Supabase Tables</div>
+    </div>
+    <div class="section-body">
+      <div class="doc-label">daily</div>
+      <div class="rule-list">
+        <div class="rule-item cyan">One row per day. Key: <code>date_key</code> (NYC date, YYYY-MM-DD)</div>
+        <div class="rule-item cyan">Weather fields: <code>temp</code> <code>high</code> <code>low</code> <code>feels_like</code> <code>condition</code> <code>humidity</code> <code>precip_chance</code> <code>wind_speed</code> <code>forecast</code> (JSON)</div>
+        <div class="rule-item cyan">Score fields: <code>score</code> <code>penalties</code> (array)</div>
+        <div class="rule-item cyan">Synopsis fields: <code>synopsis_draft</code> <code>synopsis_approved</code> <code>approved</code> (bool)</div>
+        <div class="rule-item cyan">Meta: <code>updated_at</code></div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">synopsis_examples</div>
+      <div class="rule-list">
+        <div class="rule-item">Manually seeded writing examples used to train Claude's voice. Fields: <code>synopsis</code> <code>temp</code> <code>feels_like</code> <code>condition</code> <code>precip_chance</code> <code>score</code> <code>created_at</code></div>
+        <div class="rule-item yellow">Recent approved daily rows take priority over these as examples. These fill remaining slots up to 8 total.</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">subscribers</div>
+      <div class="rule-list">
+        <div class="rule-item">Phone numbers for SMS beta. Fields: <code>phone</code> <code>created_at</code> <code>active</code> (bool)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHANGELOG -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Change Log</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">stored locally · this device only</div>
+    </div>
+    <div class="section-body">
+
+      <div class="changelog-list" id="changelog-list">
+        <div class="log-empty" id="log-empty">no entries yet</div>
+      </div>
+
+      <div class="log-form">
+        <div class="log-form-row">
+          <input class="log-input" type="text" id="log-title-input" placeholder="What changed?" />
+          <select class="log-select" id="log-tag-select">
+            <option value="feature">feature</option>
+            <option value="change">change</option>
+            <option value="fix">fix</option>
+            <option value="note">note</option>
+          </select>
+        </div>
+        <textarea class="log-textarea" id="log-detail-input" placeholder="Details, reasoning, anything to remember…"></textarea>
+        <button class="btn-add-log" onclick="addLogEntry()">+ Log It</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<style>
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+</style>
+
+<script>
+const LOG_KEY = 'cnw_changelog';
+
+function loadLog() {
+  try { return JSON.parse(localStorage.getItem(LOG_KEY)) || []; }
+  catch(e) { return []; }
+}
+
+function saveLog(entries) {
+  localStorage.setItem(LOG_KEY, JSON.stringify(entries));
+}
+
+function renderLog() {
+  const entries = loadLog();
+  const list = document.getElementById('changelog-list');
+  const empty = document.getElementById('log-empty');
+
+  if (entries.length === 0) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    empty.style.display = '';
+    return;
+  }
+
+  empty.style.display = 'none';
+  list.innerHTML = entries.slice().reverse().map((e, ri) => {
+    const i = entries.length - 1 - ri;
+    const d = new Date(e.date);
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `
+      <div class="log-entry">
+        <div class="log-meta">
+          <div class="log-date">${dateStr}</div>
+          <div class="log-tag ${e.tag}">${e.tag}</div>
+        </div>
+        <div class="log-body">
+          <div class="log-title">${e.title}</div>
+          ${e.detail ? `<div class="log-detail">${e.detail}</div>` : ''}
+        </div>
+        <button class="btn-delete-log" onclick="deleteLogEntry(${i})" title="Delete">×</button>
+      </div>`;
+  }).join('');
+}
+
+function addLogEntry() {
+  const title = document.getElementById('log-title-input').value.trim();
+  if (!title) return;
+  const tag = document.getElementById('log-tag-select').value;
+  const detail = document.getElementById('log-detail-input').value.trim();
+
+  const entries = loadLog();
+  entries.push({ title, tag, detail, date: new Date().toISOString() });
+  saveLog(entries);
+
+  document.getElementById('log-title-input').value = '';
+  document.getElementById('log-detail-input').value = '';
+  renderLog();
+}
+
+function deleteLogEntry(i) {
+  const entries = loadLog();
+  entries.splice(i, 1);
+  saveLog(entries);
+  renderLog();
+}
+
+document.getElementById('log-title-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addLogEntry();
+});
+
+renderLog();
+</script>
+
+</body>
+</html>
