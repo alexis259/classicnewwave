@@ -3,7 +3,7 @@
 // Called from admin panel after drawing the story canvas
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const ADMIN_PW = process.env.ADMIN_PW;
 
 function toNYCDateKey(date) {
@@ -51,8 +51,8 @@ exports.handler = async (event) => {
     const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/story-images/${filename}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'apikey': SUPABASE_SERVICE_KEY,
         'Content-Type': 'image/png',
         'x-upsert': 'true'
       },
@@ -70,8 +70,8 @@ exports.handler = async (event) => {
     const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
       method: 'PATCH',
       headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
