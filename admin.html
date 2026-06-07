@@ -1849,41 +1849,19 @@ async function uploadStoryImage() {
 
   try {
     const canvas = document.getElementById('story-canvas');
-    const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
-    const filename = `${dateKey}.png`;
 
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/story-images/${filename}`, {
+    // Get base64 PNG without the data URI prefix
+    const dataUrl = canvas.toDataURL('image/png');
+    const imageData = dataUrl.split(',')[1];
+
+    const res = await fetch('/.netlify/functions/upload-story', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'apikey': SUPABASE_ANON_KEY,
-        'Content-Type': 'image/png',
-        'x-upsert': 'true'
-      },
-      body: blob
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: ADMIN_PW, imageData })
     });
 
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      throw new Error(`Storage upload failed: ${errText}`);
-    }
-
-    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/story-images/${filename}`;
-
-    // Save URL to today's daily row
-    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({ story_image_url: publicUrl })
-    });
-
-    if (!patchRes.ok) throw new Error('Failed to save image URL');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
 
     status.className = 'ig-queue-status queued';
     status.textContent = '✓ queued · ready to post';
