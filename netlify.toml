@@ -6,6 +6,10 @@
 [functions]
   node_bundler = "esbuild"
 
+[functions."auto-post-ig"]
+  # 7:30 AM EDT (UTC-4, summer). Change to "30 12 * * *" in winter (EST, UTC-5)
+  schedule = "30 11 * * *"
+
 [[redirects]]
   from = "https://classicnewwave.com/*"
   to = "https://classicnewweather.com/:splat"

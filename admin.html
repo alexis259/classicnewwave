@@ -474,6 +474,62 @@
     }
     .btn-regen-story:hover { border-color: var(--white); }
 
+    .btn-upload {
+      background: none;
+      color: var(--cyan);
+      border: 1px solid var(--cyan);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.2s;
+    }
+    .btn-upload:hover { background: rgba(0,200,200,0.08); }
+    .btn-upload:disabled { opacity: 0.3; cursor: default; }
+
+    .btn-post-now {
+      background: var(--red);
+      color: white;
+      border: none;
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.2s;
+    }
+    .btn-post-now:hover { background: #c01e07; }
+    .btn-post-now:disabled { background: #1a1a1a; color: #444; cursor: default; }
+
+    .ig-queue-status {
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 0;
+      color: var(--muted);
+    }
+    .ig-queue-status.queued { color: var(--cyan); }
+    .ig-queue-status.posted { color: #4caf7d; }
+    .ig-queue-status.error { color: var(--red); }
+
+    .ig-caption-preview {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.72rem;
+      line-height: 1.55;
+      color: var(--white);
+      background: #0e0e0e;
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--cyan);
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     /* ── EXAMPLES ── */
     .example-form {
       display: grid;
@@ -956,6 +1012,11 @@
             <div class="story-info" id="story-info">loading story…</div>
             <button class="btn-regen-story" onclick="drawStory()">↻ Redraw</button>
             <button class="btn-download" id="dl-btn" onclick="downloadStory()" disabled>↓ Download Story</button>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <div class="ig-queue-status" id="ig-queue-status">story not queued</div>
+            <button class="btn-upload" id="upload-btn" onclick="uploadStoryImage()" disabled>↑ Upload & Queue Post</button>
+            <button class="btn-post-now" id="post-now-btn" onclick="postNow()" disabled>▶ Post to IG Now</button>
+            <div class="ig-caption-preview" id="ig-caption-preview" style="display:none"></div>
           </div>
         </div>
       </div>
@@ -1647,6 +1708,7 @@ async function drawStory() {
   document.getElementById('story-info').innerHTML =
     `Temp: ${Math.round(weather.temp)}°F · High: ${Math.round(weather.high)}°F<br>Score: ${score}/10<br>Rain: ${weather.precipChance}%<br><br>1080 × 1920px<br>Ready to download`;
   document.getElementById('dl-btn').disabled = false;
+  document.getElementById('upload-btn').disabled = false;
 }
 
 function downloadStory() {
@@ -1774,6 +1836,105 @@ function downloadForecastStory() {
   link.download = `cnw-forecast-${date}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
+}
+
+// ── IG AUTO-POST ──
+async function uploadStoryImage() {
+  const btn = document.getElementById('upload-btn');
+  const status = document.getElementById('ig-queue-status');
+  btn.disabled = true;
+  btn.textContent = '↑ Uploading…';
+  status.className = 'ig-queue-status';
+  status.textContent = 'uploading…';
+
+  try {
+    const canvas = document.getElementById('story-canvas');
+    const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+    const filename = `${dateKey}.png`;
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/story-images/${filename}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_ANON_KEY,
+        'Content-Type': 'image/png',
+        'x-upsert': 'true'
+      },
+      body: blob
+    });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error(`Storage upload failed: ${errText}`);
+    }
+
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/story-images/${filename}`;
+
+    // Save URL to today's daily row
+    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ story_image_url: publicUrl })
+    });
+
+    if (!patchRes.ok) throw new Error('Failed to save image URL');
+
+    status.className = 'ig-queue-status queued';
+    status.textContent = '✓ queued · ready to post';
+    document.getElementById('post-now-btn').disabled = false;
+    btn.textContent = '↑ Re-upload';
+    btn.disabled = false;
+  } catch(e) {
+    status.className = 'ig-queue-status error';
+    status.textContent = `✗ ${e.message}`;
+    btn.textContent = '↑ Upload & Queue Post';
+    btn.disabled = false;
+  }
+}
+
+async function postNow() {
+  const btn = document.getElementById('post-now-btn');
+  const status = document.getElementById('ig-queue-status');
+  const captionEl = document.getElementById('ig-caption-preview');
+  btn.disabled = true;
+  btn.textContent = '▶ Posting…';
+
+  try {
+    const res = await fetch('/.netlify/functions/auto-post-ig', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: ADMIN_PW })
+    });
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.error);
+
+    if (data.skipped) {
+      status.className = 'ig-queue-status';
+      status.textContent = data.reason;
+      btn.textContent = '▶ Post to IG Now';
+      btn.disabled = false;
+      return;
+    }
+
+    status.className = 'ig-queue-status posted';
+    status.textContent = '✓ posted · feed + story live';
+    btn.textContent = '✓ Posted';
+
+    captionEl.textContent = data.caption;
+    captionEl.style.display = 'block';
+  } catch(e) {
+    status.className = 'ig-queue-status error';
+    status.textContent = `✗ ${e.message}`;
+    btn.textContent = '▶ Post to IG Now';
+    btn.disabled = false;
+  }
 }
 
 // ── WRITING EXAMPLES ──
