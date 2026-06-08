@@ -148,6 +148,9 @@ exports.handler = async (event) => {
       };
     }
 
+    // Use dedicated 4:5 feed image if available, fall back to story image
+    const feedImageUrl = row.feed_image_url || row.story_image_url;
+
     if (!row.synopsis_approved) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Synopsis not approved yet' }) };
     }
@@ -165,7 +168,7 @@ exports.handler = async (event) => {
 
     // Create feed + story containers in parallel
     const [feedContainerId, storyContainerId] = await Promise.all([
-      createIGContainer(row.story_image_url, caption, false),
+      createIGContainer(feedImageUrl, caption, false),
       createIGContainer(row.story_image_url, null, true)
     ]);
 

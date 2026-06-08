@@ -1613,22 +1613,31 @@ async function drawStory() {
   ctx.roundRect(PAD - 24, pillY, W - (PAD - 24) * 2, pillH, 16);
   ctx.fill();
 
-  ctx.fillStyle = accent;
-  ctx.font = '500 30px IBM Plex Mono, monospace';
-  ctx.letterSpacing = '6px';
+  // Line 1: handle — first thing people see
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.font = '500 34px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '3px';
   ctx.textBaseline = 'top';
-  ctx.fillText("NEW YORK CITY · WEATHER", PAD, pillY + 20);
+  ctx.fillText('@CLASSICNEWWEATHER', PAD, pillY + 14);
   ctx.letterSpacing = '0px';
 
+  // Line 2: date + high temp
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
   ctx.font = '500 40px IBM Plex Mono, monospace';
-  ctx.fillText(dateStr.toUpperCase(), PAD, pillY + 72);
+  ctx.fillText(dateStr.toUpperCase(), PAD, pillY + 68);
 
   ctx.fillStyle = accent;
   ctx.font = '500 40px IBM Plex Mono, monospace';
   ctx.textAlign = 'right';
-  ctx.fillText(`HIGH ${Math.round(weather.high)}°F`, W - PAD, pillY + 72);
+  ctx.fillText(`HIGH ${Math.round(weather.high)}°F`, W - PAD, pillY + 68);
   ctx.textAlign = 'left';
+
+  // Line 3: NYC sub-label
+  ctx.fillStyle = accent;
+  ctx.font = '500 24px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '5px';
+  ctx.fillText('NEW YORK CITY · WEATHER', PAD, pillY + 130);
+  ctx.letterSpacing = '0px';
 
   // ── ACCENT DIVIDER under header ──
   ctx.strokeStyle = accent;
@@ -1703,6 +1712,17 @@ async function drawStory() {
     ctx.textBaseline = 'top';
     wrapText(ctx, outfitNight.join('  ·  '), PAD, cursor, W - PAD * 2, 64);
   }
+
+  // ── BOTTOM BRANDING ──
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.font = '500 26px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '4px';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('CLASSICNEWWEATHER.COM', W / 2, 1460);
+  ctx.letterSpacing = '0px';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
 
   // Update info + enable download
   document.getElementById('story-info').innerHTML =
@@ -1857,14 +1877,29 @@ async function uploadStoryImage() {
     const res = await fetch('/.netlify/functions/upload-story', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: ADMIN_PW, imageData })
+      body: JSON.stringify({ password: ADMIN_PW, imageData, type: 'story' })
     });
 
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
+    // Generate 4:5 feed crop (1080×1350) — center slice of the 1920px canvas
+    // Feed crop: y=285 to y=1635 (center 1350px of 1920px)
+    const feedCanvas = document.createElement('canvas');
+    feedCanvas.width = 1080; feedCanvas.height = 1350;
+    feedCanvas.getContext('2d').drawImage(canvas, 0, 285, 1080, 1350, 0, 0, 1080, 1350);
+    const feedImageData = feedCanvas.toDataURL('image/png').split(',')[1];
+
+    const feedRes = await fetch('/.netlify/functions/upload-story', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: ADMIN_PW, imageData: feedImageData, type: 'feed' })
+    });
+    const feedData = await feedRes.json();
+    if (feedData.error) throw new Error(feedData.error);
+
     status.className = 'ig-queue-status queued';
-    status.textContent = '✓ queued · ready to post';
+    status.textContent = '✓ queued · story + feed ready';
     document.getElementById('post-now-btn').disabled = false;
     btn.textContent = '↑ Re-upload';
     btn.disabled = false;

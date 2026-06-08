@@ -25,11 +25,12 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
-  let password, imageData;
+  let password, imageData, type;
   try {
     const body = JSON.parse(event.body);
     password = body.password;
     imageData = body.imageData; // base64 PNG, no data URI prefix
+    type = body.type || 'story'; // 'story' | 'feed'
   } catch {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request body' }) };
   }
@@ -44,7 +45,8 @@ exports.handler = async (event) => {
 
   try {
     const dateKey = toNYCDateKey(new Date());
-    const filename = `${dateKey}.png`;
+    const filename = type === 'feed' ? `${dateKey}-feed.png` : `${dateKey}.png`;
+    const dbColumn = type === 'feed' ? 'feed_image_url' : 'story_image_url';
     const imageBuffer = Buffer.from(imageData, 'base64');
 
     // Upload to Supabase Storage using service key — bypasses RLS
@@ -75,7 +77,7 @@ exports.handler = async (event) => {
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({ story_image_url: publicUrl })
+      body: JSON.stringify({ [dbColumn]: publicUrl })
     });
 
     if (!patchRes.ok) {
