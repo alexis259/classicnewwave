@@ -155,14 +155,14 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Synopsis not approved yet' }) };
     }
 
-    // Don't double-post on cron retry
-    if (row.ig_posted) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ skipped: true, reason: 'Already posted today' })
-      };
-    }
+    // NOTE: duplicate-post guard disabled for testing — re-enable before production
+    // if (row.ig_posted) {
+    //   return {
+    //     statusCode: 200,
+    //     headers,
+    //     body: JSON.stringify({ skipped: true, reason: 'Already posted today' })
+    //   };
+    // }
 
     const caption = await generateCaption(row);
 
