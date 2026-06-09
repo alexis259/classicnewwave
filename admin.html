@@ -1548,6 +1548,8 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = Infinity) {
   return lines.length;
 }
 
+let _currentFeedBg = '#000000';
+
 async function drawFeedImage() {
   const canvas = document.getElementById('story-canvas');
   const ctx = canvas.getContext('2d');
@@ -1567,6 +1569,7 @@ async function drawFeedImage() {
   if (temp >= 75)      { bgColor = '#C4501A'; accent = '#F0C040'; }
   else if (temp >= 50) { bgColor = '#2D5A3D'; accent = '#A8D5A2'; }
   else                 { bgColor = '#1C3A5E'; accent = '#89C4E1'; }
+  _currentFeedBg = bgColor;
 
   const PAD = 80;
 
@@ -1648,7 +1651,7 @@ async function drawFeedImage() {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '400 46px Space Grotesk, sans-serif';
-    const lines = wrapText(ctx, synopsis, PAD, cursor, W - PAD * 2, 62, 2);
+    const lines = wrapText(ctx, synopsis, PAD, cursor, W - PAD * 2, 62);
     cursor += lines * 62 + 44;
 
     ctx.strokeStyle = 'rgba(255,255,255,0.18)';
@@ -1840,11 +1843,19 @@ async function uploadStoryImage() {
     const feedData = await feedRes.json();
     if (feedData.error) throw new Error(feedData.error);
 
-    // Also save as story_image_url so auto-post-ig.js has both fields
+    // Build a padded 9:16 (1080×1920) story version: feed image centered, bg color fills top/bottom
+    const storyCanvas = document.createElement('canvas');
+    storyCanvas.width = 1080; storyCanvas.height = 1920;
+    const storyCtx = storyCanvas.getContext('2d');
+    storyCtx.fillStyle = _currentFeedBg;
+    storyCtx.fillRect(0, 0, 1080, 1920);
+    storyCtx.drawImage(canvas, 0, (1920 - 1350) / 2); // center vertically = y=285
+    const storyImageData = storyCanvas.toDataURL('image/png').split(',')[1];
+
     const storyRes = await fetch('/.netlify/functions/upload-story', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: ADMIN_PW, imageData, type: 'story' })
+      body: JSON.stringify({ password: ADMIN_PW, imageData: storyImageData, type: 'story' })
     });
     const storyData = await storyRes.json();
     if (storyData.error) throw new Error(storyData.error);
