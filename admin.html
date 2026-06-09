@@ -1000,18 +1000,18 @@
     <!-- STORY GENERATOR -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">Story Generator</div>
-        <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">1080 × 1920 · download daily</div>
+        <div class="panel-title">Feed Image</div>
+        <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">1080 × 1350 · 4:5 feed</div>
       </div>
       <div class="panel-body">
         <div class="story-wrap">
           <div class="story-canvas-wrap">
-            <canvas id="story-canvas" width="1080" height="1920"></canvas>
+            <canvas id="story-canvas" width="1080" height="1350"></canvas>
           </div>
           <div class="story-controls">
             <div class="story-info" id="story-info">loading story…</div>
-            <button class="btn-regen-story" onclick="drawStory()">↻ Redraw</button>
-            <button class="btn-download" id="dl-btn" onclick="downloadStory()" disabled>↓ Download Story</button>
+            <button class="btn-regen-story" onclick="drawFeedImage()">↻ Redraw</button>
+            <button class="btn-download" id="dl-btn" onclick="downloadStory()" disabled>↓ Download Feed</button>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
             <div class="ig-queue-status" id="ig-queue-status">story not queued</div>
             <button class="btn-upload" id="upload-btn" onclick="uploadStoryImage()" disabled>↑ Upload & Queue Post</button>
@@ -1548,185 +1548,145 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = Infinity) {
   return lines.length;
 }
 
-async function drawStory() {
+async function drawFeedImage() {
   const canvas = document.getElementById('story-canvas');
   const ctx = canvas.getContext('2d');
-  const W = 1080, H = 1920;
+  const W = 1080, H = 1350;
   canvas.width = W; canvas.height = H;
 
-  // Get current data
   const weather = await fetchWeather();
   const _scored = scoreWeather(weather);
   const score = weather.score ?? _scored.score;
-  const penalties = weather.penalties?.length ? weather.penalties : _scored.penalties;
   const synopsis = document.getElementById('synopsis-textarea').value || '';
   const outfit = outfitForWeather(weather.high, weather.precipChance);
-  const tempSwing = (weather.high ?? 0) - (weather.low ?? 0);
-  const showNightOutfit = tempSwing >= 15 && weather.low != null;
-  const outfitNight = showNightOutfit ? outfitForWeather(weather.low, weather.precipChance) : [];
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const temp = weather.forecast?.[0]?.high ?? weather.high ?? weather.temp;
 
-  // ── BACKGROUND GRADIENT ──
-  const storyTemp = weather.forecast?.[0]?.high ?? weather.temp;
-  const [c1, c2, c3] = getBgGradient(storyTemp, weather.condition, weather.precipChance);
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, c1);
-  grad.addColorStop(0.5, c2);
-  grad.addColorStop(1, c3);
-  ctx.fillStyle = grad;
+  // ── COLOR BANDS ──
+  let bgColor, accent;
+  if (temp >= 75)      { bgColor = '#C4501A'; accent = '#F0C040'; }
+  else if (temp >= 50) { bgColor = '#2D5A3D'; accent = '#A8D5A2'; }
+  else                 { bgColor = '#1C3A5E'; accent = '#89C4E1'; }
+
+  const PAD = 80;
+
+  // ── BACKGROUND ──
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle noise texture overlay
-  for (let i = 0; i < 18000; i++) {
-    const x = Math.random() * W;
-    const y = Math.random() * H;
-    const a = Math.random() * 0.06;
-    ctx.fillStyle = `rgba(255,255,255,${a})`;
-    ctx.fillRect(x, y, 1, 1);
+  // Noise texture overlay
+  for (let i = 0; i < 14000; i++) {
+    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.05})`;
+    ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1);
   }
 
-  const accent = getAccentColor(storyTemp, weather.precipChance);
-  const PAD = 100; // left/right padding
+  // ── TOP ACCENT STRIPE ──
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, W, 8);
 
-  // helper: draw a full-width section divider
-  function divider(y) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
-  }
-
-  // helper: draw a section label (muted, wide tracking)
-  function sectionLabel(text, x, y) {
-    ctx.fillStyle = 'rgba(255,255,255,0.38)';
-    ctx.font = '500 28px IBM Plex Mono, monospace';
-    ctx.letterSpacing = '6px';
-    ctx.textBaseline = 'top';
-    ctx.fillText(text, x, y);
-    ctx.letterSpacing = '0px';
-  }
-
-  // ── HEADER PILL ──
-  // Safe zone: top 250px and bottom 450px are covered by IG UI — keep all content within y=250–1470
-  const pillH = 180, pillY = 250;
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.beginPath();
-  ctx.roundRect(PAD - 24, pillY, W - (PAD - 24) * 2, pillH, 16);
-  ctx.fill();
-
-  // Line 1: handle — first thing people see
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  ctx.font = '500 34px IBM Plex Mono, monospace';
-  ctx.letterSpacing = '3px';
+  // ── DATE ROW ──
   ctx.textBaseline = 'top';
-  ctx.fillText('@CLASSICNEWWEATHER', PAD, pillY + 14);
-  ctx.letterSpacing = '0px';
+  ctx.letterSpacing = '3px';
 
-  // Line 2: date + high temp
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = '500 40px IBM Plex Mono, monospace';
-  ctx.fillText(dateStr.toUpperCase(), PAD, pillY + 68);
-
-  ctx.fillStyle = accent;
-  ctx.font = '500 40px IBM Plex Mono, monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(`HIGH ${Math.round(weather.high)}°F`, W - PAD, pillY + 68);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 40px IBM Plex Mono, monospace';
   ctx.textAlign = 'left';
+  ctx.fillText(dateStr.toUpperCase(), PAD, 32);
 
-  // Line 3: NYC sub-label
   ctx.fillStyle = accent;
-  ctx.font = '500 24px IBM Plex Mono, monospace';
-  ctx.letterSpacing = '5px';
-  ctx.fillText('NEW YORK CITY · WEATHER', PAD, pillY + 130);
+  ctx.textAlign = 'right';
+  ctx.fillText(`HIGH ${Math.round(weather.high)}°F`, W - PAD, 32);
+
+  ctx.textAlign = 'left';
   ctx.letterSpacing = '0px';
 
-  // ── ACCENT DIVIDER under header ──
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(PAD, pillY + pillH + 10); ctx.lineTo(W - PAD, pillY + pillH + 10); ctx.stroke();
+  // NYC sub-label
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.font = '400 22px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '6px';
+  ctx.fillText('NEW YORK CITY', PAD, 84);
+  ctx.letterSpacing = '0px';
 
-  // ── SCORE — BIG ──
-  const scoreTopY = pillY + pillH + 40;
-  ctx.fillStyle = accent;
-  ctx.font = 'bold 400px Archivo Black, sans-serif';
+  // Header divider
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD, 122); ctx.lineTo(W - PAD, 122); ctx.stroke();
+
+  // ── SCORE ──
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 280px Archivo Black, sans-serif';
   ctx.textBaseline = 'top';
   const scoreText = String(score);
   const scoreW = ctx.measureText(scoreText).width;
-  ctx.fillText(scoreText, (W - scoreW) / 2, scoreTopY);
+  ctx.fillText(scoreText, (W - scoreW) / 2, 148);
 
-  // "OUT OF 10" label
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.font = '500 48px IBM Plex Mono, monospace';
-  ctx.letterSpacing = '4px';
+  // OUT OF 10
+  ctx.fillStyle = accent;
+  ctx.font = '400 28px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '7px';
   const outOf = 'OUT OF 10';
   const outOfW = ctx.measureText(outOf).width;
-  ctx.fillText(outOf, (W - outOfW) / 2, scoreTopY + 360);
+  ctx.fillText(outOf, (W - outOfW) / 2, 420);
   ctx.letterSpacing = '0px';
 
-  // ── SECTION DIVIDER after score ──
-  const afterScoreY = scoreTopY + 360 + 40 + 20;
-  divider(afterScoreY);
+  // Divider after score
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD, 474); ctx.lineTo(W - PAD, 474); ctx.stroke();
 
-  let cursor = afterScoreY + 32;
+  let cursor = 516;
 
-  // ── SYNOPSIS ──
+  // ── TODAY'S MOOD ──
   if (synopsis) {
-    sectionLabel("TODAY'S VIBE", PAD, cursor);
-    cursor += 52;
-
-    // Cap to 3 lines max
-    const maxSynLines = 3;
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.font = '500 54px Space Grotesk, sans-serif';
+    ctx.fillStyle = accent;
+    ctx.font = '400 22px IBM Plex Mono, monospace';
+    ctx.letterSpacing = '6px';
     ctx.textBaseline = 'top';
-    const synLinesDrawn = wrapText(ctx, synopsis, PAD, cursor, W - PAD * 2, 74, maxSynLines);
-    cursor += synLinesDrawn * 74 + 40;
+    ctx.fillText("TODAY'S MOOD", PAD, cursor);
+    ctx.letterSpacing = '0px';
+    cursor += 46;
 
-    divider(cursor);
-    cursor += 36;
-  }
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '400 46px Space Grotesk, sans-serif';
+    const lines = wrapText(ctx, synopsis, PAD, cursor, W - PAD * 2, 62, 2);
+    cursor += lines * 62 + 44;
 
-  // ── DAYTIME OUTFIT ──
-  sectionLabel(showNightOutfit ? "DAYTIME OUTFIT" : "TODAY'S OUTFIT", PAD, cursor);
-  cursor += 52;
-
-  ctx.fillStyle = 'rgba(255,255,255,0.82)';
-  ctx.font = '500 46px IBM Plex Mono, monospace';
-  ctx.textBaseline = 'top';
-  const dayLines = wrapText(ctx, outfit.join('  ·  '), PAD, cursor, W - PAD * 2, 64);
-  cursor += dayLines * 64;
-
-  // ── TONIGHT'S OUTFIT ──
-  if (showNightOutfit) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD, cursor); ctx.lineTo(W - PAD, cursor); ctx.stroke();
     cursor += 40;
-    // subtle tinted background strip to separate
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    const nightBlockH = 52 + 2 * 64 + 32;
-    ctx.fillRect(0, cursor - 20, W, nightBlockH + 40);
-
-    divider(cursor - 20);
-    sectionLabel("TONIGHT'S OUTFIT", PAD, cursor + 8);
-    cursor += 60;
-
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.font = '500 46px IBM Plex Mono, monospace';
-    ctx.textBaseline = 'top';
-    wrapText(ctx, outfitNight.join('  ·  '), PAD, cursor, W - PAD * 2, 64);
   }
 
-  // ── BOTTOM BRANDING ──
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  ctx.font = '500 26px IBM Plex Mono, monospace';
-  ctx.letterSpacing = '4px';
+  // ── TODAY'S FIT ──
+  ctx.fillStyle = accent;
+  ctx.font = '400 22px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '6px';
+  ctx.textBaseline = 'top';
+  ctx.fillText("TODAY'S FIT", PAD, cursor);
+  ctx.letterSpacing = '0px';
+  cursor += 46;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '400 44px IBM Plex Mono, monospace';
+  wrapText(ctx, outfit.join('  ·  '), PAD, cursor, W - PAD * 2, 60, 3);
+
+  // ── CLASSICNEWWEATHER.COM ──
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.font = '400 24px IBM Plex Mono, monospace';
+  ctx.letterSpacing = '3px';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('CLASSICNEWWEATHER.COM', W / 2, 1460);
+  ctx.fillText('CLASSICNEWWEATHER.COM', W / 2, 1310);
   ctx.letterSpacing = '0px';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  // Update info + enable download
+  // ── BOTTOM ACCENT STRIPE ──
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 1342, W, 8);
+
   document.getElementById('story-info').innerHTML =
-    `Temp: ${Math.round(weather.temp)}°F · High: ${Math.round(weather.high)}°F<br>Score: ${score}/10<br>Rain: ${weather.precipChance}%<br><br>1080 × 1920px<br>Ready to download`;
+    `Temp: ${Math.round(weather.temp)}°F · High: ${Math.round(weather.high)}°F<br>Score: ${score}/10<br>Rain: ${weather.precipChance}%<br><br>1080 × 1350px (4:5 feed)<br>Ready to download`;
   document.getElementById('dl-btn').disabled = false;
   document.getElementById('upload-btn').disabled = false;
 }
@@ -1735,7 +1695,7 @@ function downloadStory() {
   const canvas = document.getElementById('story-canvas');
   const date = new Date().toISOString().slice(0,10);
   const link = document.createElement('a');
-  link.download = `cnw-story-${date}.png`;
+  link.download = `cnw-feed-${date}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
@@ -1869,37 +1829,28 @@ async function uploadStoryImage() {
 
   try {
     const canvas = document.getElementById('story-canvas');
+    const imageData = canvas.toDataURL('image/png').split(',')[1];
 
-    // Get base64 PNG without the data URI prefix
-    const dataUrl = canvas.toDataURL('image/png');
-    const imageData = dataUrl.split(',')[1];
-
-    const res = await fetch('/.netlify/functions/upload-story', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: ADMIN_PW, imageData, type: 'story' })
-    });
-
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    // Generate 4:5 feed crop (1080×1350) — center slice of the 1920px canvas
-    // Feed crop: y=285 to y=1635 (center 1350px of 1920px)
-    const feedCanvas = document.createElement('canvas');
-    feedCanvas.width = 1080; feedCanvas.height = 1350;
-    feedCanvas.getContext('2d').drawImage(canvas, 0, 285, 1080, 1350, 0, 0, 1080, 1350);
-    const feedImageData = feedCanvas.toDataURL('image/png').split(',')[1];
-
+    // Upload as feed (4:5 1080×1350)
     const feedRes = await fetch('/.netlify/functions/upload-story', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: ADMIN_PW, imageData: feedImageData, type: 'feed' })
+      body: JSON.stringify({ password: ADMIN_PW, imageData, type: 'feed' })
     });
     const feedData = await feedRes.json();
     if (feedData.error) throw new Error(feedData.error);
 
+    // Also save as story_image_url so auto-post-ig.js has both fields
+    const storyRes = await fetch('/.netlify/functions/upload-story', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: ADMIN_PW, imageData, type: 'story' })
+    });
+    const storyData = await storyRes.json();
+    if (storyData.error) throw new Error(storyData.error);
+
     status.className = 'ig-queue-status queued';
-    status.textContent = '✓ queued · story + feed ready';
+    status.textContent = '✓ queued · feed ready';
     document.getElementById('post-now-btn').disabled = false;
     btn.textContent = '↑ Re-upload';
     btn.disabled = false;
