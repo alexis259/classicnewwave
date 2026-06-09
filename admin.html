@@ -1015,6 +1015,7 @@
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
             <div class="ig-queue-status" id="ig-queue-status">story not queued</div>
             <button class="btn-upload" id="upload-btn" onclick="uploadStoryImage()" disabled>↑ Upload & Queue Post</button>
+            <button class="btn-upload" id="regen-graphic-btn" onclick="regenGraphic()" style="background:#1a1a1a;border-color:#555;margin-top:6px">↺ Regenerate Graphic (server)</button>
             <button class="btn-post-now" id="post-now-btn" onclick="postNow()" disabled>▶ Post to IG Now</button>
             <div class="ig-caption-preview" id="ig-caption-preview" style="display:none"></div>
           </div>
@@ -1869,6 +1870,35 @@ async function uploadStoryImage() {
     status.className = 'ig-queue-status error';
     status.textContent = `✗ ${e.message}`;
     btn.textContent = '↑ Upload & Queue Post';
+    btn.disabled = false;
+  }
+}
+
+async function regenGraphic() {
+  const btn = document.getElementById('regen-graphic-btn');
+  const status = document.getElementById('ig-queue-status');
+  btn.disabled = true;
+  btn.textContent = '↺ Generating…';
+  status.className = 'ig-queue-status';
+  status.textContent = 'generating graphic server-side…';
+
+  try {
+    const res = await fetch('/.netlify/functions/generate-ig-graphic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: ADMIN_PW })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    status.className = 'ig-queue-status queued';
+    status.textContent = '✓ graphic regenerated · queued';
+    document.getElementById('post-now-btn').disabled = false;
+  } catch(e) {
+    status.className = 'ig-queue-status error';
+    status.textContent = `✗ ${e.message}`;
+  } finally {
+    btn.textContent = '↺ Regenerate Graphic (server)';
     btn.disabled = false;
   }
 }

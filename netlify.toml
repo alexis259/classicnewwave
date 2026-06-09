@@ -5,10 +5,15 @@
 
 [functions]
   node_bundler = "esbuild"
+  external_node_modules = ["@napi-rs/canvas"]
 
 [functions."auto-post-ig"]
   # 7:30 AM EDT (UTC-4, summer). Change to "30 12 * * *" in winter (EST, UTC-5)
   schedule = "30 11 * * *"
+  included_files = ["netlify/functions/fonts/**"]
+
+[functions."generate-ig-graphic"]
+  included_files = ["netlify/functions/fonts/**"]
 
 [[redirects]]
   from = "https://classicnewwave.com/*"

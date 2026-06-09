@@ -2,6 +2,8 @@
 // Posts today's story graphic to Instagram (feed + story) via Meta Graph API
 // Triggered by Netlify scheduled cron at 7:30 AM ET, or manually from admin panel
 
+const { generateAndUpload } = require('./generate-ig-graphic');
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
@@ -140,20 +142,16 @@ exports.handler = async (event) => {
     }
     const row = rows[0];
 
+    // Auto-generate graphic if not already uploaded
     if (!row.story_image_url) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'No story image queued — upload from admin panel first' })
-      };
+      console.log('auto-post-ig: no image queued — generating now');
+      const urls = await generateAndUpload(row, dateKey);
+      row.feed_image_url = urls.feedImageUrl;
+      row.story_image_url = urls.storyImageUrl;
     }
 
     // Use dedicated 4:5 feed image if available, fall back to story image
     const feedImageUrl = row.feed_image_url || row.story_image_url;
-
-    if (!row.synopsis_approved) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Synopsis not approved yet' }) };
-    }
 
     // NOTE: duplicate-post guard disabled for testing — re-enable before production
     // if (row.ig_posted) {
