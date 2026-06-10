@@ -1014,8 +1014,18 @@
             <button class="btn-download" id="dl-btn" onclick="downloadStory()" disabled>↓ Download Feed</button>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
             <div class="ig-queue-status" id="ig-queue-status">story not queued</div>
-            <button class="btn-upload" id="upload-btn" onclick="uploadStoryImage()" disabled>↑ Upload & Queue Post</button>
-            <button class="btn-upload" id="regen-graphic-btn" onclick="regenGraphic()" style="background:#1a1a1a;border-color:#555;margin-top:6px">↺ Regenerate Graphic (server)</button>
+            <button class="btn-upload" id="upload-btn" onclick="uploadStoryImage()" disabled>↑ Upload Canvas (old design)</button>
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+              <select id="graphic-type" style="background:#111;color:#ccc;border:1px solid #333;padding:6px 10px;font-size:12px;font-family:monospace;flex:1">
+                <option value="daily">Daily Rating</option>
+                <option value="weekly">Weekly Forecast (Monday)</option>
+                <option value="alert">Weather Alert</option>
+                <option value="hair">Hair Forecast</option>
+                <option value="teaser">Teaser / Stand By</option>
+                <option value="dashboard">Dashboard</option>
+              </select>
+              <button class="btn-upload" id="regen-graphic-btn" onclick="regenGraphic()" style="flex:1;margin:0">↺ Generate & Queue</button>
+            </div>
             <button class="btn-post-now" id="post-now-btn" onclick="postNow()" disabled>▶ Post to IG Now</button>
             <div class="ig-caption-preview" id="ig-caption-preview" style="display:none"></div>
           </div>
@@ -1877,28 +1887,29 @@ async function uploadStoryImage() {
 async function regenGraphic() {
   const btn = document.getElementById('regen-graphic-btn');
   const status = document.getElementById('ig-queue-status');
+  const type = document.getElementById('graphic-type').value;
   btn.disabled = true;
   btn.textContent = '↺ Generating…';
   status.className = 'ig-queue-status';
-  status.textContent = 'generating graphic server-side…';
+  status.textContent = `generating ${type} graphic…`;
 
   try {
     const res = await fetch('/.netlify/functions/generate-ig-graphic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: ADMIN_PW })
+      body: JSON.stringify({ password: ADMIN_PW, type })
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
     status.className = 'ig-queue-status queued';
-    status.textContent = '✓ graphic regenerated · queued';
+    status.textContent = `✓ ${type} graphic generated · queued`;
     document.getElementById('post-now-btn').disabled = false;
   } catch(e) {
     status.className = 'ig-queue-status error';
     status.textContent = `✗ ${e.message}`;
   } finally {
-    btn.textContent = '↺ Regenerate Graphic (server)';
+    btn.textContent = '↺ Generate & Queue';
     btn.disabled = false;
   }
 }

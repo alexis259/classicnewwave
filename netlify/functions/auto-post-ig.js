@@ -142,10 +142,14 @@ exports.handler = async (event) => {
     }
     const row = rows[0];
 
+    // Determine template type: weekly on Mondays, daily otherwise
+    const nycDay = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long' }).format(new Date());
+    const templateType = nycDay === 'Monday' ? 'weekly' : 'daily';
+
     // Auto-generate graphic if not already uploaded
     if (!row.story_image_url) {
-      console.log('auto-post-ig: no image queued — generating now');
-      const urls = await generateAndUpload(row, dateKey);
+      console.log(`auto-post-ig: no image queued — generating (${templateType})`);
+      const urls = await generateAndUpload(row, dateKey, templateType);
       row.feed_image_url = urls.feedImageUrl;
       row.story_image_url = urls.storyImageUrl;
     }
