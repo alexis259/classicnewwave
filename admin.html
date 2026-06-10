@@ -997,35 +997,29 @@
       </div>
     </div>
 
-    <!-- STORY GENERATOR -->
+    <!-- IG GRAPHIC GENERATOR -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">Feed Image</div>
+        <div class="panel-title">IG Graphic</div>
         <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">1080 × 1350 · 4:5 feed</div>
       </div>
       <div class="panel-body">
         <div class="story-wrap">
-          <div class="story-canvas-wrap">
-            <canvas id="story-canvas" width="1080" height="1350"></canvas>
+          <div class="story-canvas-wrap" style="position:relative">
+            <img id="graphic-preview-img" style="width:100%;display:none;border-radius:2px" alt="graphic preview">
+            <div id="graphic-preview-placeholder" style="width:100%;aspect-ratio:4/5;background:#111;border:1px solid #1e1e1e;display:flex;align-items:center;justify-content:center;color:#444;font-size:11px;font-family:monospace;border-radius:2px">click generate to preview</div>
           </div>
           <div class="story-controls">
-            <div class="story-info" id="story-info">loading story…</div>
-            <button class="btn-regen-story" onclick="drawFeedImage()">↻ Redraw</button>
-            <button class="btn-download" id="dl-btn" onclick="downloadStory()" disabled>↓ Download Feed</button>
-            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-            <div class="ig-queue-status" id="ig-queue-status">story not queued</div>
-            <button class="btn-upload" id="upload-btn" onclick="uploadStoryImage()" disabled>↑ Upload Canvas (old design)</button>
-            <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-              <select id="graphic-type" style="background:#111;color:#ccc;border:1px solid #333;padding:6px 10px;font-size:12px;font-family:monospace;flex:1">
-                <option value="daily">Daily Rating</option>
-                <option value="weekly">Weekly Forecast (Monday)</option>
-                <option value="alert">Weather Alert</option>
-                <option value="hair">Hair Forecast</option>
-                <option value="teaser">Teaser / Stand By</option>
-                <option value="dashboard">Dashboard</option>
-              </select>
-              <button class="btn-upload" id="regen-graphic-btn" onclick="regenGraphic()" style="flex:1;margin:0">↺ Generate & Queue</button>
-            </div>
+            <div class="ig-queue-status" id="ig-queue-status">not generated</div>
+            <select id="graphic-type" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;margin-bottom:8px;border-radius:2px">
+              <option value="daily">Daily Rating</option>
+              <option value="weekly">Weekly Forecast (Monday)</option>
+              <option value="alert">Weather Alert</option>
+              <option value="hair">Hair Forecast</option>
+              <option value="teaser">Teaser / Stand By</option>
+              <option value="dashboard">Dashboard</option>
+            </select>
+            <button class="btn-upload" id="regen-graphic-btn" onclick="regenGraphic()" style="width:100%;margin:0 0 8px 0">↺ Generate</button>
             <button class="btn-post-now" id="post-now-btn" onclick="postNow()" disabled>▶ Post to IG Now</button>
             <div class="ig-caption-preview" id="ig-caption-preview" style="display:none"></div>
           </div>
@@ -1888,6 +1882,8 @@ async function regenGraphic() {
   const btn = document.getElementById('regen-graphic-btn');
   const status = document.getElementById('ig-queue-status');
   const type = document.getElementById('graphic-type').value;
+  const previewImg = document.getElementById('graphic-preview-img');
+  const placeholder = document.getElementById('graphic-preview-placeholder');
   btn.disabled = true;
   btn.textContent = '↺ Generating…';
   status.className = 'ig-queue-status';
@@ -1902,14 +1898,19 @@ async function regenGraphic() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
+    // Show preview
+    previewImg.src = data.feedImageUrl + '?t=' + Date.now();
+    previewImg.style.display = 'block';
+    placeholder.style.display = 'none';
+
     status.className = 'ig-queue-status queued';
-    status.textContent = `✓ ${type} graphic generated · queued`;
+    status.textContent = `✓ ${type} graphic ready · queued for posting`;
     document.getElementById('post-now-btn').disabled = false;
   } catch(e) {
     status.className = 'ig-queue-status error';
     status.textContent = `✗ ${e.message}`;
   } finally {
-    btn.textContent = '↺ Generate & Queue';
+    btn.textContent = '↺ Generate';
     btn.disabled = false;
   }
 }
