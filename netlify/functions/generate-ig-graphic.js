@@ -1,7 +1,7 @@
 // netlify/functions/generate-ig-graphic.js
 // 6 branded IG templates: daily, weekly, alert, hair, teaser, dashboard
 
-const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
+const { createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas');
 const path = require('path');
 const fs = require('fs');
 
@@ -608,148 +608,289 @@ async function drawAlert(row) {
   return canvas;
 }
 
+// ── HAIR ICON INDEX MAP ──
+// Grid: 4 cols × 4 rows, row-major order
+// 0:Natural Puff  1:High Puff  2:Straight Back Braids  3:Box Braids
+// 4:Cornrows      5:High Bun   6:Low Bun               7:Silk Press
+// 8:Blowout       9:Afro       10:Twist Out             11:Bantu Knots
+// 12:Locs         13:Loc Bun   14:Curly Fro             15:Wash-and-Go
+
+function getHairIconIndices(hair) {
+  const level = hair.level;
+  if (level === 'SILK PRESS WARNING')   return [0, 3, 5];   // Natural Puff, Box Braids, High Bun
+  if (level === 'HIGH HUMIDITY ALERT')  return [15, 4, 11]; // Wash-and-Go, Cornrows, Bantu Knots
+  if (level === 'PROCEED WITH CAUTION') return [10, 4, 3];  // Twist Out, Cornrows, Box Braids
+  return [7, 8, 14]; // WASH & GO APPROVED: Silk Press, Blowout, Curly Fro
+}
+
 // ── TEMPLATE 4: HAIR FORECAST ──
 
 async function drawHair(row) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
   const hair = getHairStatus(row.humidity, row.precip_chance);
-  const day = getNYCDay(), shortDate = getNYCShortDate();
-  const HAIR_ACCENT = '#8B9E2A';
+  const humidity = row.humidity || 0;
 
-  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
-  scanlines(ctx);
-  border(ctx, HAIR_ACCENT);
+  // Load assets (graceful fallback if missing)
+  let logoImg = null, iconsSheet = null, modelImg = null;
+  try { logoImg    = await loadImage(path.join(__dirname, 'assets/logo.png'));             } catch {}
+  try { iconsSheet = await loadImage(path.join(__dirname, 'assets/hair-icons-sheet.png')); } catch {}
+  try { modelImg   = await loadImage(path.join(__dirname, 'assets/hair-model.png'));        } catch {}
 
-  // Header
-  ctx.fillStyle = '#0d110a';
-  ctx.fillRect(INSET, INSET, W - INSET * 2, 80);
-  hline(ctx, INSET + 80, '#2a3318', 1, INSET, W - INSET);
-  logo(ctx, INSET + 22, INSET + 14, 1.2);
+  // Brand colors
+  const HBG     = '#0d1508';
+  const HBORDER = '#3d5c1a';
+  const HGOLD   = '#c8a200';
+  const HTEAL   = '#00b8a8';
 
-  // HAIR FORECAST badge
-  ctx.fillStyle = HAIR_ACCENT;
-  ctx.fillRect(W / 2 - 120, INSET + 16, 240, 46);
-  ctx.fillStyle = '#000';
-  ctx.font = '700 16px "Share Tech Mono"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('HAIR FORECAST', W / 2, INSET + 39);
+  // ── BACKGROUND ──
+  ctx.fillStyle = HBG;
+  ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = '#888';
-  ctx.font = '400 14px "Share Tech Mono"';
-  ctx.fillText(`${day.slice(0, 3).toUpperCase()}  ·  ${shortDate.split(',')[0]}`, W / 2, INSET + 70);
+  // Grain texture
+  for (let i = 0; i < 12000; i++) {
+    ctx.fillStyle = `rgba(20,40,10,${(Math.random() * 0.07).toFixed(3)})`;
+    ctx.fillRect(Math.floor(Math.random() * W), Math.floor(Math.random() * H), 2, 2);
+  }
 
-  // Left panel (text content) — 60% width
-  const leftW = Math.round(W * 0.58) - INSET;
-  const leftX = INSET + 20;
-  const contentY = INSET + 110;
+  // Scanlines
+  for (let y = 0; y < H; y += 4) {
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.fillRect(0, y, W, 1);
+  }
 
-  // Status level
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillStyle = hair.color;
-  ctx.font = '400 76px "Barlow Condensed BK"';
-  wrapText(ctx, hair.level, leftX, contentY, leftW - 20, 78, 2);
+  // ── LAYOUT CONSTANTS ──
+  const BD     = 14;
+  const PAD    = 24;
+  const HDR_H  = 118;
+  const MAIN_Y = BD + HDR_H;        // 132
+  const MAIN_H = 730;
+  const ALT_Y  = MAIN_Y + MAIN_H;   // 862
+  const ALT_H  = 160;
+  const FTR_Y  = ALT_Y + ALT_H;     // 1022
+  const FTR_H  = 128;
+  const BOT_Y  = FTR_Y + FTR_H;     // 1150  (BOT ends at H-52=1298)
 
-  hline(ctx, contentY + 170, '#2a3318', 1, leftX, leftX + leftW - 20);
+  const LEFT_W  = 596;
+  const RIGHT_X = LEFT_W;
+  const RIGHT_W = W - BD - RIGHT_X; // 470
 
-  ctx.fillStyle = '#888';
-  ctx.font = '700 14px "Share Tech Mono"';
-  ctx.fillText('HUMIDITY:', leftX, contentY + 186);
+  const CX = BD + PAD;               // content left X = 38
+  const CW = LEFT_W - BD - PAD * 2;  // content width  = 534
 
-  ctx.fillStyle = hair.color;
-  ctx.font = '400 100px "VT323"';
-  ctx.fillText(`${row.humidity}%`, leftX, contentY + 208);
+  // Green border
+  ctx.strokeStyle = HBORDER;
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(BD + 1.25, BD + 1.25, W - BD * 2 - 2.5, H - BD * 2 - 2.5);
 
-  ctx.fillStyle = '#aaa';
-  ctx.font = '400 20px "Share Tech Mono"';
-  ctx.fillText(hair.sub, leftX, contentY + 308);
+  // Helper: horizontal divider
+  function hdiv(y, x0 = BD, x1 = W - BD) {
+    ctx.strokeStyle = HBORDER; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  }
 
-  hline(ctx, contentY + 360, '#2a3318', 1, leftX, leftX + leftW - 20);
+  // ── HEADER ──
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(BD, BD, W - BD * 2, HDR_H);
 
-  ctx.fillStyle = HAIR_ACCENT;
-  ctx.font = '700 13px "Share Tech Mono"';
-  ctx.fillText('ALTERNATIVE RECOMMENDATION:', leftX, contentY + 378);
+  const LOGO_SZ = 76;
+  const logoX = CX, logoY = BD + (HDR_H - LOGO_SZ) / 2;
 
-  ctx.fillStyle = '#ddd';
-  ctx.font = '400 22px "Share Tech Mono"';
-  wrapText(ctx, hair.rec, leftX, contentY + 400, leftW - 20, 28, 2);
-
-  // Rain chance
-  hline(ctx, contentY + 460, '#2a3318', 1, leftX, leftX + leftW - 20);
-  ctx.fillStyle = '#555';
-  ctx.font = '700 13px "Share Tech Mono"';
-  ctx.fillText(`RAIN: ${row.precip_chance}%  ·  WIND: ${row.wind_speed || 0} MPH`, leftX, contentY + 476);
-
-  // THE VERDICT — big accent block lower left
-  hline(ctx, contentY + 530, '#2a3318', 1, leftX, leftX + leftW - 20);
-  ctx.fillStyle = '#1a2010';
-  ctx.fillRect(leftX, contentY + 546, leftW - 20, 480);
-  ctx.fillStyle = HAIR_ACCENT;
-  ctx.font = '700 13px "Share Tech Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText('THE VERDICT:', leftX + 8, contentY + 560);
-  ctx.fillStyle = hair.color;
-  ctx.font = '400 136px "Barlow Condensed BK"';
-  wrapText(ctx, hair.level, leftX + 8, contentY + 578, leftW - 36, 140, 3);
-  ctx.fillStyle = '#333';
-  ctx.font = '400 15px "Share Tech Mono"';
-  ctx.fillText('classicnewweather.com', leftX + 8, contentY + 988);
-
-  // Right panel — decorative
-  const rightX = INSET + leftW + 28;
-  const rightW = W - INSET * 2 - leftW - 36;
-  const rightH = H - INSET * 2 - 80 - 52;
-  ctx.fillStyle = '#0d110a';
-  ctx.fillRect(rightX, INSET + 90, rightW, rightH);
-  ctx.strokeStyle = '#2a3318'; ctx.lineWidth = 1;
-  ctx.strokeRect(rightX, INSET + 90, rightW, rightH);
-
-  // Decorative panel — humidity bar + wavy texture lines
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  const rcx = rightX + rightW / 2;
-  // Humidity arc gauge — constrained to panel
-  const hairGaugeR = Math.min(rightW / 2 - 20, 80);
-  const hairGaugeCy = INSET + 90 + hairGaugeR + 22;
-  semiGauge(ctx, rcx, hairGaugeCy, hairGaugeR, Math.min(row.humidity / 100, 1), hair.color);
-  ctx.fillStyle = hair.color;
-  ctx.font = '400 56px "VT323"';
-  ctx.fillText(`${row.humidity}%`, rcx, hairGaugeCy + 8);
-  ctx.fillStyle = '#555';
-  ctx.font = '700 11px "Share Tech Mono"';
-  ctx.fillText('HUMIDITY', rcx, INSET + 276);
-  // Wavy texture lines suggesting hair — fill most of right panel
-  ctx.save();
-  const waveColors = [hair.color, '#555', '#444', '#555', hair.color, '#333', '#444'];
-  for (let wi = 0; wi < 26; wi++) {
-    const wy = INSET + 310 + wi * 34;
-    ctx.strokeStyle = waveColors[wi % waveColors.length];
-    ctx.lineWidth = wi % 2 === 0 ? 2.5 : 1.5;
-    ctx.lineCap = 'round';
+  if (logoImg) {
+    // Circular clip for logo badge
+    ctx.save();
     ctx.beginPath();
-    const amp = 6 + (wi % 3) * 3;
-    const freq = 3 + (wi % 2);
-    const x0 = rightX + 12, x1 = rightX + rightW - 12;
-    for (let xi = 0; xi <= 40; xi++) {
-      const xp = x0 + (xi / 40) * (x1 - x0);
-      const yp = wy + Math.sin((xi / 40) * Math.PI * freq) * amp;
-      xi === 0 ? ctx.moveTo(xp, yp) : ctx.lineTo(xp, yp);
+    ctx.arc(logoX + LOGO_SZ / 2, logoY + LOGO_SZ / 2, LOGO_SZ / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(logoImg, logoX, logoY, LOGO_SZ, LOGO_SZ);
+    ctx.restore();
+    const wx = logoX + LOGO_SZ + 14;
+    ctx.fillStyle = '#f0f0f0'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.font = '400 24px "Barlow Condensed BK"'; ctx.fillText('classic',    wx, logoY + 8);
+    ctx.font = '400 22px "Barlow Condensed"';    ctx.fillText('newweather', wx, logoY + 34);
+  } else {
+    logo(ctx, CX, BD + (HDR_H - 44) / 2, 1.2);
+  }
+
+  // HAIR FORECAST badge (right side)
+  const BDG_W = 270, BDG_H = 80;
+  const bdgX = W - BD - PAD - BDG_W;
+  const bdgY = BD + (HDR_H - BDG_H) / 2;
+  ctx.strokeStyle = HBORDER; ctx.lineWidth = 1.5;
+  ctx.strokeRect(bdgX, bdgY, BDG_W, BDG_H);
+  ctx.fillStyle = HGOLD;
+  ctx.font = '700 20px "Share Tech Mono"'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('HAIR FORECAST', bdgX + BDG_W / 2, bdgY + 10);
+  ctx.fillStyle = '#888'; ctx.font = '400 14px "Share Tech Mono"';
+  const dateNow = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', month: 'long', day: 'numeric'
+  }).format(new Date()).toUpperCase();
+  ctx.fillText(`${getNYCDay()}  ·  ${dateNow}`, bdgX + BDG_W / 2, bdgY + 48);
+
+  hdiv(BD + HDR_H);
+
+  // ── RIGHT PANEL: MODEL PHOTO ──
+  if (modelImg) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(RIGHT_X, MAIN_Y, RIGHT_W, MAIN_H); ctx.clip();
+    const imgR = modelImg.width / modelImg.height;
+    const panR = RIGHT_W / MAIN_H;
+    let dw, dh, dx, dy;
+    if (imgR > panR) { dh = MAIN_H; dw = dh * imgR; dx = RIGHT_X - (dw - RIGHT_W) / 2; dy = MAIN_Y; }
+    else             { dw = RIGHT_W; dh = dw / imgR; dx = RIGHT_X; dy = MAIN_Y - (dh - MAIN_H) / 2; }
+    ctx.drawImage(modelImg, dx, dy, dw, dh);
+    // Subtle green tint overlay
+    ctx.fillStyle = 'rgba(8,20,4,0.28)'; ctx.fillRect(RIGHT_X, MAIN_Y, RIGHT_W, MAIN_H);
+    ctx.restore();
+  } else {
+    // Fallback: wavy texture lines
+    ctx.fillStyle = '#0d1208'; ctx.fillRect(RIGHT_X, MAIN_Y, RIGHT_W, MAIN_H);
+    ctx.save();
+    for (let wi = 0; wi < 22; wi++) {
+      const wy = MAIN_Y + 30 + wi * 34;
+      ctx.strokeStyle = wi % 2 === 0 ? `${HGOLD}33` : `${HBORDER}55`;
+      ctx.lineWidth = wi % 3 === 0 ? 2 : 1; ctx.lineCap = 'round'; ctx.beginPath();
+      for (let xi = 0; xi <= 30; xi++) {
+        const xp = RIGHT_X + 12 + (xi / 30) * (RIGHT_W - 24);
+        const yp = wy + Math.sin((xi / 30) * Math.PI * 3) * 7;
+        xi === 0 ? ctx.moveTo(xp, yp) : ctx.lineTo(xp, yp);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Left/right panel divider
+  ctx.strokeStyle = HBORDER; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(RIGHT_X, MAIN_Y); ctx.lineTo(RIGHT_X, MAIN_Y + MAIN_H); ctx.stroke();
+
+  // ── LEFT PANEL CONTENT ──
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+
+  let cy = MAIN_Y + 24;
+
+  // Hair status headline — big Barlow Condensed BK, wraps to 2 lines
+  ctx.fillStyle = hair.color;
+  ctx.font = '400 92px "Barlow Condensed BK"';
+  const nLines = wrapText(ctx, hair.level, CX, cy, CW, 96, 2);
+  cy += nLines * 96 + 14;
+
+  hdiv(cy, CX, LEFT_W - PAD); cy += 22;
+
+  // HUMIDITY label
+  ctx.fillStyle = '#777'; ctx.font = '700 15px "Share Tech Mono"';
+  ctx.fillText('HUMIDITY:', CX, cy); cy += 26;
+
+  // Big humidity number with horizontal scan-line stripe effect
+  const HUM_SZ = 210;
+  ctx.fillStyle = '#f0f0f0';
+  ctx.font = `400 ${HUM_SZ}px "VT323"`;
+  const humStr = `${humidity}%`;
+  const humW   = ctx.measureText(humStr).width;
+  const humH   = Math.round(HUM_SZ * 0.82);
+  ctx.fillText(humStr, CX, cy);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(CX, cy, humW + 4, humH); ctx.clip();
+  for (let sy = cy + 2; sy < cy + humH; sy += 10) {
+    ctx.fillStyle = 'rgba(13,21,8,0.38)';
+    ctx.fillRect(CX, sy, humW + 4, 5);
   }
   ctx.restore();
+  cy += humH + 14;
 
-  // Footer
-  const footerY = H - INSET - 110;
-  hline(ctx, footerY, '#2a3318', 1, INSET, W - INSET);
-  ctx.fillStyle = '#666'; ctx.font = '400 14px "Share Tech Mono"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('STAY SMOOTH.   ·   CHECK THE FORECAST.   ·   RESPECT THE WEATHER.', W / 2, footerY + 12);
-  ctx.fillStyle = '#444';
-  ctx.font = '400 12px "Share Tech Mono"';
-  ctx.fillText("THE CULTURE'S WEATHER CHANNEL  ·  CLASSICNEWWEATHER.COM", W / 2, footerY + 34);
+  // Sub text
+  ctx.fillStyle = '#cccccc'; ctx.font = '400 21px "Share Tech Mono"';
+  ctx.fillText(hair.sub, CX, cy);
 
-  ticker(ctx, 'STAY SMOOTH  ·  CHECK THE FORECAST  ·  RESPECT THE WEATHER', HAIR_ACCENT);
+  // ── ALTERNATIVE RECOMMENDATION ──
+  hdiv(ALT_Y);
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(BD, ALT_Y, W - BD * 2, ALT_H);
 
+  const ICN_AREA_W = 290;
+  const icnAreaX   = W - BD - ICN_AREA_W;
+  ctx.strokeStyle = HBORDER; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(icnAreaX, ALT_Y); ctx.lineTo(icnAreaX, ALT_Y + ALT_H); ctx.stroke();
+
+  ctx.fillStyle = HTEAL; ctx.font = '700 13px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('ALTERNATIVE RECOMMENDATION:', CX, ALT_Y + 18);
+  ctx.fillStyle = '#f0f0f0'; ctx.font = '400 26px "Share Tech Mono"';
+  wrapText(ctx, hair.rec, CX, ALT_Y + 44, icnAreaX - CX - 20, 30, 2);
+
+  // Hair icons — crop from sprite sheet, remove white bg via pixel manipulation
+  if (iconsSheet) {
+    const idxs  = getHairIconIndices(hair);
+    const cellW = iconsSheet.width / 4;
+    const cellH = iconsSheet.height / 4;
+    const ICN_SZ    = 76;
+    const icnGap    = 12;
+    const totalIconW = 3 * ICN_SZ + 2 * icnGap;
+    const icnStartX  = icnAreaX + (ICN_AREA_W - totalIconW) / 2;
+    const icnY       = ALT_Y + (ALT_H - ICN_SZ) / 2;
+
+    idxs.slice(0, 3).forEach((idx, i) => {
+      const srcX  = (idx % 4) * cellW;
+      const srcY  = Math.floor(idx / 4) * cellH;
+      const destX = icnStartX + i * (ICN_SZ + icnGap);
+      // Render to offscreen canvas, strip white background
+      const ic   = createCanvas(ICN_SZ, ICN_SZ);
+      const ictx = ic.getContext('2d');
+      ictx.drawImage(iconsSheet, srcX, srcY, cellW, cellH * 0.78, 0, 0, ICN_SZ, ICN_SZ);
+      const d = ictx.getImageData(0, 0, ICN_SZ, ICN_SZ);
+      for (let pi = 0; pi < d.data.length; pi += 4) {
+        if (d.data[pi] > 200 && d.data[pi + 1] > 200 && d.data[pi + 2] > 200)
+          d.data[pi + 3] = 0;
+      }
+      ictx.putImageData(d, 0, 0);
+      ctx.drawImage(ic, destX, icnY);
+    });
+  }
+
+  // ── FOOTER PHRASE ──
+  hdiv(FTR_Y);
+  const phrs = [
+    { text: 'STAY SMOOTH.',        color: HGOLD     },
+    { text: 'CHECK THE FORECAST.', color: '#f0f0f0' },
+    { text: 'RESPECT THE WEATHER.', color: HTEAL    }
+  ];
+  const slotW = (W - BD * 2) / 3;
+  ctx.font = '700 18px "Share Tech Mono"'; ctx.textBaseline = 'middle';
+  phrs.forEach((p, i) => {
+    ctx.fillStyle = p.color; ctx.textAlign = 'center';
+    ctx.fillText(p.text, BD + slotW * i + slotW / 2, FTR_Y + FTR_H / 2);
+  });
+
+  // ── BOTTOM BAR ──
+  hdiv(BOT_Y);
+  const barMidY = BOT_Y + (H - 52 - BOT_Y) / 2;
+
+  ctx.fillStyle = '#555'; ctx.font = '400 14px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText("THE CULTURE'S WEATHER CHANNEL", CX, barMidY);
+
+  // Globe icon (canvas-drawn)
+  const GCX = W / 2, GR = 15;
+  ctx.strokeStyle = HTEAL; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(GCX, barMidY, GR, 0, Math.PI * 2); ctx.stroke();
+  [-0.45, 0, 0.45].forEach(t => {
+    const ry = barMidY + t * GR;
+    const rx = Math.sqrt(Math.max(0, GR * GR - (t * GR) ** 2));
+    ctx.beginPath(); ctx.moveTo(GCX - rx, ry); ctx.lineTo(GCX + rx, ry); ctx.stroke();
+  });
+  ctx.beginPath(); ctx.moveTo(GCX, barMidY - GR); ctx.lineTo(GCX, barMidY + GR); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(GCX, barMidY, GR * 0.42, GR, 0, 0, Math.PI * 2); ctx.stroke();
+
+  ctx.fillStyle = HTEAL; ctx.font = '400 14px "Share Tech Mono"';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText('CLASSICNEWWEATHER.COM', W - BD - PAD, barMidY);
+
+  // Vertical dividers in bottom bar
+  [W / 2 - 90, W / 2 + 90].forEach(x => {
+    ctx.strokeStyle = '#2a3318'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, BOT_Y + 20); ctx.lineTo(x, H - 54); ctx.stroke();
+  });
+
+  ticker(ctx, 'STAY SMOOTH  ·  CHECK THE FORECAST  ·  RESPECT THE WEATHER', HBORDER);
   return canvas;
 }
 
