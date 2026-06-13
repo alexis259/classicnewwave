@@ -10,10 +10,10 @@
 [functions."auto-post-ig"]
   # 7:30 AM EDT (UTC-4, summer). Change to "30 12 * * *" in winter (EST, UTC-5)
   schedule = "30 11 * * *"
-  included_files = ["netlify/functions/fonts/**"]
+  included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
 [functions."generate-ig-graphic"]
-  included_files = ["netlify/functions/fonts/**"]
+  included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
 [[redirects]]
   from = "https://classicnewwave.com/*"
