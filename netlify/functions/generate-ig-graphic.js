@@ -304,6 +304,33 @@ function weatherIcon(ctx, cx, cy, size, condition) {
   ctx.restore();
 }
 
+// Simple outfit icon (tee + shorts + sneakers) for TODAY'S FIT panel
+function drawOutfitIcon(ctx, cx, cy) {
+  ctx.save();
+  // Tee body
+  ctx.fillStyle = '#888';
+  ctx.fillRect(cx - 20, cy - 62, 40, 38);
+  // Sleeves
+  ctx.fillRect(cx - 36, cy - 62, 17, 20);
+  ctx.fillRect(cx + 19, cy - 62, 17, 20);
+  // V-collar
+  ctx.fillStyle = BG;
+  ctx.beginPath();
+  ctx.moveTo(cx - 9, cy - 62); ctx.lineTo(cx, cy - 50); ctx.lineTo(cx + 9, cy - 62);
+  ctx.closePath(); ctx.fill();
+  // Shorts legs
+  ctx.fillStyle = '#666';
+  ctx.fillRect(cx - 20, cy - 22, 18, 30);
+  ctx.fillRect(cx + 2, cy - 22, 18, 30);
+  // Waistband
+  ctx.fillStyle = '#777'; ctx.fillRect(cx - 20, cy - 22, 40, 8);
+  // Sneakers
+  ctx.fillStyle = '#888';
+  ctx.beginPath(); ctx.ellipse(cx - 10, cy + 22, 15, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 10, cy + 22, 15, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 // ── TEMPLATE 1: DAILY ──
 
 async function drawDaily(row) {
@@ -317,7 +344,21 @@ async function drawDaily(row) {
 
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
   scanlines(ctx);
-  border(ctx);
+
+  // Rounded border
+  const br = 20, bx = INSET + 1.5, by = INSET + 1.5;
+  const bw = W - INSET * 2 - 3, bh = H - INSET * 2 - 3;
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(bx + br, by); ctx.lineTo(bx + bw - br, by);
+  ctx.arcTo(bx + bw, by, bx + bw, by + br, br);
+  ctx.lineTo(bx + bw, by + bh - br);
+  ctx.arcTo(bx + bw, by + bh, bx + bw - br, by + bh, br);
+  ctx.lineTo(bx + br, by + bh);
+  ctx.arcTo(bx, by + bh, bx, by + bh - br, br);
+  ctx.lineTo(bx, by + br);
+  ctx.arcTo(bx, by, bx + br, by, br);
+  ctx.closePath(); ctx.stroke();
 
   // Header
   const hY = INSET;
@@ -338,35 +379,59 @@ async function drawDaily(row) {
   ctx.font = '400 24px "Share Tech Mono"';
   ctx.fillText(`HIGH ${high}°F`, W / 2, hY + 218);
 
-  // Score — big VT323
+  // Score — big VT323 with scan-line halftone texture
   ctx.fillStyle = ACCENT;
   ctx.font = '400 420px "VT323"';
-  ctx.fillText(String(score), W / 2, hY + 238);
+  const scoreStr = String(score);
+  const scoreW = ctx.measureText(scoreStr).width;
+  const scoreX = W / 2 - scoreW / 2;
+  const scoreY = hY + 238;
+  ctx.fillText(scoreStr, W / 2, scoreY);
+  // Scan-line overlay clipped to score bounding box
+  ctx.save();
+  ctx.beginPath(); ctx.rect(scoreX - 10, scoreY, scoreW + 20, 280); ctx.clip();
+  for (let sy = scoreY; sy < scoreY + 280; sy += 14) {
+    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.fillRect(scoreX - 10, sy, scoreW + 20, 7);
+  }
+  ctx.restore();
 
-  // Out of 10 — tight under score
-  ctx.fillStyle = '#444';
-  ctx.font = '400 22px "Share Tech Mono"';
+  // Out of 10
+  ctx.fillStyle = '#bbb';
+  ctx.font = '400 30px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('OUT OF 10', W / 2, hY + 494);
 
   hline(ctx, hY + 524, '#222', 1);
 
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 
-  // TODAY'S MOOD
-  const p1y = hY + 548, pw = W - INSET * 2 - 40, px = INSET + 20;
-  panel(ctx, px, p1y, pw, 280, "TODAY'S MOOD");
-  weatherIcon(ctx, px + pw - 44, p1y + 46, 54, row.condition);
-  ctx.fillStyle = '#ddd';
-  ctx.font = '400 27px "Share Tech Mono"';
-  ctx.textBaseline = 'top';
-  wrapText(ctx, synopsis || 'check classicnewweather.com', px + 12, p1y + 26, pw - 80, 36, 5);
+  // Shared panel constants
+  const pw = W - INSET * 2 - 40, px = INSET + 20;
+  const ICON_W = 180; // left icon area width
 
-  // TODAY'S FIT
+  // ── TODAY'S MOOD ──
+  const p1y = hY + 548;
+  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p1y, pw, 280);
+  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p1y + 1, ICON_W - 1, 278);
+  ctx.beginPath(); ctx.moveTo(px + ICON_W, p1y); ctx.lineTo(px + ICON_W, p1y + 280); ctx.stroke();
+  weatherIcon(ctx, px + ICON_W / 2, p1y + 140, 110, row.condition);
+  ctx.fillStyle = ACCENT; ctx.font = '700 14px "Share Tech Mono"';
+  ctx.fillText("TODAY'S MOOD", px + ICON_W + 18, p1y + 14);
+  ctx.fillStyle = '#ddd'; ctx.font = '400 26px "Share Tech Mono"'; ctx.textBaseline = 'top';
+  wrapText(ctx, synopsis || 'check classicnewweather.com', px + ICON_W + 18, p1y + 44, pw - ICON_W - 28, 34, 6);
+
+  // ── TODAY'S FIT ──
   const p2y = p1y + 296;
-  panel(ctx, px, p2y, pw, 280, "TODAY'S FIT");
-  ctx.fillStyle = '#ddd';
-  ctx.font = '400 27px "Share Tech Mono"';
-  wrapText(ctx, outfit.join('  ·  '), px + 12, p2y + 26, pw - 24, 36, 5);
+  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p2y, pw, 280);
+  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p2y + 1, ICON_W - 1, 278);
+  ctx.beginPath(); ctx.moveTo(px + ICON_W, p2y); ctx.lineTo(px + ICON_W, p2y + 280); ctx.stroke();
+  drawOutfitIcon(ctx, px + ICON_W / 2, p2y + 140);
+  ctx.fillStyle = ACCENT; ctx.font = '700 14px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText("TODAY'S FIT", px + ICON_W + 18, p2y + 14);
+  ctx.fillStyle = '#ddd'; ctx.font = '400 26px "Share Tech Mono"';
+  wrapText(ctx, outfit.join('  ·  '), px + ICON_W + 18, p2y + 44, pw - ICON_W - 28, 34, 6);
 
   // URL line
   ctx.fillStyle = '#2a2a2a';
