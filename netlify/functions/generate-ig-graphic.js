@@ -304,6 +304,42 @@ function weatherIcon(ctx, cx, cy, size, condition) {
   ctx.restore();
 }
 
+// ── SPRITE SHEET HELPERS (daily template) ──
+
+// Weather icons: 5 cols × 5 rows on black background
+function getWeatherIconCell(condition) {
+  const c = (condition || '').toLowerCase();
+  if (c.includes('thunder') || c.includes('storm')) return [2, 1];
+  if (c.includes('rain') || c.includes('drizzle'))  return [0, 1];
+  if (c.includes('snow') || c.includes('sleet'))    return [0, 2];
+  if (c.includes('fog') || c.includes('mist') || c.includes('haze')) return [1, 3];
+  if (c.includes('cloud')) return [3, 0];
+  return [1, 0]; // sunny / clear
+}
+
+// Fit icons: 5 cols × 6 rows on white background
+// Row 0: tops  Row 1: jackets  Row 2: bottoms  Row 3: shoes  Row 4: accessories
+function getFitIconCell(item) {
+  const map = {
+    'TEE': [1, 0], 'LONG SLEEVE': [3, 0], 'LAYER UP': [3, 0],
+    'HOODIE': [4, 0], 'SWEATER': [3, 1], 'LIGHT JACKET': [2, 1],
+    'JACKET': [1, 1], 'HEAVY COAT': [1, 1],
+    'SHORTS': [0, 2], 'JEANS': [2, 2], 'SWEATS': [4, 2],
+    'SNEAKERS': [0, 3], 'BOOTS': [2, 3], 'WATERPROOF BOOTS': [4, 3],
+    'UMBRELLA': [0, 4], 'BEANIE': [2, 4], 'HAT + GLOVES': [2, 4],
+  };
+  return map[item] || null;
+}
+
+// Pick one representative item per category: [outer|top], [bottom], [shoes]
+function getRepresentativeFitItems(outfit) {
+  const outer  = outfit.find(i => ['HEAVY COAT','JACKET','LIGHT JACKET','LAYER UP'].includes(i));
+  const top    = outfit.find(i => ['SWEATER','HOODIE','LONG SLEEVE','TEE'].includes(i));
+  const bottom = outfit.find(i => ['SWEATS','JEANS','SHORTS'].includes(i));
+  const shoes  = outfit.find(i => ['WATERPROOF BOOTS','BOOTS','SNEAKERS'].includes(i));
+  return [outer || top, bottom, shoes].filter(Boolean);
+}
+
 // Simple outfit icon (tee + shorts + sneakers) for TODAY'S FIT panel
 function drawOutfitIcon(ctx, cx, cy) {
   ctx.save();
@@ -341,6 +377,11 @@ async function drawDaily(row) {
   const synopsis = row.synopsis_approved || '';
   const outfit = outfitItems(high, row.precip_chance);
   const day = getNYCDay(), dateStr = getNYCDate();
+
+  // Load sprite sheets
+  let weatherSheet = null, fitSheet = null;
+  try { weatherSheet = await loadImage(path.join(__dirname, 'assets/weather-icons.png')); } catch {}
+  try { fitSheet     = await loadImage(path.join(__dirname, 'assets/fit-icons-sheet.png')); } catch {}
 
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
   scanlines(ctx);
@@ -415,7 +456,19 @@ async function drawDaily(row) {
   ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p1y, pw, 280);
   ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p1y + 1, ICON_W - 1, 278);
   ctx.beginPath(); ctx.moveTo(px + ICON_W, p1y); ctx.lineTo(px + ICON_W, p1y + 280); ctx.stroke();
-  weatherIcon(ctx, px + ICON_W / 2, p1y + 140, 110, row.condition);
+  // Weather icon from sprite sheet (black bg → screen blend makes bg transparent)
+  if (weatherSheet) {
+    const [wCol, wRow] = getWeatherIconCell(row.condition);
+    const wCellW = weatherSheet.width / 5, wCellH = weatherSheet.height / 5;
+    const ICN_SZ = 128;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(weatherSheet, wCol * wCellW, wRow * wCellH, wCellW, wCellH,
+      px + ICON_W / 2 - ICN_SZ / 2, p1y + 140 - ICN_SZ / 2, ICN_SZ, ICN_SZ);
+    ctx.restore();
+  } else {
+    weatherIcon(ctx, px + ICON_W / 2, p1y + 140, 110, row.condition);
+  }
   ctx.fillStyle = ACCENT; ctx.font = '700 14px "Share Tech Mono"';
   ctx.fillText("TODAY'S MOOD", px + ICON_W + 18, p1y + 14);
   ctx.fillStyle = '#ddd'; ctx.font = '400 26px "Share Tech Mono"'; ctx.textBaseline = 'top';
@@ -426,7 +479,30 @@ async function drawDaily(row) {
   ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p2y, pw, 280);
   ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p2y + 1, ICON_W - 1, 278);
   ctx.beginPath(); ctx.moveTo(px + ICON_W, p2y); ctx.lineTo(px + ICON_W, p2y + 280); ctx.stroke();
-  drawOutfitIcon(ctx, px + ICON_W / 2, p2y + 140);
+  // Fit icons from sprite sheet (white bg removed via pixel manipulation)
+  if (fitSheet) {
+    const fitItems  = getRepresentativeFitItems(outfit);
+    const ICN_SZ    = 72, ICN_GAP = 8;
+    const totalH    = fitItems.length * ICN_SZ + (fitItems.length - 1) * ICN_GAP;
+    const fitStartY = p2y + (280 - totalH) / 2;
+    const fCellW    = fitSheet.width / 5, fCellH = fitSheet.height / 6;
+    fitItems.forEach((item, i) => {
+      const cell = getFitIconCell(item);
+      if (!cell) return;
+      const [fCol, fRow] = cell;
+      const ic = createCanvas(ICN_SZ, ICN_SZ);
+      const ictx = ic.getContext('2d');
+      ictx.drawImage(fitSheet, fCol * fCellW, fRow * fCellH, fCellW, fCellH, 0, 0, ICN_SZ, ICN_SZ);
+      const d = ictx.getImageData(0, 0, ICN_SZ, ICN_SZ);
+      for (let pi = 0; pi < d.data.length; pi += 4) {
+        if (d.data[pi] > 210 && d.data[pi + 1] > 210 && d.data[pi + 2] > 210) d.data[pi + 3] = 0;
+      }
+      ictx.putImageData(d, 0, 0);
+      ctx.drawImage(ic, px + ICON_W / 2 - ICN_SZ / 2, fitStartY + i * (ICN_SZ + ICN_GAP));
+    });
+  } else {
+    drawOutfitIcon(ctx, px + ICON_W / 2, p2y + 140);
+  }
   ctx.fillStyle = ACCENT; ctx.font = '700 14px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S FIT", px + ICON_W + 18, p2y + 14);
