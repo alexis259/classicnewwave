@@ -201,17 +201,16 @@ function logo(ctx, x, y, scale = 1) {
   ctx.fillText('newweather', tx, y + Math.round(24 * scale));
 }
 
-function dateBadge(ctx, x, y, day, dateStr, accentColor = ACCENT) {
-  const bw = 230, bh = 64;
+function dateBadge(ctx, x, y, day, dateStr, accentColor = ACCENT, bw = 230, bh = 64, daySize = 18, dateSize = 13) {
   ctx.strokeStyle = accentColor; ctx.lineWidth = 1.5;
   ctx.strokeRect(x, y, bw, bh);
   ctx.fillStyle = accentColor;
-  ctx.font = '700 18px "Barlow Condensed"';
+  ctx.font = `700 ${daySize}px "Barlow Condensed"`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(day, x + bw / 2, y + 8);
+  ctx.fillText(day, x + bw / 2, y + Math.round(bh * 0.12));
   ctx.fillStyle = '#aaa';
-  ctx.font = '400 13px "Share Tech Mono"';
-  ctx.fillText(dateStr, x + bw / 2, y + 32);
+  ctx.font = `400 ${dateSize}px "Share Tech Mono"`;
+  ctx.fillText(dateStr, x + bw / 2, y + Math.round(bh * 0.50));
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 }
 
@@ -404,21 +403,21 @@ async function drawDaily(row) {
   // Header
   const hY = INSET;
   ctx.fillStyle = '#0f0f0f';
-  ctx.fillRect(INSET, hY, W - INSET * 2, 84);
-  hline(ctx, hY + 84, '#222', 1, INSET, W - INSET);
-  logo(ctx, INSET + 22, hY + 12, 1.3);
-  dateBadge(ctx, W - INSET - 245, hY + 10, day, dateStr);
+  ctx.fillRect(INSET, hY, W - INSET * 2, 120);
+  hline(ctx, hY + 120, '#222', 1, INSET, W - INSET);
+  logo(ctx, INSET + 22, hY + 22, 1.75);
+  dateBadge(ctx, W - INSET - 290, hY + 16, day, dateStr, '#E8B800', 270, 84, 26, 16);
 
   // City name
   ctx.fillStyle = ACCENT;
-  ctx.font = '400 112px "Barlow Condensed BK"';
+  ctx.font = '400 130px "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('NEW YORK CITY', W / 2, hY + 100);
+  ctx.fillText('NEW YORK CITY', W / 2, hY + 138);
 
   // High temp
   ctx.fillStyle = '#555';
   ctx.font = '400 24px "Share Tech Mono"';
-  ctx.fillText(`HIGH ${high}°F`, W / 2, hY + 218);
+  ctx.fillText(`HIGH ${high}°F`, W / 2, hY + 278);
 
   // Score — big VT323 with scan-line halftone texture
   ctx.fillStyle = ACCENT;
@@ -426,7 +425,7 @@ async function drawDaily(row) {
   const scoreStr = String(score);
   const scoreW = ctx.measureText(scoreStr).width;
   const scoreX = W / 2 - scoreW / 2;
-  const scoreY = hY + 238;
+  const scoreY = hY + 300;
   ctx.fillText(scoreStr, W / 2, scoreY);
   // Scan-line overlay clipped to score bounding box
   ctx.save();
@@ -441,9 +440,9 @@ async function drawDaily(row) {
   ctx.fillStyle = '#bbb';
   ctx.font = '400 30px "Share Tech Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('OUT OF 10', W / 2, hY + 494);
+  ctx.fillText('OUT OF 10', W / 2, hY + 556);
 
-  hline(ctx, hY + 524, '#222', 1);
+  hline(ctx, hY + 586, '#222', 1);
 
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 
@@ -452,10 +451,10 @@ async function drawDaily(row) {
   const ICON_W = 180; // left icon area width
 
   // ── TODAY'S MOOD ──
-  const p1y = hY + 548;
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p1y, pw, 280);
-  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p1y + 1, ICON_W - 1, 278);
-  ctx.beginPath(); ctx.moveTo(px + ICON_W, p1y); ctx.lineTo(px + ICON_W, p1y + 280); ctx.stroke();
+  const p1y = hY + 610;
+  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p1y, pw, 300);
+  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p1y + 1, ICON_W - 1, 298);
+  ctx.beginPath(); ctx.moveTo(px + ICON_W, p1y); ctx.lineTo(px + ICON_W, p1y + 300); ctx.stroke();
   // Weather icon from sprite sheet (black bg → screen blend makes bg transparent)
   if (weatherSheet) {
     const [wCol, wRow] = getWeatherIconCell(row.condition);
@@ -464,27 +463,27 @@ async function drawDaily(row) {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(weatherSheet, wCol * wCellW, wRow * wCellH, wCellW, wCellH,
-      px + ICON_W / 2 - ICN_SZ / 2, p1y + 140 - ICN_SZ / 2, ICN_SZ, ICN_SZ);
+      px + ICON_W / 2 - ICN_SZ / 2, p1y + 150 - ICN_SZ / 2, ICN_SZ, ICN_SZ);
     ctx.restore();
   } else {
-    weatherIcon(ctx, px + ICON_W / 2, p1y + 140, 110, row.condition);
+    weatherIcon(ctx, px + ICON_W / 2, p1y + 150, 120, row.condition);
   }
-  ctx.fillStyle = ACCENT; ctx.font = '700 14px "Share Tech Mono"';
-  ctx.fillText("TODAY'S MOOD", px + ICON_W + 18, p1y + 14);
-  ctx.fillStyle = '#ddd'; ctx.font = '400 26px "Share Tech Mono"'; ctx.textBaseline = 'top';
-  wrapText(ctx, synopsis || 'check classicnewweather.com', px + ICON_W + 18, p1y + 44, pw - ICON_W - 28, 34, 6);
+  ctx.fillStyle = '#E8B800'; ctx.font = '700 18px "Share Tech Mono"';
+  ctx.fillText("TODAY'S MOOD", px + ICON_W + 18, p1y + 16);
+  ctx.fillStyle = '#ddd'; ctx.font = '400 30px "Share Tech Mono"'; ctx.textBaseline = 'top';
+  wrapText(ctx, synopsis || 'check classicnewweather.com', px + ICON_W + 18, p1y + 54, pw - ICON_W - 28, 38, 5);
 
   // ── TODAY'S FIT ──
-  const p2y = p1y + 296;
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p2y, pw, 280);
-  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p2y + 1, ICON_W - 1, 278);
-  ctx.beginPath(); ctx.moveTo(px + ICON_W, p2y); ctx.lineTo(px + ICON_W, p2y + 280); ctx.stroke();
+  const p2y = p1y + 316;
+  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p2y, pw, 300);
+  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p2y + 1, ICON_W - 1, 298);
+  ctx.beginPath(); ctx.moveTo(px + ICON_W, p2y); ctx.lineTo(px + ICON_W, p2y + 300); ctx.stroke();
   // Fit icons from sprite sheet (white bg removed via pixel manipulation)
   if (fitSheet) {
     const fitItems  = getRepresentativeFitItems(outfit);
     const ICN_SZ    = 72, ICN_GAP = 8;
     const totalH    = fitItems.length * ICN_SZ + (fitItems.length - 1) * ICN_GAP;
-    const fitStartY = p2y + (280 - totalH) / 2;
+    const fitStartY = p2y + (300 - totalH) / 2;
     const fCellW    = fitSheet.width / 5, fCellH = fitSheet.height / 6;
     fitItems.forEach((item, i) => {
       const cell = getFitIconCell(item);
@@ -503,17 +502,17 @@ async function drawDaily(row) {
   } else {
     drawOutfitIcon(ctx, px + ICON_W / 2, p2y + 140);
   }
-  ctx.fillStyle = ACCENT; ctx.font = '700 14px "Share Tech Mono"';
+  ctx.fillStyle = '#E8B800'; ctx.font = '700 18px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S FIT", px + ICON_W + 18, p2y + 14);
-  ctx.fillStyle = '#ddd'; ctx.font = '400 26px "Share Tech Mono"';
-  wrapText(ctx, outfit.join('  ·  '), px + ICON_W + 18, p2y + 44, pw - ICON_W - 28, 34, 6);
+  ctx.fillText("TODAY'S FIT", px + ICON_W + 18, p2y + 16);
+  ctx.fillStyle = '#ddd'; ctx.font = '400 30px "Share Tech Mono"';
+  wrapText(ctx, outfit.join('  ·  '), px + ICON_W + 18, p2y + 54, pw - ICON_W - 28, 38, 5);
 
   // URL line
   ctx.fillStyle = '#2a2a2a';
   ctx.font = '400 18px "Share Tech Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('classicnewweather.com', W / 2, p2y + 300);
+  ctx.fillText('classicnewweather.com', W / 2, p2y + 320);
 
   ticker(ctx, 'STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY');
 
