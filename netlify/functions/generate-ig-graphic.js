@@ -382,80 +382,139 @@ async function drawDaily(row) {
   try { weatherSheet = await loadImage(path.join(__dirname, 'assets/weather-icons.png')); } catch {}
   try { fitSheet     = await loadImage(path.join(__dirname, 'assets/fit-icons-sheet.png')); } catch {}
 
+  // Background
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+
+  // Grain texture — deterministic pseudo-random so renders are consistent
+  const grainImg = ctx.getImageData(0, 0, W, H);
+  let rv = 0x5F3759DF;
+  function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
+  for (let i = 0; i < 22000; i++) {
+    const gx = Math.floor(grainRand() * W);
+    const gy = Math.floor(grainRand() * H);
+    const gb = Math.floor(grainRand() * 30);
+    const idx = (gy * W + gx) * 4;
+    grainImg.data[idx]     = Math.min(255, grainImg.data[idx]     + gb);
+    grainImg.data[idx + 1] = Math.min(255, grainImg.data[idx + 1] + gb);
+    grainImg.data[idx + 2] = Math.min(255, grainImg.data[idx + 2] + gb);
+  }
+  ctx.putImageData(grainImg, 0, 0);
   scanlines(ctx);
 
-  // Rounded border
-  const br = 20, bx = INSET + 1.5, by = INSET + 1.5;
-  const bw = W - INSET * 2 - 3, bh = H - INSET * 2 - 3;
-  ctx.strokeStyle = ACCENT; ctx.lineWidth = 3;
+  // Helper: clip a scanline stripe pattern over a bounding rect
+  function scanlineRect(rx, ry, rw, rh, alpha = 0.32, step = 12, barH = 6) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(rx, ry, rw, rh); ctx.clip();
+    for (let sy = ry; sy < ry + rh; sy += step) {
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.fillRect(rx, sy, rw, barH);
+    }
+    ctx.restore();
+  }
+
+  // Rounded outer border — 4px ACCENT, br=24
+  const BR = 24, bx = INSET + 2, by = INSET + 2;
+  const bw = W - INSET * 2 - 4, bh = H - INSET * 2 - 4;
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.moveTo(bx + br, by); ctx.lineTo(bx + bw - br, by);
-  ctx.arcTo(bx + bw, by, bx + bw, by + br, br);
-  ctx.lineTo(bx + bw, by + bh - br);
-  ctx.arcTo(bx + bw, by + bh, bx + bw - br, by + bh, br);
-  ctx.lineTo(bx + br, by + bh);
-  ctx.arcTo(bx, by + bh, bx, by + bh - br, br);
-  ctx.lineTo(bx, by + br);
-  ctx.arcTo(bx, by, bx + br, by, br);
+  ctx.moveTo(bx + BR, by); ctx.lineTo(bx + bw - BR, by);
+  ctx.arcTo(bx + bw, by, bx + bw, by + BR, BR);
+  ctx.lineTo(bx + bw, by + bh - BR);
+  ctx.arcTo(bx + bw, by + bh, bx + bw - BR, by + bh, BR);
+  ctx.lineTo(bx + BR, by + bh);
+  ctx.arcTo(bx, by + bh, bx, by + bh - BR, BR);
+  ctx.lineTo(bx, by + BR);
+  ctx.arcTo(bx, by, bx + BR, by, BR);
   ctx.closePath(); ctx.stroke();
 
-  // Header
-  const hY = INSET;
-  ctx.fillStyle = '#0f0f0f';
-  ctx.fillRect(INSET, hY, W - INSET * 2, 120);
-  hline(ctx, hY + 120, '#222', 1, INSET, W - INSET);
-  logo(ctx, INSET + 22, hY + 22, 1.75);
-  dateBadge(ctx, W - INSET - 290, hY + 16, day, dateStr, '#E8B800', 270, 84, 26, 16);
+  // ── SECTION Y POSITIONS (proportional to H=1350) ──
+  // Header ~12%: 18–178  City+temp ~10%: 178–308  Score ~30%: 308–708
+  // Mood+Fit ~35%: 708–1258  gap 10px  Ticker ~8%: 1268–1328
+  const TICKER_H = 60;
+  const tickerY  = H - INSET - 4 - TICKER_H;  // 1268 — sits inside the border stroke
+  const hY       = INSET;
+  const headerH  = 160;
+  const cityY    = hY + headerH;               // 178
+  const scoreTop = cityY + 130;                // 308
+  const scoreH   = 400;
+  const panelTop = scoreTop + scoreH;          // 708
+  const panelBot = tickerY - 10;              // 1258
+  const panelH   = panelBot - panelTop;        // 550
+  const moodH    = Math.floor(panelH / 2);     // 275
+  const fitH     = panelH - moodH;             // 275
 
-  // City name
+  // ── HEADER ──
+  ctx.fillStyle = '#0f0f0f';
+  ctx.fillRect(INSET, hY, W - INSET * 2, headerH);
+  hline(ctx, hY + headerH, '#222', 1, INSET, W - INSET);
+  logo(ctx, INSET + 22, hY + 28, 1.75);
+  dateBadge(ctx, W - INSET - 290, hY + 20, day, dateStr, '#E8B800', 270, 84, 26, 16);
+
+  // ── CITY NAME — scanline textured ──
   ctx.fillStyle = ACCENT;
-  ctx.font = '400 130px "Barlow Condensed BK"';
+  ctx.font = '400 126px "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('NEW YORK CITY', W / 2, hY + 138);
+  ctx.fillText('NEW YORK CITY', W / 2, cityY + 4);
+  const nyW = ctx.measureText('NEW YORK CITY').width;
+  scanlineRect(W / 2 - nyW / 2 - 4, cityY + 4, nyW + 8, 88, 0.25, 10, 5);
 
   // High temp
   ctx.fillStyle = '#555';
-  ctx.font = '400 24px "Share Tech Mono"';
-  ctx.fillText(`HIGH ${high}°F`, W / 2, hY + 278);
-
-  // Score — big VT323 with scan-line halftone texture
-  ctx.fillStyle = ACCENT;
-  ctx.font = '400 420px "VT323"';
-  const scoreStr = String(score);
-  const scoreW = ctx.measureText(scoreStr).width;
-  const scoreX = W / 2 - scoreW / 2;
-  const scoreY = hY + 300;
-  ctx.fillText(scoreStr, W / 2, scoreY);
-  // Scan-line overlay clipped to score bounding box
-  ctx.save();
-  ctx.beginPath(); ctx.rect(scoreX - 10, scoreY, scoreW + 20, 280); ctx.clip();
-  for (let sy = scoreY; sy < scoreY + 280; sy += 14) {
-    ctx.fillStyle = 'rgba(0,0,0,0.32)';
-    ctx.fillRect(scoreX - 10, sy, scoreW + 20, 7);
-  }
-  ctx.restore();
-
-  // Out of 10
-  ctx.fillStyle = '#bbb';
-  ctx.font = '400 30px "Share Tech Mono"';
+  ctx.font = '400 26px "Share Tech Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('OUT OF 10', W / 2, hY + 556);
+  ctx.fillText(`HIGH ${high}°F`, W / 2, cityY + 97);
 
-  hline(ctx, hY + 586, '#222', 1);
+  // ── SCORE — dominant hero element ──
+  ctx.fillStyle = ACCENT;
+  ctx.font = '400 430px "VT323"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const scoreStr  = String(score);
+  const scoreTxtW = ctx.measureText(scoreStr).width;
+  ctx.fillText(scoreStr, W / 2, scoreTop + 8);
+  scanlineRect(W / 2 - scoreTxtW / 2 - 8, scoreTop + 8, scoreTxtW + 16, 295, 0.38, 14, 7);
 
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  // "OUT OF 10" tightly below score
+  ctx.fillStyle = '#888';
+  ctx.font = '400 26px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('OUT OF 10', W / 2, scoreTop + scoreH - 38);
 
-  // Shared panel constants
-  const pw = W - INSET * 2 - 40, px = INSET + 20;
-  const ICON_W = 180; // left icon area width
+  hline(ctx, panelTop - 4, '#222', 1);
 
-  // ── TODAY'S MOOD ──
-  const p1y = hY + 610;
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p1y, pw, 300);
-  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p1y + 1, ICON_W - 1, 298);
-  ctx.beginPath(); ctx.moveTo(px + ICON_W, p1y); ctx.lineTo(px + ICON_W, p1y + 300); ctx.stroke();
-  // Weather icon from sprite sheet (black bg → screen blend makes bg transparent)
+  // ── SHARED MOOD + FIT BOX — one ACCENT-bordered container ──
+  const px   = INSET + 20, pw = W - INSET * 2 - 40;
+  const ICON_W = 164;
+  const SBR  = 12;
+  const sbx  = px, sby = panelTop, sbw = pw, sbh = panelH;
+
+  // ACCENT rounded outline
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sbx + SBR, sby); ctx.lineTo(sbx + sbw - SBR, sby);
+  ctx.arcTo(sbx + sbw, sby, sbx + sbw, sby + SBR, SBR);
+  ctx.lineTo(sbx + sbw, sby + sbh - SBR);
+  ctx.arcTo(sbx + sbw, sby + sbh, sbx + sbw - SBR, sby + sbh, SBR);
+  ctx.lineTo(sbx + SBR, sby + sbh);
+  ctx.arcTo(sbx, sby + sbh, sbx, sby + sbh - SBR, SBR);
+  ctx.lineTo(sbx, sby + SBR);
+  ctx.arcTo(sbx, sby, sbx + SBR, sby, SBR);
+  ctx.closePath(); ctx.stroke();
+
+  // Icon column dark bg
+  ctx.fillStyle = '#0d0d0d';
+  ctx.fillRect(sbx + 1, sby + 1, ICON_W - 1, sbh - 2);
+
+  // Vertical divider between icon col and text col
+  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sbx + ICON_W, sby); ctx.lineTo(sbx + ICON_W, sby + sbh); ctx.stroke();
+
+  // Horizontal ACCENT divider between mood and fit
+  const divY = sby + moodH;
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sbx, divY); ctx.lineTo(sbx + sbw, divY); ctx.stroke();
+
+  // TODAY'S MOOD — weather icon (128px)
+  const moodCy = sby + moodH / 2;
   if (weatherSheet) {
     const [wCol, wRow] = getWeatherIconCell(row.condition);
     const wCellW = weatherSheet.width / 5, wCellH = weatherSheet.height / 5;
@@ -463,27 +522,27 @@ async function drawDaily(row) {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(weatherSheet, wCol * wCellW, wRow * wCellH, wCellW, wCellH,
-      px + ICON_W / 2 - ICN_SZ / 2, p1y + 150 - ICN_SZ / 2, ICN_SZ, ICN_SZ);
+      sbx + ICON_W / 2 - ICN_SZ / 2, moodCy - ICN_SZ / 2, ICN_SZ, ICN_SZ);
     ctx.restore();
   } else {
-    weatherIcon(ctx, px + ICON_W / 2, p1y + 150, 120, row.condition);
+    weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 128, row.condition);
   }
-  ctx.fillStyle = '#E8B800'; ctx.font = '700 18px "Share Tech Mono"';
-  ctx.fillText("TODAY'S MOOD", px + ICON_W + 18, p1y + 16);
-  ctx.fillStyle = '#ddd'; ctx.font = '400 30px "Share Tech Mono"'; ctx.textBaseline = 'top';
-  wrapText(ctx, synopsis || 'check classicnewweather.com', px + ICON_W + 18, p1y + 54, pw - ICON_W - 28, 38, 5);
 
-  // ── TODAY'S FIT ──
-  const p2y = p1y + 316;
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1; ctx.strokeRect(px, p2y, pw, 300);
-  ctx.fillStyle = '#0d0d0d'; ctx.fillRect(px + 1, p2y + 1, ICON_W - 1, 298);
-  ctx.beginPath(); ctx.moveTo(px + ICON_W, p2y); ctx.lineTo(px + ICON_W, p2y + 300); ctx.stroke();
-  // Fit icons from sprite sheet (white bg removed via pixel manipulation)
+  // TODAY'S MOOD text
+  ctx.fillStyle = '#E8B800'; ctx.font = '700 18px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 16);
+  ctx.fillStyle = '#ddd'; ctx.font = '400 28px "Share Tech Mono"';
+  wrapText(ctx, synopsis || 'check classicnewweather.com', sbx + ICON_W + 18, sby + 50, pw - ICON_W - 30, 36, 5);
+
+  // TODAY'S FIT — clothing icons (90px)
+  const fitSectionY = divY;
+  const fitCy = fitSectionY + fitH / 2;
   if (fitSheet) {
     const fitItems  = getRepresentativeFitItems(outfit);
-    const ICN_SZ    = 72, ICN_GAP = 8;
-    const totalH    = fitItems.length * ICN_SZ + (fitItems.length - 1) * ICN_GAP;
-    const fitStartY = p2y + (300 - totalH) / 2;
+    const ICN_SZ    = 90, ICN_GAP = 8;
+    const totalFitH = fitItems.length * ICN_SZ + (fitItems.length - 1) * ICN_GAP;
+    const fitStartY = fitCy - totalFitH / 2;
     const fCellW    = fitSheet.width / 5, fCellH = fitSheet.height / 6;
     fitItems.forEach((item, i) => {
       const cell = getFitIconCell(item);
@@ -497,24 +556,27 @@ async function drawDaily(row) {
         if (d.data[pi] > 210 && d.data[pi + 1] > 210 && d.data[pi + 2] > 210) d.data[pi + 3] = 0;
       }
       ictx.putImageData(d, 0, 0);
-      ctx.drawImage(ic, px + ICON_W / 2 - ICN_SZ / 2, fitStartY + i * (ICN_SZ + ICN_GAP));
+      ctx.drawImage(ic, sbx + ICON_W / 2 - ICN_SZ / 2, fitStartY + i * (ICN_SZ + ICN_GAP));
     });
   } else {
-    drawOutfitIcon(ctx, px + ICON_W / 2, p2y + 140);
+    drawOutfitIcon(ctx, sbx + ICON_W / 2, fitCy);
   }
+
+  // TODAY'S FIT text
   ctx.fillStyle = '#E8B800'; ctx.font = '700 18px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S FIT", px + ICON_W + 18, p2y + 16);
-  ctx.fillStyle = '#ddd'; ctx.font = '400 30px "Share Tech Mono"';
-  wrapText(ctx, outfit.join('  ·  '), px + ICON_W + 18, p2y + 54, pw - ICON_W - 28, 38, 5);
+  ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, fitSectionY + 16);
+  ctx.fillStyle = '#ddd'; ctx.font = '400 28px "Share Tech Mono"';
+  wrapText(ctx, outfit.join('  ·  '), sbx + ICON_W + 18, fitSectionY + 50, pw - ICON_W - 30, 36, 5);
 
-  // URL line
-  ctx.fillStyle = '#2a2a2a';
-  ctx.font = '400 18px "Share Tech Mono"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('classicnewweather.com', W / 2, p2y + 320);
-
-  ticker(ctx, 'STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY');
+  // ── TICKER — solid ACCENT bar, INSIDE the card border ──
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(INSET + 2, tickerY, W - INSET * 2 - 4, TICKER_H);
+  ctx.fillStyle = '#fff';
+  ctx.font = '500 21px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY', W / 2, tickerY + TICKER_H / 2);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 
   return canvas;
 }
