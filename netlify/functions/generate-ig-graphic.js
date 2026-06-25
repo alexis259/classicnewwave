@@ -26,6 +26,9 @@ GlobalFonts.register(loadFont('ShareTechMono.woff2'), 'Share Tech Mono');
 GlobalFonts.register(loadFont('BarlowCondensed-Bold.woff2'), 'Barlow Condensed');
 GlobalFonts.register(loadFont('BarlowCondensed-ExtraBold.woff2'), 'Barlow Condensed XB');
 GlobalFonts.register(loadFont('BarlowCondensed-Black.woff2'), 'Barlow Condensed BK');
+GlobalFonts.register(loadFont('BebasNeue-Regular.woff2'), 'Bebas Neue');
+GlobalFonts.register(loadFont('IBMPlexMono-Regular.woff2'), 'IBM Plex Mono');
+GlobalFonts.register(loadFont('IBMPlexMono-Bold.woff2'), 'IBM Plex Mono Bold');
 
 // ── DATA HELPERS ──
 
@@ -377,15 +380,12 @@ async function drawDaily(row) {
   const outfit = outfitItems(high, row.precip_chance);
   const day = getNYCDay(), dateStr = getNYCDate();
 
-  // Load sprite sheets
-  let weatherSheet = null, fitSheet = null;
-  try { weatherSheet = await loadImage(path.join(__dirname, 'assets/weather-icons.png')); } catch {}
-  try { fitSheet     = await loadImage(path.join(__dirname, 'assets/fit-icons-sheet.png')); } catch {}
+  // Fit sprite sheet (weather icon uses canvas-drawn weatherIcon for reliability)
+  let fitSheet = null;
+  try { fitSheet = await loadImage(path.join(__dirname, 'assets/fit-icons-sheet.png')); } catch {}
 
-  // Background
+  // ── BACKGROUND + GRAIN ──
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
-
-  // Grain texture — deterministic pseudo-random so renders are consistent
   const grainImg = ctx.getImageData(0, 0, W, H);
   let rv = 0x5F3759DF;
   function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
@@ -401,8 +401,8 @@ async function drawDaily(row) {
   ctx.putImageData(grainImg, 0, 0);
   scanlines(ctx);
 
-  // Helper: clip a scanline stripe pattern over a bounding rect
-  function scanlineRect(rx, ry, rw, rh, alpha = 0.32, step = 12, barH = 6) {
+  // Helper: scanline stripe overlay clipped to a rect
+  function scanlineRect(rx, ry, rw, rh, alpha = 0.40, step = 14, barH = 7) {
     ctx.save();
     ctx.beginPath(); ctx.rect(rx, ry, rw, rh); ctx.clip();
     for (let sy = ry; sy < ry + rh; sy += step) {
@@ -412,7 +412,7 @@ async function drawDaily(row) {
     ctx.restore();
   }
 
-  // Rounded outer border — 4px ACCENT, br=24
+  // ── ROUNDED OUTER BORDER (4px ACCENT) ──
   const BR = 24, bx = INSET + 2, by = INSET + 2;
   const bw = W - INSET * 2 - 4, bh = H - INSET * 2 - 4;
   ctx.strokeStyle = ACCENT; ctx.lineWidth = 4;
@@ -427,67 +427,78 @@ async function drawDaily(row) {
   ctx.arcTo(bx, by, bx + BR, by, BR);
   ctx.closePath(); ctx.stroke();
 
-  // ── SECTION Y POSITIONS (proportional to H=1350) ──
-  // Header ~12%: 18–178  City+temp ~10%: 178–308  Score ~30%: 308–708
-  // Mood+Fit ~35%: 708–1258  gap 10px  Ticker ~8%: 1268–1328
-  const TICKER_H = 60;
-  const tickerY  = H - INSET - 4 - TICKER_H;  // 1268 — sits inside the border stroke
-  const hY       = INSET;
-  const headerH  = 160;
-  const cityY    = hY + headerH;               // 178
-  const scoreTop = cityY + 130;                // 308
-  const scoreH   = 400;
-  const panelTop = scoreTop + scoreH;          // 708
-  const panelBot = tickerY - 10;              // 1258
-  const panelH   = panelBot - panelTop;        // 550
-  const moodH    = Math.floor(panelH / 2);     // 275
-  const fitH     = panelH - moodH;             // 275
+  // ── SECTION Y POSITIONS ──
+  // Header ~12%: 18–182   City+temp ~14%: 182–372   Score ~25%: 372–710
+  // OUT OF 10 at 710–764   Mood+Fit ~35%: 770–1248   Ticker ~5%: 1258–1328
+  const TICKER_H = 70;
+  const tickerY  = H - INSET - 4 - TICKER_H;   // 1256
+  const hY       = INSET;                         // 18
+  const headerH  = 164;
+  const cityY    = hY + headerH;                  // 182
+  const scoreTop = cityY + 190;                   // 372
+  const outOf10Y = scoreTop + 336;                // 708
+  const panelTop = outOf10Y + 66;                 // 774
+  const panelBot = tickerY - 12;                  // 1244
+  const panelH   = panelBot - panelTop;           // 470
+  const moodH    = Math.floor(panelH / 2);        // 235
+  const fitH     = panelH - moodH;                // 235
 
   // ── HEADER ──
   ctx.fillStyle = '#0f0f0f';
   ctx.fillRect(INSET, hY, W - INSET * 2, headerH);
-  hline(ctx, hY + headerH, '#222', 1, INSET, W - INSET);
-  logo(ctx, INSET + 22, hY + 28, 1.75);
-  dateBadge(ctx, W - INSET - 290, hY + 20, day, dateStr, '#E8B800', 270, 84, 26, 16);
+  hline(ctx, hY + headerH, '#333', 1, INSET, W - INSET);
+  logo(ctx, INSET + 22, hY + 22, 2.2);   // bigger logo
 
-  // ── CITY NAME — scanline textured ──
-  ctx.fillStyle = ACCENT;
-  ctx.font = '400 126px "Barlow Condensed BK"';
+  // Date badge — VT323 font, larger and bolder
+  const dbx = W - INSET - 276, dby = hY + 16, dbw = 258, dbh = 92;
+  ctx.strokeStyle = '#E8B800'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(dbx, dby, dbw, dbh);
+  ctx.fillStyle = '#E8B800';
+  ctx.font = '400 38px "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('NEW YORK CITY', W / 2, cityY + 4);
+  ctx.fillText(day, dbx + dbw / 2, dby + 8);
+  ctx.fillStyle = '#ccc';
+  ctx.font = '400 24px "VT323"';
+  ctx.fillText(dateStr, dbx + dbw / 2, dby + 54);
+
+  // ── NEW YORK CITY — Bebas Neue, scanline textured ──
+  ctx.fillStyle = ACCENT;
+  ctx.font = '400 152px "Bebas Neue"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('NEW YORK CITY', W / 2, cityY + 8);
   const nyW = ctx.measureText('NEW YORK CITY').width;
-  scanlineRect(W / 2 - nyW / 2 - 4, cityY + 4, nyW + 8, 88, 0.25, 10, 5);
+  scanlineRect(W / 2 - nyW / 2 - 4, cityY + 8, nyW + 8, 116, 0.28, 12, 6);
 
-  // High temp
-  ctx.fillStyle = '#555';
-  ctx.font = '400 26px "Share Tech Mono"';
+  // HIGH temp
+  ctx.fillStyle = '#666';
+  ctx.font = '400 30px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(`HIGH ${high}°F`, W / 2, cityY + 97);
+  ctx.fillText(`HIGH ${high}°F`, W / 2, cityY + 138);
 
-  // ── SCORE — dominant hero element ──
+  // ── SCORE — VT323 hero, dominant ──
   ctx.fillStyle = ACCENT;
-  ctx.font = '400 430px "VT323"';
+  ctx.font = '400 440px "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const scoreStr  = String(score);
   const scoreTxtW = ctx.measureText(scoreStr).width;
-  ctx.fillText(scoreStr, W / 2, scoreTop + 8);
-  scanlineRect(W / 2 - scoreTxtW / 2 - 8, scoreTop + 8, scoreTxtW + 16, 295, 0.38, 14, 7);
+  ctx.fillText(scoreStr, W / 2, scoreTop);
+  scanlineRect(W / 2 - scoreTxtW / 2 - 10, scoreTop, scoreTxtW + 20, 318, 0.42, 14, 7);
 
-  // "OUT OF 10" tightly below score
-  ctx.fillStyle = '#888';
-  ctx.font = '400 26px "Share Tech Mono"';
+  // OUT OF 10
+  ctx.fillStyle = '#777';
+  ctx.font = '400 40px "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('OUT OF 10', W / 2, scoreTop + scoreH - 38);
+  ctx.fillText('OUT OF 10', W / 2, outOf10Y);
 
-  hline(ctx, panelTop - 4, '#222', 1);
+  hline(ctx, panelTop - 8, '#333', 1);
 
-  // ── SHARED MOOD + FIT BOX — one ACCENT-bordered container ──
-  const px   = INSET + 20, pw = W - INSET * 2 - 40;
-  const ICON_W = 164;
-  const SBR  = 12;
-  const sbx  = px, sby = panelTop, sbw = pw, sbh = panelH;
+  // ── SHARED MOOD + FIT CONTAINER ──
+  const px = INSET + 20, pw = W - INSET * 2 - 40;
+  const ICON_W = 182;
+  const SBR = 12;
+  const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
 
-  // ACCENT rounded outline
+  // Rounded ACCENT outline
   ctx.strokeStyle = ACCENT; ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(sbx + SBR, sby); ctx.lineTo(sbx + sbw - SBR, sby);
@@ -504,76 +515,67 @@ async function drawDaily(row) {
   ctx.fillStyle = '#0d0d0d';
   ctx.fillRect(sbx + 1, sby + 1, ICON_W - 1, sbh - 2);
 
-  // Vertical divider between icon col and text col
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1;
+  // Vertical separator between icon col and text col
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(sbx + ICON_W, sby); ctx.lineTo(sbx + ICON_W, sby + sbh); ctx.stroke();
 
-  // Horizontal ACCENT divider between mood and fit
+  // ACCENT horizontal divider between mood and fit sections
   const divY = sby + moodH;
   ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(sbx, divY); ctx.lineTo(sbx + sbw, divY); ctx.stroke();
 
-  // TODAY'S MOOD — weather icon (128px)
+  // ── TODAY'S MOOD — single large canvas-drawn weather icon ──
   const moodCy = sby + moodH / 2;
-  if (weatherSheet) {
-    const [wCol, wRow] = getWeatherIconCell(row.condition);
-    const wCellW = weatherSheet.width / 5, wCellH = weatherSheet.height / 5;
-    const ICN_SZ = 128;
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    ctx.drawImage(weatherSheet, wCol * wCellW, wRow * wCellH, wCellW, wCellH,
-      sbx + ICON_W / 2 - ICN_SZ / 2, moodCy - ICN_SZ / 2, ICN_SZ, ICN_SZ);
-    ctx.restore();
-  } else {
-    weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 128, row.condition);
-  }
+  weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 130, row.condition);
 
-  // TODAY'S MOOD text
-  ctx.fillStyle = '#E8B800'; ctx.font = '700 18px "Share Tech Mono"';
+  ctx.fillStyle = '#E8B800';
+  ctx.font = '400 28px "VT323"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 16);
-  ctx.fillStyle = '#ddd'; ctx.font = '400 28px "Share Tech Mono"';
-  wrapText(ctx, synopsis || 'check classicnewweather.com', sbx + ICON_W + 18, sby + 50, pw - ICON_W - 30, 36, 5);
+  ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
+  ctx.fillStyle = '#ddd';
+  ctx.font = '400 36px "IBM Plex Mono"';
+  wrapText(ctx, synopsis || 'check classicnewweather.com', sbx + ICON_W + 18, sby + 54, pw - ICON_W - 32, 48, 3);
 
-  // TODAY'S FIT — clothing icons (90px)
-  const fitSectionY = divY;
-  const fitCy = fitSectionY + fitH / 2;
+  // ── TODAY'S FIT — icons in a HORIZONTAL row ──
+  const fitItems  = getRepresentativeFitItems(outfit);
+  const FIT_ICN   = 54, FIT_GAP = 8;
+  const fitTotalW = fitItems.length * FIT_ICN + (fitItems.length - 1) * FIT_GAP;
+  const fitIconsX = sbx + Math.floor((ICON_W - fitTotalW) / 2);
+  const fitIconsY = divY + Math.floor((fitH - FIT_ICN) / 2);
+
   if (fitSheet) {
-    const fitItems  = getRepresentativeFitItems(outfit);
-    const ICN_SZ    = 90, ICN_GAP = 8;
-    const totalFitH = fitItems.length * ICN_SZ + (fitItems.length - 1) * ICN_GAP;
-    const fitStartY = fitCy - totalFitH / 2;
-    const fCellW    = fitSheet.width / 5, fCellH = fitSheet.height / 6;
+    const fCellW = fitSheet.width / 5, fCellH = fitSheet.height / 6;
     fitItems.forEach((item, i) => {
       const cell = getFitIconCell(item);
       if (!cell) return;
       const [fCol, fRow] = cell;
-      const ic = createCanvas(ICN_SZ, ICN_SZ);
+      const ic = createCanvas(FIT_ICN, FIT_ICN);
       const ictx = ic.getContext('2d');
-      ictx.drawImage(fitSheet, fCol * fCellW, fRow * fCellH, fCellW, fCellH, 0, 0, ICN_SZ, ICN_SZ);
-      const d = ictx.getImageData(0, 0, ICN_SZ, ICN_SZ);
+      ictx.drawImage(fitSheet, fCol * fCellW, fRow * fCellH, fCellW, fCellH, 0, 0, FIT_ICN, FIT_ICN);
+      const d = ictx.getImageData(0, 0, FIT_ICN, FIT_ICN);
       for (let pi = 0; pi < d.data.length; pi += 4) {
         if (d.data[pi] > 210 && d.data[pi + 1] > 210 && d.data[pi + 2] > 210) d.data[pi + 3] = 0;
       }
       ictx.putImageData(d, 0, 0);
-      ctx.drawImage(ic, sbx + ICON_W / 2 - ICN_SZ / 2, fitStartY + i * (ICN_SZ + ICN_GAP));
+      ctx.drawImage(ic, fitIconsX + i * (FIT_ICN + FIT_GAP), fitIconsY);
     });
   } else {
-    drawOutfitIcon(ctx, sbx + ICON_W / 2, fitCy);
+    drawOutfitIcon(ctx, sbx + ICON_W / 2, divY + fitH / 2);
   }
 
-  // TODAY'S FIT text
-  ctx.fillStyle = '#E8B800'; ctx.font = '700 18px "Share Tech Mono"';
+  ctx.fillStyle = '#E8B800';
+  ctx.font = '400 28px "VT323"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, fitSectionY + 16);
-  ctx.fillStyle = '#ddd'; ctx.font = '400 28px "Share Tech Mono"';
-  wrapText(ctx, outfit.join('  ·  '), sbx + ICON_W + 18, fitSectionY + 50, pw - ICON_W - 30, 36, 5);
+  ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, divY + 14);
+  ctx.fillStyle = '#ddd';
+  ctx.font = '400 36px "IBM Plex Mono"';
+  wrapText(ctx, outfit.join('  ·  '), sbx + ICON_W + 18, divY + 54, pw - ICON_W - 32, 48, 3);
 
-  // ── TICKER — solid ACCENT bar, INSIDE the card border ──
+  // ── TICKER — broadcast bar, INSIDE card border ──
   ctx.fillStyle = ACCENT;
   ctx.fillRect(INSET + 2, tickerY, W - INSET * 2 - 4, TICKER_H);
   ctx.fillStyle = '#fff';
-  ctx.font = '500 21px "Share Tech Mono"';
+  ctx.font = '400 38px "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY', W / 2, tickerY + TICKER_H / 2);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
