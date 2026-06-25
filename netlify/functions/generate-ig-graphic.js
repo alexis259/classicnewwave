@@ -451,16 +451,9 @@ async function drawDaily(row) {
   ctx.fillRect(INSET, hY, W - INSET * 2, headerH);
   hline(ctx, hY + headerH, '#333', 1, INSET, W - INSET);
   if (logoImg) {
-    const lh = 60, lw = logoImg.width * (60 / logoImg.height);
-    const logoX = INSET + 22, logoY = hY + (headerH - lh) / 2;
-    ctx.drawImage(logoImg, logoX, logoY, lw, lh);
-    const tx = logoX + lw + 14;
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.font = '700 28px "Barlow Condensed"';
-    ctx.fillText('classic', tx, logoY + 4);
-    ctx.font = '700 26px "Barlow Condensed"';
-    ctx.fillText('newweather', tx, logoY + 34);
+    const lsz = 120;
+    const logoX = INSET + 22, logoY = hY + (headerH - lsz) / 2;
+    ctx.drawImage(logoImg, logoX, logoY, lsz, lsz);
   } else {
     logo(ctx, INSET + 22, hY + 22, 2.2);
   }
