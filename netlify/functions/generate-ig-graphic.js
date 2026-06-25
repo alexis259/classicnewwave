@@ -461,9 +461,9 @@ async function drawDaily(row) {
   ctx.font = '400 24px "VT323"';
   ctx.fillText(dateStr, dbx + dbw / 2, dby + 54);
 
-  // ── NEW YORK CITY — Bebas Neue, scanline textured ──
+  // ── NEW YORK CITY — Bebas Neue (Barlow Condensed BK fallback), scanline textured ──
   ctx.fillStyle = ACCENT;
-  ctx.font = '400 152px "Bebas Neue"';
+  ctx.font = '400 152px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('NEW YORK CITY', W / 2, cityY + 8);
   const nyW = ctx.measureText('NEW YORK CITY').width;
@@ -475,14 +475,14 @@ async function drawDaily(row) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(`HIGH ${high}°F`, W / 2, cityY + 138);
 
-  // ── SCORE — VT323 hero, dominant ──
+  // ── SCORE — Bebas Neue hero (VT323 fallback), dominant ──
   ctx.fillStyle = ACCENT;
-  ctx.font = '400 440px "VT323"';
+  ctx.font = '400 480px "Bebas Neue", "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const scoreStr  = String(score);
   const scoreTxtW = ctx.measureText(scoreStr).width;
   ctx.fillText(scoreStr, W / 2, scoreTop);
-  scanlineRect(W / 2 - scoreTxtW / 2 - 10, scoreTop, scoreTxtW + 20, 318, 0.42, 14, 7);
+  scanlineRect(W / 2 - scoreTxtW / 2 - 10, scoreTop, scoreTxtW + 20, 350, 0.42, 14, 7);
 
   // OUT OF 10
   ctx.fillStyle = '#777';
@@ -494,7 +494,7 @@ async function drawDaily(row) {
 
   // ── SHARED MOOD + FIT CONTAINER ──
   const px = INSET + 20, pw = W - INSET * 2 - 40;
-  const ICON_W = 182;
+  const ICON_W = 220;
   const SBR = 12;
   const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
 
@@ -526,7 +526,7 @@ async function drawDaily(row) {
 
   // ── TODAY'S MOOD — single large canvas-drawn weather icon ──
   const moodCy = sby + moodH / 2;
-  weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 130, row.condition);
+  weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 160, row.condition);
 
   ctx.fillStyle = '#E8B800';
   ctx.font = '400 28px "VT323"';
@@ -538,7 +538,7 @@ async function drawDaily(row) {
 
   // ── TODAY'S FIT — icons in a HORIZONTAL row ──
   const fitItems  = getRepresentativeFitItems(outfit);
-  const FIT_ICN   = 54, FIT_GAP = 8;
+  const FIT_ICN   = 64, FIT_GAP = 8;
   const fitTotalW = fitItems.length * FIT_ICN + (fitItems.length - 1) * FIT_GAP;
   const fitIconsX = sbx + Math.floor((ICON_W - fitTotalW) / 2);
   const fitIconsY = divY + Math.floor((fitH - FIT_ICN) / 2);
