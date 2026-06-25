@@ -308,15 +308,17 @@ function weatherIcon(ctx, cx, cy, size, condition) {
 
 // ── SPRITE SHEET HELPERS (daily template) ──
 
-// Weather icons: 5 cols × 5 rows on black background
+// Weather icons: 5 cols × 6 rows
 function getWeatherIconCell(condition) {
   const c = (condition || '').toLowerCase();
-  if (c.includes('thunder') || c.includes('storm')) return [2, 1];
-  if (c.includes('rain') || c.includes('drizzle'))  return [0, 1];
-  if (c.includes('snow') || c.includes('sleet'))    return [0, 2];
-  if (c.includes('fog') || c.includes('mist') || c.includes('haze')) return [1, 3];
-  if (c.includes('cloud')) return [3, 0];
-  return [1, 0]; // sunny / clear
+  if (c.includes('thunder') || c.includes('storm'))                   return [2, 1]; // col 3, row 2
+  if (c.includes('rain') || c.includes('drizzle'))                    return [0, 1]; // col 1, row 2
+  if (c.includes('snow') || c.includes('sleet'))                      return [0, 2]; // col 1, row 3
+  if (c.includes('fog') || c.includes('mist') || c.includes('haze'))  return [4, 3]; // col 5, row 4
+  if (c.includes('partly') || c.includes('scattered'))                return [1, 0]; // col 2, row 1
+  if (c.includes('cloud') || c.includes('overcast'))                  return [3, 0]; // col 4, row 1
+  if (c.includes('night') || c.includes('clear'))                     return [0, 4]; // col 1, row 5
+  return [0, 0]; // sunny — col 1, row 1
 }
 
 // Fit icons: 5 cols × 6 rows on white background
@@ -380,9 +382,10 @@ async function drawDaily(row) {
   const outfit = outfitItems(high, row.precip_chance);
   const day = getNYCDay(), dateStr = getNYCDate();
 
-  // Fit sprite sheet (weather icon uses canvas-drawn weatherIcon for reliability)
-  let fitSheet = null;
-  try { fitSheet = await loadImage(path.join(__dirname, 'assets/fit-icons-sheet.png')); } catch {}
+  let fitSheet = null, weatherSheet = null, logoImg = null;
+  try { fitSheet     = await loadImage(path.join(__dirname, 'assets/fit-icons-sheet.png')); } catch {}
+  try { weatherSheet = await loadImage(path.join(__dirname, 'assets/weather-icons.png'));   } catch {}
+  try { logoImg      = await loadImage(path.join(__dirname, 'assets/logo.png'));            } catch {}
 
   // ── BACKGROUND + GRAIN ──
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
@@ -447,7 +450,20 @@ async function drawDaily(row) {
   ctx.fillStyle = '#0f0f0f';
   ctx.fillRect(INSET, hY, W - INSET * 2, headerH);
   hline(ctx, hY + headerH, '#333', 1, INSET, W - INSET);
-  logo(ctx, INSET + 22, hY + 22, 2.2);   // bigger logo
+  if (logoImg) {
+    const lh = 60, lw = logoImg.width * (60 / logoImg.height);
+    const logoX = INSET + 22, logoY = hY + (headerH - lh) / 2;
+    ctx.drawImage(logoImg, logoX, logoY, lw, lh);
+    const tx = logoX + lw + 14;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.font = '700 28px "Barlow Condensed"';
+    ctx.fillText('classic', tx, logoY + 4);
+    ctx.font = '700 26px "Barlow Condensed"';
+    ctx.fillText('newweather', tx, logoY + 34);
+  } else {
+    logo(ctx, INSET + 22, hY + 22, 2.2);
+  }
 
   // Date badge — VT323 font, larger and bolder
   const dbx = W - INSET - 276, dby = hY + 16, dbw = 258, dbh = 92;
@@ -461,9 +477,9 @@ async function drawDaily(row) {
   ctx.font = '400 24px "VT323"';
   ctx.fillText(dateStr, dbx + dbw / 2, dby + 54);
 
-  // ── NEW YORK CITY — Bebas Neue (Barlow Condensed BK fallback), scanline textured ──
+  // ── NEW YORK CITY — Barlow Condensed BK, scanline textured ──
   ctx.fillStyle = ACCENT;
-  ctx.font = '400 152px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.font = '400 152px "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('NEW YORK CITY', W / 2, cityY + 8);
   const nyW = ctx.measureText('NEW YORK CITY').width;
@@ -494,7 +510,7 @@ async function drawDaily(row) {
 
   // ── SHARED MOOD + FIT CONTAINER ──
   const px = INSET + 20, pw = W - INSET * 2 - 40;
-  const ICON_W = 220;
+  const ICON_W = 260;
   const SBR = 12;
   const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
 
@@ -524,9 +540,17 @@ async function drawDaily(row) {
   ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(sbx, divY); ctx.lineTo(sbx + sbw, divY); ctx.stroke();
 
-  // ── TODAY'S MOOD — single large canvas-drawn weather icon ──
+  // ── TODAY'S MOOD — weather icon from sprite sheet ──
   const moodCy = sby + moodH / 2;
-  weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 160, row.condition);
+  if (weatherSheet) {
+    const [wCol, wRow] = getWeatherIconCell(row.condition);
+    const cw = weatherSheet.width / 5, ch = weatherSheet.height / 6;
+    const iconSize = 160;
+    ctx.drawImage(weatherSheet, wCol * cw, wRow * ch, cw, ch,
+      sbx + ICON_W / 2 - iconSize / 2, moodCy - iconSize / 2, iconSize, iconSize);
+  } else {
+    weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 160, row.condition);
+  }
 
   ctx.fillStyle = '#E8B800';
   ctx.font = '400 28px "VT323"';
@@ -538,7 +562,7 @@ async function drawDaily(row) {
 
   // ── TODAY'S FIT — icons in a HORIZONTAL row ──
   const fitItems  = getRepresentativeFitItems(outfit);
-  const FIT_ICN   = 64, FIT_GAP = 8;
+  const FIT_ICN   = 80, FIT_GAP = 10;
   const fitTotalW = fitItems.length * FIT_ICN + (fitItems.length - 1) * FIT_GAP;
   const fitIconsX = sbx + Math.floor((ICON_W - fitTotalW) / 2);
   const fitIconsY = divY + Math.floor((fitH - FIT_ICN) / 2);
