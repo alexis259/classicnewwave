@@ -443,7 +443,7 @@ async function drawDaily(row) {
   const panelH   = panelBot - panelTop;   // 473
   const moodH    = Math.floor(panelH / 2);
   const fitH     = panelH - moodH;
-  const outOf10Y = scoreTop + 310;
+  const outOf10Y = scoreTop + 365;
 
   // ── HEADER ──
   ctx.fillStyle = '#0f0f0f';
@@ -454,25 +454,17 @@ async function drawDaily(row) {
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillText('classicnewweather', INSET + 22, headerH / 2);
 
-  // Date badge — VT323 font, larger and bolder
-  const dbx = W - INSET - 276, dby = hY + 16, dbw = 258, dbh = 92;
-  ctx.strokeStyle = '#E8B800'; ctx.lineWidth = 1.5;
-  ctx.strokeRect(dbx, dby, dbw, dbh);
+  // Date — inline, right-aligned, same row as logo
   ctx.fillStyle = '#E8B800';
-  ctx.font = '400 38px "VT323"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(day, dbx + dbw / 2, dby + 8);
-  ctx.fillStyle = '#ccc';
-  ctx.font = '400 24px "VT323"';
-  ctx.fillText(dateStr, dbx + dbw / 2, dby + 54);
+  ctx.font = '400 32px "Share Tech Mono"';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${day}  ${dateStr}`, W - INSET - 22, headerH / 2);
 
-  // ── NEW YORK CITY — Barlow Condensed BK, scanline textured ──
-  ctx.fillStyle = ACCENT;
+  // ── NEW YORK CITY — solid, centered ──
+  ctx.fillStyle = '#cc4400';
   ctx.font = '400 152px "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('NEW YORK CITY', W / 2, cityY + 8);
-  const nyW = ctx.measureText('NEW YORK CITY').width;
-  scanlineRect(W / 2 - nyW / 2 - 4, cityY + 8, nyW + 8, 116, 0.28, 12, 6);
 
   // Thin orange rule + HIGH temp
   const ruleY = cityY + 136;
@@ -545,13 +537,13 @@ async function drawDaily(row) {
     weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 160, row.condition);
   }
 
-  ctx.fillStyle = '#E8B800';
-  ctx.font = '400 28px "VT323"';
+  ctx.fillStyle = '#cc4400';
+  ctx.font = '400 40px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
   ctx.fillStyle = '#fff';
-  ctx.font = '400 36px "IBM Plex Mono"';
-  wrapText(ctx, synopsis || 'classicnewweather.com', sbx + ICON_W + 18, sby + 54, pw - ICON_W - 32, 48, 3);
+  ctx.font = '400 40px "IBM Plex Mono"';
+  wrapText(ctx, synopsis || 'classicnewweather.com', sbx + ICON_W + 18, sby + 68, pw - ICON_W - 32, 52, 3);
 
   // ── TODAY'S FIT — individual PNG icons in a horizontal row ──
   const FIT_ICN   = 80, FIT_GAP = 10;
@@ -575,13 +567,13 @@ async function drawDaily(row) {
     drawOutfitIcon(ctx, sbx + ICON_W / 2, divY + fitH / 2);
   }
 
-  ctx.fillStyle = '#E8B800';
-  ctx.font = '400 28px "VT323"';
+  ctx.fillStyle = '#cc4400';
+  ctx.font = '400 40px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, divY + 14);
   ctx.fillStyle = '#fff';
   ctx.font = '400 28px "IBM Plex Mono"';
-  ctx.fillText(fitItems.join(' · '), sbx + ICON_W + 18, divY + 54);
+  ctx.fillText(fitItems.join(' · '), sbx + ICON_W + 18, divY + 68);
 
   // ── TICKER — broadcast bar, INSIDE card border ──
   ctx.fillStyle = ACCENT;
@@ -589,7 +581,7 @@ async function drawDaily(row) {
   ctx.fillStyle = '#fff';
   ctx.font = '400 60px "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY', W / 2, tickerY + TICKER_H / 2);
+  ctx.fillText('DRINK WATER  ·  ENJOY THE DAY', W / 2, tickerY + TICKER_H / 2);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 
   return canvas;
