@@ -115,6 +115,17 @@ function getAlertData(row) {
   return                             { type: 'HOT',   headline: 'HOT HOT.',     temp: `${high}° TODAY.`, warn1: 'DRINK WATER.', warn2: "DON'T BE A HERO." };
 }
 
+function measureLines(ctx, text, maxW) {
+  const words = text.split(' ');
+  let line = '', count = 1;
+  for (let n = 0; n < words.length; n++) {
+    const test = line + words[n] + ' ';
+    if (ctx.measureText(test).width > maxW && n > 0) { count++; line = words[n] + ' '; }
+    else { line = test; }
+  }
+  return count;
+}
+
 function wrapText(ctx, text, x, y, maxW, lineH, maxLines = Infinity) {
   const words = text.split(' ');
   let line = '', lines = [];
@@ -441,16 +452,14 @@ async function drawDaily(row) {
   const panelTop = 742;   // 35%  → 742–1215
   const panelBot = tickerY;
   const panelH   = panelBot - panelTop;   // 473
-  const moodH    = Math.floor(panelH / 2);
-  const fitH     = panelH - moodH;
-  const outOf10Y = scoreTop + 365;
+  const outOf10Y = scoreTop + 377;
 
   // ── HEADER ──
   ctx.fillStyle = '#0f0f0f';
   ctx.fillRect(0, 0, W, headerH);
   hline(ctx, headerH, '#333', 1, 0, W);
   ctx.fillStyle = '#fff';
-  ctx.font = '700 38px "Barlow Condensed"';
+  ctx.font = '400 36px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillText('classicnewweather', INSET + 22, headerH / 2);
 
@@ -460,28 +469,25 @@ async function drawDaily(row) {
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   ctx.fillText(`${day}  ${dateStr}`, W - INSET - 22, headerH / 2);
 
-  // ── NEW YORK CITY — solid, centered ──
+  // ── NEW YORK CITY — Bebas Neue, solid orange, vertically centered ──
   ctx.fillStyle = '#cc4400';
-  ctx.font = '400 152px "Barlow Condensed BK"';
+  ctx.font = '400 152px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('NEW YORK CITY', W / 2, cityY + 8);
+  ctx.fillText('NEW YORK CITY', W / 2, cityY + 46);
 
-  // Thin orange rule + HIGH temp
-  const ruleY = cityY + 136;
+  // ── SCORE SECTION: rule · HIGH · score number — equal spacing ──
   ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(INSET + 20, ruleY); ctx.lineTo(W - INSET - 20, ruleY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(INSET + 20, scoreTop + 3); ctx.lineTo(W - INSET - 20, scoreTop + 3); ctx.stroke();
   ctx.fillStyle = '#fff';
   ctx.font = '400 32px "Share Tech Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(`HIGH ${high}°F`, W / 2, ruleY + 20);
+  ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
 
-  // ── SCORE — Bebas Neue, thick and dominant ──
+  // Score — Bebas Neue, same font as NYC headline
   ctx.fillStyle = '#cc4400';
-  ctx.font = '900 420px "Bebas Neue", "VT323"';
+  ctx.font = '400 400px "Bebas Neue", "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '-2px';
-  ctx.fillText(String(score), W / 2, scoreTop);
-  ctx.letterSpacing = '0px';
+  ctx.fillText(String(score), W / 2, scoreTop + 65);
 
   // OUT OF 10
   ctx.fillStyle = '#fff';
@@ -496,6 +502,13 @@ async function drawDaily(row) {
   const ICON_W = 260;
   const SBR = 12;
   const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
+
+  // Dynamic mood height — expands to fit synopsis, fitH gets the remainder (min 200px)
+  const MOOD_LABEL_H = 68, MOOD_LINE_H = 44, MOOD_FONT = '400 36px "Share Tech Mono"';
+  ctx.font = MOOD_FONT;
+  const moodLineCount = measureLines(ctx, synopsis || 'classicnewweather.com', pw - ICON_W - 32);
+  const moodH = Math.min(panelH - 200, MOOD_LABEL_H + moodLineCount * MOOD_LINE_H + 24);
+  const fitH  = panelH - moodH;
 
   // Rounded ACCENT outline
   ctx.strokeStyle = ACCENT; ctx.lineWidth = 2;
@@ -538,12 +551,12 @@ async function drawDaily(row) {
   }
 
   ctx.fillStyle = '#cc4400';
-  ctx.font = '400 40px "Share Tech Mono"';
+  ctx.font = '400 36px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
   ctx.fillStyle = '#fff';
-  ctx.font = '400 40px "IBM Plex Mono"';
-  wrapText(ctx, synopsis || 'classicnewweather.com', sbx + ICON_W + 18, sby + 68, pw - ICON_W - 32, 52, 3);
+  ctx.font = MOOD_FONT;
+  wrapText(ctx, synopsis || 'classicnewweather.com', sbx + ICON_W + 18, sby + MOOD_LABEL_H, pw - ICON_W - 32, MOOD_LINE_H);
 
   // ── TODAY'S FIT — individual PNG icons in a horizontal row ──
   const FIT_ICN   = 80, FIT_GAP = 10;
@@ -568,20 +581,20 @@ async function drawDaily(row) {
   }
 
   ctx.fillStyle = '#cc4400';
-  ctx.font = '400 40px "Share Tech Mono"';
+  ctx.font = '400 36px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, divY + 14);
   ctx.fillStyle = '#fff';
-  ctx.font = '400 28px "IBM Plex Mono"';
-  ctx.fillText(fitItems.join(' · '), sbx + ICON_W + 18, divY + 68);
+  ctx.font = MOOD_FONT;
+  ctx.fillText(fitItems.join(' · '), sbx + ICON_W + 18, divY + MOOD_LABEL_H);
 
   // ── TICKER — broadcast bar, INSIDE card border ──
   ctx.fillStyle = ACCENT;
-  ctx.fillRect(0, tickerY, W, TICKER_H);
+  ctx.fillRect(sbx, tickerY, sbw, TICKER_H);
   ctx.fillStyle = '#fff';
-  ctx.font = '400 60px "VT323"';
+  ctx.font = '400 52px "Share Tech Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('DRINK WATER  ·  ENJOY THE DAY', W / 2, tickerY + TICKER_H / 2);
+  ctx.fillText('DRINK WATER  ·  ENJOY THE DAY', sbx + sbw / 2, tickerY + TICKER_H / 2);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 
   return canvas;
