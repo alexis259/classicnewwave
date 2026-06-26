@@ -14,21 +14,23 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const ADMIN_PW = process.env.ADMIN_PW;
 
-function loadFont(filename) {
+function resolveFontPath(filename) {
   for (const dir of [path.join(__dirname, 'fonts'), path.join(__dirname, 'netlify/functions/fonts')]) {
-    try { return fs.readFileSync(path.join(dir, filename)); } catch {}
+    const p = path.join(dir, filename);
+    if (fs.existsSync(p)) return p;
   }
   throw new Error(`Font not found: ${filename}`);
 }
 
-GlobalFonts.register(loadFont('VT323.woff2'), 'VT323');
-GlobalFonts.register(loadFont('ShareTechMono.woff2'), 'Share Tech Mono');
-GlobalFonts.register(loadFont('BarlowCondensed-Bold.woff2'), 'Barlow Condensed');
-GlobalFonts.register(loadFont('BarlowCondensed-ExtraBold.woff2'), 'Barlow Condensed XB');
-GlobalFonts.register(loadFont('BarlowCondensed-Black.woff2'), 'Barlow Condensed BK');
-GlobalFonts.register(loadFont('BebasNeue-Regular.woff2'), 'Bebas Neue');
-GlobalFonts.register(loadFont('IBMPlexMono-Regular.woff2'), 'IBM Plex Mono');
-GlobalFonts.register(loadFont('IBMPlexMono-Bold.woff2'), 'IBM Plex Mono Bold');
+// registerFromPath is more reliable than passing a Buffer in napi-rs/canvas
+GlobalFonts.registerFromPath(resolveFontPath('VT323.woff2'), 'VT323');
+GlobalFonts.registerFromPath(resolveFontPath('ShareTechMono.woff2'), 'Share Tech Mono');
+GlobalFonts.registerFromPath(resolveFontPath('BarlowCondensed-Bold.woff2'), 'Barlow Condensed');
+GlobalFonts.registerFromPath(resolveFontPath('BarlowCondensed-ExtraBold.woff2'), 'Barlow Condensed XB');
+GlobalFonts.registerFromPath(resolveFontPath('BarlowCondensed-Black.woff2'), 'Barlow Condensed BK');
+GlobalFonts.registerFromPath(resolveFontPath('BebasNeue-Regular.woff2'), 'Bebas Neue');
+GlobalFonts.registerFromPath(resolveFontPath('IBMPlexMono-Regular.woff2'), 'IBM Plex Mono');
+GlobalFonts.registerFromPath(resolveFontPath('IBMPlexMono-Bold.woff2'), 'IBM Plex Mono Bold');
 
 // ── DATA HELPERS ──
 
@@ -483,9 +485,9 @@ async function drawDaily(row) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
 
-  // Score — Bebas Neue, same font as NYC headline
+  // Score — same font stack as NYC headline
   ctx.fillStyle = '#cc4400';
-  ctx.font = '400 400px "Bebas Neue", "VT323"';
+  ctx.font = '400 400px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(String(score), W / 2, scoreTop + 65);
 
