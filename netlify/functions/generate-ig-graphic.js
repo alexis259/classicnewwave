@@ -449,13 +449,10 @@ async function drawDaily(row) {
   ctx.fillStyle = '#0f0f0f';
   ctx.fillRect(0, 0, W, headerH);
   hline(ctx, headerH, '#333', 1, 0, W);
-  if (logoImg) {
-    const lsz = 120;
-    const logoX = INSET + 22, logoY = hY + (headerH - lsz) / 2;
-    ctx.drawImage(logoImg, logoX, logoY, lsz, lsz);
-  } else {
-    logo(ctx, INSET + 22, hY + 22, 2.2);
-  }
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 38px "Barlow Condensed"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('classicnewweather', INSET + 22, headerH / 2);
 
   // Date badge — VT323 font, larger and bolder
   const dbx = W - INSET - 276, dby = hY + 16, dbw = 258, dbh = 92;
@@ -477,21 +474,26 @@ async function drawDaily(row) {
   const nyW = ctx.measureText('NEW YORK CITY').width;
   scanlineRect(W / 2 - nyW / 2 - 4, cityY + 8, nyW + 8, 116, 0.28, 12, 6);
 
-  // HIGH temp
-  ctx.fillStyle = '#666';
-  ctx.font = '400 30px "IBM Plex Mono"';
+  // Thin orange rule + HIGH temp
+  const ruleY = cityY + 136;
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(INSET + 20, ruleY); ctx.lineTo(W - INSET - 20, ruleY); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 32px "Share Tech Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(`HIGH ${high}°F`, W / 2, cityY + 138);
+  ctx.fillText(`HIGH ${high}°F`, W / 2, ruleY + 20);
 
-  // ── SCORE — solid, large, dominant ──
-  ctx.fillStyle = ACCENT;
-  ctx.font = '400 400px "VT323"';
+  // ── SCORE — Bebas Neue, thick and dominant ──
+  ctx.fillStyle = '#cc4400';
+  ctx.font = '900 420px "Bebas Neue", "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '-2px';
   ctx.fillText(String(score), W / 2, scoreTop);
+  ctx.letterSpacing = '0px';
 
   // OUT OF 10
-  ctx.fillStyle = '#777';
-  ctx.font = '400 40px "VT323"';
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 28px "Share Tech Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('OUT OF 10', W / 2, outOf10Y);
 
@@ -516,9 +518,6 @@ async function drawDaily(row) {
   ctx.arcTo(sbx, sby, sbx + SBR, sby, SBR);
   ctx.closePath(); ctx.stroke();
 
-  // Icon column dark bg
-  ctx.fillStyle = '#0d0d0d';
-  ctx.fillRect(sbx + 1, sby + 1, ICON_W - 1, sbh - 2);
 
   // Vertical separator between icon col and text col
   ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
@@ -533,7 +532,15 @@ async function drawDaily(row) {
   const moodCy = sby + moodH / 2;
   if (weatherIconImg) {
     const iconSize = 160;
-    ctx.drawImage(weatherIconImg, sbx + ICON_W / 2 - iconSize / 2, moodCy - iconSize / 2, iconSize, iconSize);
+    const wic = createCanvas(iconSize, iconSize);
+    const wictx = wic.getContext('2d');
+    wictx.drawImage(weatherIconImg, 0, 0, iconSize, iconSize);
+    const wd = wictx.getImageData(0, 0, iconSize, iconSize);
+    for (let pi = 0; pi < wd.data.length; pi += 4) {
+      if (wd.data[pi] > 210 && wd.data[pi + 1] > 210 && wd.data[pi + 2] > 210) wd.data[pi + 3] = 0;
+    }
+    wictx.putImageData(wd, 0, 0);
+    ctx.drawImage(wic, sbx + ICON_W / 2 - iconSize / 2, moodCy - iconSize / 2);
   } else {
     weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 160, row.condition);
   }
@@ -542,9 +549,9 @@ async function drawDaily(row) {
   ctx.font = '400 28px "VT323"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
-  ctx.fillStyle = '#ddd';
+  ctx.fillStyle = '#fff';
   ctx.font = '400 36px "IBM Plex Mono"';
-  wrapText(ctx, synopsis || 'check classicnewweather.com', sbx + ICON_W + 18, sby + 54, pw - ICON_W - 32, 48, 3);
+  wrapText(ctx, synopsis || 'classicnewweather.com', sbx + ICON_W + 18, sby + 54, pw - ICON_W - 32, 48, 3);
 
   // ── TODAY'S FIT — individual PNG icons in a horizontal row ──
   const FIT_ICN   = 80, FIT_GAP = 10;
@@ -554,7 +561,15 @@ async function drawDaily(row) {
     const fitIconsX = sbx + Math.floor((ICON_W - fitTotalW) / 2);
     const fitIconsY = divY + Math.floor((fitH - FIT_ICN) / 2);
     validFitImgs.forEach((img, i) => {
-      ctx.drawImage(img, fitIconsX + i * (FIT_ICN + FIT_GAP), fitIconsY, FIT_ICN, FIT_ICN);
+      const fic = createCanvas(FIT_ICN, FIT_ICN);
+      const fictx = fic.getContext('2d');
+      fictx.drawImage(img, 0, 0, FIT_ICN, FIT_ICN);
+      const fd = fictx.getImageData(0, 0, FIT_ICN, FIT_ICN);
+      for (let pi = 0; pi < fd.data.length; pi += 4) {
+        if (fd.data[pi] > 210 && fd.data[pi + 1] > 210 && fd.data[pi + 2] > 210) fd.data[pi + 3] = 0;
+      }
+      fictx.putImageData(fd, 0, 0);
+      ctx.drawImage(fic, fitIconsX + i * (FIT_ICN + FIT_GAP), fitIconsY);
     });
   } else {
     drawOutfitIcon(ctx, sbx + ICON_W / 2, divY + fitH / 2);
@@ -564,9 +579,9 @@ async function drawDaily(row) {
   ctx.font = '400 28px "VT323"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, divY + 14);
-  ctx.fillStyle = '#ddd';
-  ctx.font = '400 36px "IBM Plex Mono"';
-  wrapText(ctx, outfit.join('  ·  '), sbx + ICON_W + 18, divY + 54, pw - ICON_W - 32, 48, 3);
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 28px "IBM Plex Mono"';
+  ctx.fillText(fitItems.join(' · '), sbx + ICON_W + 18, divY + 54);
 
   // ── TICKER — broadcast bar, INSIDE card border ──
   ctx.fillStyle = ACCENT;
