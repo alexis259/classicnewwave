@@ -485,15 +485,20 @@ async function drawDaily(row) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
 
-  // Score — optically centered: measure actual ink bounds and correct for asymmetric bearings
+  // Score — optically centered both axes using actual ink bounding box
   ctx.fillStyle = '#cc4400';
   ctx.font = '400 400px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const scoreStr = String(score);
   const sm = ctx.measureText(scoreStr);
-  // Shift draw point so visual ink center lands exactly at W/2
+  // Horizontal: shift so ink center lands at W/2
   const scoreCx = W / 2 + (sm.actualBoundingBoxLeft - sm.actualBoundingBoxRight) / 2;
-  ctx.fillText(scoreStr, scoreCx, scoreTop + 230);
+  // Vertical: place ink center at midpoint between bottom of HIGH text and top of OUT OF 10
+  const highBottom = scoreTop + 49;   // HIGH text at +17, 32px font
+  const zoneCenter = (highBottom + outOf10Y) / 2;
+  // With textBaseline='middle', actualBoundingBoxAscent/Descent are from em-middle to ink edges
+  const scoreCy = zoneCenter + (sm.actualBoundingBoxAscent - sm.actualBoundingBoxDescent) / 2;
+  ctx.fillText(scoreStr, scoreCx, scoreCy);
   ctx.textBaseline = 'top';
 
   // OUT OF 10
