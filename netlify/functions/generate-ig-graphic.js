@@ -447,14 +447,14 @@ async function drawDaily(row) {
   const headerH  = 135;   // 10%  → 0–135
   const cityY    = 135;   // 15%  → 135–337
   const cityH    = 202;
-  const scoreTop = 337;   // 30%  → 337–742
-  const scoreH   = 405;
+  const scoreTop = 337;   // 30%  → 337–780 (extended slightly for OUT OF 10 breathing room)
+  const scoreH   = 443;
   const TICKER_H = 135;   // 10%  → 1215–1350
   const tickerY  = 1215;
-  const panelTop = 742;   // 35%  → 742–1215
+  const panelTop = 780;   // 35%  → 780–1215
   const panelBot = tickerY;
-  const panelH   = panelBot - panelTop;   // 473
-  const outOf10Y = scoreTop + 377;
+  const panelH   = panelBot - panelTop;   // 435
+  const outOf10Y = scoreTop + 377;        // = 714, leaving 66px gap before panel
 
   // ── HEADER ──
   ctx.fillStyle = '#0f0f0f';
@@ -485,12 +485,12 @@ async function drawDaily(row) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
 
-  // Score — centered between HIGH and OUT OF 10 using textBaseline=middle
-  // Available space: HIGH bottom (~scoreTop+49) to outOf10Y (~scoreTop+377) = 328px, midpoint = +213
+  // Score — centered between HIGH bottom (~scoreTop+49) and outOf10Y (scoreTop+377)
+  // Midpoint = +213, shifted +17 down to compensate for Barlow Condensed BK visual weight
   ctx.fillStyle = '#cc4400';
   ctx.font = '400 400px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(String(score), W / 2, scoreTop + 213);
+  ctx.fillText(String(score), W / 2, scoreTop + 230);
   ctx.textBaseline = 'top';
 
   // OUT OF 10
