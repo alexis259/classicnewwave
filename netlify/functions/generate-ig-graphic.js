@@ -308,29 +308,34 @@ function weatherIcon(ctx, cx, cy, size, condition) {
 
 // ── SPRITE SHEET HELPERS (daily template) ──
 
-// Weather icons: 5 cols × 6 rows
-function getWeatherIconCell(condition) {
+// Weather icons — individual PNG files
+function getWeatherIconFile(condition) {
   const c = (condition || '').toLowerCase();
-  if (c.includes('thunder') || c.includes('storm'))                   return [2, 1]; // col 3, row 2
-  if (c.includes('rain') || c.includes('drizzle'))                    return [0, 1]; // col 1, row 2
-  if (c.includes('snow') || c.includes('sleet'))                      return [0, 2]; // col 1, row 3
-  if (c.includes('fog') || c.includes('mist') || c.includes('haze'))  return [4, 3]; // col 5, row 4
-  if (c.includes('partly') || c.includes('scattered'))                return [1, 0]; // col 2, row 1
-  if (c.includes('cloud') || c.includes('overcast'))                  return [3, 0]; // col 4, row 1
-  if (c.includes('night') || c.includes('clear'))                     return [0, 4]; // col 1, row 5
-  return [0, 0]; // sunny — col 1, row 1
+  if (c.includes('thunder') || c.includes('storm'))                          return 'thunderstorm.png';
+  if (c.includes('wintry') || c.includes('mix') || c.includes('sleet'))     return 'wintry-mix.png';
+  if (c.includes('snow'))                                                    return 'snow.png';
+  if (c.includes('rain') || c.includes('drizzle') || c.includes('shower'))  return 'light-rain.png';
+  if (c.includes('wind'))                                                    return 'windy.png';
+  if (c.includes('fog') || c.includes('mist') || c.includes('haze'))        return 'cloudy.png';
+  if (c.includes('partly') || c.includes('scattered') || c.includes('few')) return 'partly-cloudy.png';
+  if (c.includes('cloud') || c.includes('overcast') || c.includes('broken')) return 'cloudy.png';
+  return 'sunny.png';
 }
 
-// Fit icons: 5 cols × 6 rows on white background
-// Row 0: tops  Row 1: jackets  Row 2: bottoms  Row 3: shoes  Row 4: accessories
-function getFitIconCell(item) {
+// Fit icons — individual PNG files
+function getFitIconFile(item) {
   const map = {
-    'TEE': [1, 0], 'LONG SLEEVE': [3, 0], 'LAYER UP': [3, 0],
-    'HOODIE': [4, 0], 'SWEATER': [3, 1], 'LIGHT JACKET': [2, 1],
-    'JACKET': [1, 1], 'HEAVY COAT': [1, 1],
-    'SHORTS': [0, 2], 'JEANS': [2, 2], 'SWEATS': [4, 2],
-    'SNEAKERS': [0, 3], 'BOOTS': [2, 3], 'WATERPROOF BOOTS': [4, 3],
-    'UMBRELLA': [0, 4], 'BEANIE': [2, 4], 'HAT + GLOVES': [2, 4],
+    'TEE': 'tee.png', 'LONG SLEEVE': 'tee.png', 'LAYER UP': 'light-jacket.png',
+    'TANK': 'tanktop.png',
+    'HOODIE': 'hoodie.png', 'SWEATER': 'hoodie.png',
+    'LIGHT JACKET': 'light-jacket.png',
+    'JACKET': 'jacket.png', 'HEAVY COAT': 'jacket.png',
+    'SHORTS': 'shorts.png',
+    'JEANS': 'pants.png', 'SWEATS': 'pants.png',
+    'SNEAKERS': 'sneakers.png',
+    'BOOTS': 'boots.png', 'WATERPROOF BOOTS': 'rain-boots.png',
+    'UMBRELLA': 'umbrella.png',
+    'BEANIE': 'beanie.png', 'HAT + GLOVES': 'beanie.png',
   };
   return map[item] || null;
 }
@@ -382,10 +387,18 @@ async function drawDaily(row) {
   const outfit = outfitItems(high, row.precip_chance);
   const day = getNYCDay(), dateStr = getNYCDate();
 
-  let fitSheet = null, weatherSheet = null, logoImg = null;
-  try { fitSheet     = await loadImage(path.join(__dirname, 'assets/fit-icons-sheet.png')); } catch {}
-  try { weatherSheet = await loadImage(path.join(__dirname, 'assets/weather-icons.png'));   } catch {}
-  try { logoImg      = await loadImage(path.join(__dirname, 'assets/logo.png'));            } catch {}
+  let logoImg = null;
+  try { logoImg = await loadImage(path.join(__dirname, 'assets/logo.png')); } catch {}
+
+  let weatherIconImg = null;
+  try { weatherIconImg = await loadImage(path.join(__dirname, `assets/${getWeatherIconFile(row.condition)}`)); } catch {}
+
+  const fitItems = getRepresentativeFitItems(outfit);
+  const fitIconImgs = await Promise.all(fitItems.map(async item => {
+    const file = getFitIconFile(item);
+    if (!file) return null;
+    try { return await loadImage(path.join(__dirname, `assets/${file}`)); } catch { return null; }
+  }));
 
   // ── BACKGROUND + GRAIN ──
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
@@ -533,14 +546,11 @@ async function drawDaily(row) {
   ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(sbx, divY); ctx.lineTo(sbx + sbw, divY); ctx.stroke();
 
-  // ── TODAY'S MOOD — weather icon from sprite sheet ──
+  // ── TODAY'S MOOD — weather icon from individual PNG ──
   const moodCy = sby + moodH / 2;
-  if (weatherSheet) {
-    const [wCol, wRow] = getWeatherIconCell(row.condition);
-    const cw = weatherSheet.width / 5, ch = weatherSheet.height / 6;
+  if (weatherIconImg) {
     const iconSize = 160;
-    ctx.drawImage(weatherSheet, wCol * cw, wRow * ch, cw, ch,
-      sbx + ICON_W / 2 - iconSize / 2, moodCy - iconSize / 2, iconSize, iconSize);
+    ctx.drawImage(weatherIconImg, sbx + ICON_W / 2 - iconSize / 2, moodCy - iconSize / 2, iconSize, iconSize);
   } else {
     weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 160, row.condition);
   }
@@ -553,28 +563,15 @@ async function drawDaily(row) {
   ctx.font = '400 36px "IBM Plex Mono"';
   wrapText(ctx, synopsis || 'check classicnewweather.com', sbx + ICON_W + 18, sby + 54, pw - ICON_W - 32, 48, 3);
 
-  // ── TODAY'S FIT — icons in a HORIZONTAL row ──
-  const fitItems  = getRepresentativeFitItems(outfit);
+  // ── TODAY'S FIT — individual PNG icons in a horizontal row ──
   const FIT_ICN   = 80, FIT_GAP = 10;
-  const fitTotalW = fitItems.length * FIT_ICN + (fitItems.length - 1) * FIT_GAP;
-  const fitIconsX = sbx + Math.floor((ICON_W - fitTotalW) / 2);
-  const fitIconsY = divY + Math.floor((fitH - FIT_ICN) / 2);
-
-  if (fitSheet) {
-    const fCellW = fitSheet.width / 5, fCellH = fitSheet.height / 6;
-    fitItems.forEach((item, i) => {
-      const cell = getFitIconCell(item);
-      if (!cell) return;
-      const [fCol, fRow] = cell;
-      const ic = createCanvas(FIT_ICN, FIT_ICN);
-      const ictx = ic.getContext('2d');
-      ictx.drawImage(fitSheet, fCol * fCellW, fRow * fCellH, fCellW, fCellH, 0, 0, FIT_ICN, FIT_ICN);
-      const d = ictx.getImageData(0, 0, FIT_ICN, FIT_ICN);
-      for (let pi = 0; pi < d.data.length; pi += 4) {
-        if (d.data[pi] > 210 && d.data[pi + 1] > 210 && d.data[pi + 2] > 210) d.data[pi + 3] = 0;
-      }
-      ictx.putImageData(d, 0, 0);
-      ctx.drawImage(ic, fitIconsX + i * (FIT_ICN + FIT_GAP), fitIconsY);
+  const validFitImgs = fitIconImgs.filter(Boolean);
+  if (validFitImgs.length > 0) {
+    const fitTotalW = validFitImgs.length * FIT_ICN + (validFitImgs.length - 1) * FIT_GAP;
+    const fitIconsX = sbx + Math.floor((ICON_W - fitTotalW) / 2);
+    const fitIconsY = divY + Math.floor((fitH - FIT_ICN) / 2);
+    validFitImgs.forEach((img, i) => {
+      ctx.drawImage(img, fitIconsX + i * (FIT_ICN + FIT_GAP), fitIconsY, FIT_ICN, FIT_ICN);
     });
   } else {
     drawOutfitIcon(ctx, sbx + ICON_W / 2, divY + fitH / 2);
