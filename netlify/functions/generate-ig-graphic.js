@@ -428,41 +428,27 @@ async function drawDaily(row) {
     ctx.restore();
   }
 
-  // ── ROUNDED OUTER BORDER (4px ACCENT) ──
-  const BR = 24, bx = INSET + 2, by = INSET + 2;
-  const bw = W - INSET * 2 - 4, bh = H - INSET * 2 - 4;
-  ctx.strokeStyle = ACCENT; ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(bx + BR, by); ctx.lineTo(bx + bw - BR, by);
-  ctx.arcTo(bx + bw, by, bx + bw, by + BR, BR);
-  ctx.lineTo(bx + bw, by + bh - BR);
-  ctx.arcTo(bx + bw, by + bh, bx + bw - BR, by + bh, BR);
-  ctx.lineTo(bx + BR, by + bh);
-  ctx.arcTo(bx, by + bh, bx, by + bh - BR, BR);
-  ctx.lineTo(bx, by + BR);
-  ctx.arcTo(bx, by, bx + BR, by, BR);
-  ctx.closePath(); ctx.stroke();
 
-  // ── SECTION Y POSITIONS ──
-  // Header ~12%: 18–182   City+temp ~14%: 182–372   Score ~25%: 372–710
-  // OUT OF 10 at 710–764   Mood+Fit ~35%: 770–1248   Ticker ~5%: 1258–1328
-  const TICKER_H = 70;
-  const tickerY  = H - INSET - 4 - TICKER_H;   // 1256
-  const hY       = INSET;                         // 18
-  const headerH  = 164;
-  const cityY    = hY + headerH;                  // 182
-  const scoreTop = cityY + 190;                   // 372
-  const outOf10Y = scoreTop + 336;                // 708
-  const panelTop = outOf10Y + 66;                 // 774
-  const panelBot = tickerY - 12;                  // 1244
-  const panelH   = panelBot - panelTop;           // 470
-  const moodH    = Math.floor(panelH / 2);        // 235
-  const fitH     = panelH - moodH;                // 235
+  // ── SECTION Y POSITIONS — 10/15/30/35/10% of 1350px ──
+  const hY       = 0;
+  const headerH  = 135;   // 10%  → 0–135
+  const cityY    = 135;   // 15%  → 135–337
+  const cityH    = 202;
+  const scoreTop = 337;   // 30%  → 337–742
+  const scoreH   = 405;
+  const TICKER_H = 135;   // 10%  → 1215–1350
+  const tickerY  = 1215;
+  const panelTop = 742;   // 35%  → 742–1215
+  const panelBot = tickerY;
+  const panelH   = panelBot - panelTop;   // 473
+  const moodH    = Math.floor(panelH / 2);
+  const fitH     = panelH - moodH;
+  const outOf10Y = scoreTop + 310;
 
   // ── HEADER ──
   ctx.fillStyle = '#0f0f0f';
-  ctx.fillRect(INSET, hY, W - INSET * 2, headerH);
-  hline(ctx, hY + headerH, '#333', 1, INSET, W - INSET);
+  ctx.fillRect(0, 0, W, headerH);
+  hline(ctx, headerH, '#333', 1, 0, W);
   if (logoImg) {
     const lsz = 120;
     const logoX = INSET + 22, logoY = hY + (headerH - lsz) / 2;
@@ -497,14 +483,11 @@ async function drawDaily(row) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(`HIGH ${high}°F`, W / 2, cityY + 138);
 
-  // ── SCORE — Bebas Neue hero (VT323 fallback), dominant ──
+  // ── SCORE — solid, large, dominant ──
   ctx.fillStyle = ACCENT;
-  ctx.font = '400 480px "Bebas Neue", "VT323"';
+  ctx.font = '400 400px "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  const scoreStr  = String(score);
-  const scoreTxtW = ctx.measureText(scoreStr).width;
-  ctx.fillText(scoreStr, W / 2, scoreTop);
-  scanlineRect(W / 2 - scoreTxtW / 2 - 10, scoreTop, scoreTxtW + 20, 350, 0.42, 14, 7);
+  ctx.fillText(String(score), W / 2, scoreTop);
 
   // OUT OF 10
   ctx.fillStyle = '#777';
@@ -587,9 +570,9 @@ async function drawDaily(row) {
 
   // ── TICKER — broadcast bar, INSIDE card border ──
   ctx.fillStyle = ACCENT;
-  ctx.fillRect(INSET + 2, tickerY, W - INSET * 2 - 4, TICKER_H);
+  ctx.fillRect(0, tickerY, W, TICKER_H);
   ctx.fillStyle = '#fff';
-  ctx.font = '400 38px "VT323"';
+  ctx.font = '400 60px "VT323"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY', W / 2, tickerY + TICKER_H / 2);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
