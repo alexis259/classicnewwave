@@ -485,12 +485,15 @@ async function drawDaily(row) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
 
-  // Score — centered between HIGH bottom (~scoreTop+49) and outOf10Y (scoreTop+377)
-  // Midpoint = +213, shifted +17 down to compensate for Barlow Condensed BK visual weight
+  // Score — optically centered: measure actual ink bounds and correct for asymmetric bearings
   ctx.fillStyle = '#cc4400';
   ctx.font = '400 400px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(String(score), W / 2, scoreTop + 230);
+  const scoreStr = String(score);
+  const sm = ctx.measureText(scoreStr);
+  // Shift draw point so visual ink center lands exactly at W/2
+  const scoreCx = W / 2 + (sm.actualBoundingBoxLeft - sm.actualBoundingBoxRight) / 2;
+  ctx.fillText(scoreStr, scoreCx, scoreTop + 230);
   ctx.textBaseline = 'top';
 
   // OUT OF 10
