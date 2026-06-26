@@ -485,11 +485,13 @@ async function drawDaily(row) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
 
-  // Score — same font stack as NYC headline
+  // Score — centered between HIGH and OUT OF 10 using textBaseline=middle
+  // Available space: HIGH bottom (~scoreTop+49) to outOf10Y (~scoreTop+377) = 328px, midpoint = +213
   ctx.fillStyle = '#cc4400';
   ctx.font = '400 400px "Bebas Neue", "Barlow Condensed BK"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(String(score), W / 2, scoreTop + 65);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(score), W / 2, scoreTop + 213);
+  ctx.textBaseline = 'top';
 
   // OUT OF 10
   ctx.fillStyle = '#fff';
@@ -507,8 +509,9 @@ async function drawDaily(row) {
 
   // Dynamic mood height — expands to fit synopsis, fitH gets the remainder (min 200px)
   const MOOD_LABEL_H = 68, MOOD_LINE_H = 44, MOOD_FONT = '400 36px "Share Tech Mono"';
+  const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
   ctx.font = MOOD_FONT;
-  const moodLineCount = measureLines(ctx, synopsis || 'classicnewweather.com', pw - ICON_W - 32);
+  const moodLineCount = measureLines(ctx, moodText, pw - ICON_W - 32);
   const moodH = Math.min(panelH - 200, MOOD_LABEL_H + moodLineCount * MOOD_LINE_H + 24);
   const fitH  = panelH - moodH;
 
@@ -558,7 +561,7 @@ async function drawDaily(row) {
   ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
   ctx.fillStyle = '#fff';
   ctx.font = MOOD_FONT;
-  wrapText(ctx, synopsis || 'classicnewweather.com', sbx + ICON_W + 18, sby + MOOD_LABEL_H, pw - ICON_W - 32, MOOD_LINE_H);
+  wrapText(ctx, moodText, sbx + ICON_W + 18, sby + MOOD_LABEL_H, pw - ICON_W - 32, MOOD_LINE_H);
 
   // ── TODAY'S FIT — individual PNG icons in a horizontal row ──
   const FIT_ICN   = 80, FIT_GAP = 10;
