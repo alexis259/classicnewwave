@@ -423,7 +423,7 @@
       overflow: hidden;
     }
 
-    #story-canvas, #forecast-story-canvas {
+    #story-canvas {
       display: block;
       width: 100%;
       height: auto;
@@ -1029,25 +1029,6 @@
       </div>
     </div>
 
-    <!-- FORECAST STORY GENERATOR -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">Forecast Story</div>
-        <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">1080 × 1920 · 5-day</div>
-      </div>
-      <div class="panel-body">
-        <div class="story-wrap">
-          <div class="story-canvas-wrap">
-            <canvas id="forecast-story-canvas" width="1080" height="1920"></canvas>
-          </div>
-          <div class="story-controls">
-            <div class="story-info" id="forecast-story-info">click draw to generate…</div>
-            <button class="btn-regen-story" onclick="drawForecastStory()">↻ Draw</button>
-            <button class="btn-download" id="forecast-dl-btn" onclick="downloadForecastStory()" disabled>↓ Download Story</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
   </div>
 </div>
@@ -1710,123 +1691,6 @@ function downloadStory() {
   link.click();
 }
 
-// ── FORECAST STORY GENERATOR ──
-async function drawForecastStory() {
-  const canvas = document.getElementById('forecast-story-canvas');
-  const ctx = canvas.getContext('2d');
-  const W = 1080, H = 1920;
-  canvas.width = W; canvas.height = H;
-
-  const weather = await fetchWeather();
-  const forecast = weather.forecast || [];
-  const todayHigh = weather.forecast?.[0]?.high ?? weather.high ?? weather.temp;
-
-  // Background gradient based on today's conditions
-  const [c1, c2, c3] = getBgGradient(todayHigh, weather.condition, weather.precipChance);
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, c1);
-  grad.addColorStop(0.5, c2);
-  grad.addColorStop(1, c3);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  // Noise texture
-  for (let i = 0; i < 18000; i++) {
-    const x = Math.random() * W;
-    const y = Math.random() * H;
-    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.06})`;
-    ctx.fillRect(x, y, 1, 1);
-  }
-
-  const accent = getAccentColor(todayHigh, weather.precipChance);
-  const PAD = 100;
-
-  function divider(y) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
-  }
-
-  // ── HEADER PILL ──
-  // Safe zone: top 250px and bottom 450px covered by IG UI — content within y=250–1470
-  const pillH = 180, pillY = 250;
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.beginPath();
-  ctx.roundRect(PAD - 24, pillY, W - (PAD - 24) * 2, pillH, 16);
-  ctx.fill();
-
-  ctx.fillStyle = accent;
-  ctx.font = '500 30px IBM Plex Mono, monospace';
-  ctx.letterSpacing = '6px';
-  ctx.textBaseline = 'top';
-  ctx.fillText('NEW YORK CITY · WEATHER', PAD, pillY + 20);
-  ctx.letterSpacing = '0px';
-
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = '500 40px IBM Plex Mono, monospace';
-  ctx.fillText('5-DAY FORECAST', PAD, pillY + 72);
-
-  const shortDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
-  ctx.fillStyle = accent;
-  ctx.font = '500 40px IBM Plex Mono, monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(shortDate, W - PAD, pillY + 72);
-  ctx.textAlign = 'left';
-
-  // ── ACCENT DIVIDER under header ──
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(PAD, pillY + pillH + 10); ctx.lineTo(W - PAD, pillY + pillH + 10); ctx.stroke();
-
-  // ── FORECAST ROWS ──
-  // Safe area: y=250–1470 (1220px). After header: cursor=500, available=970px → 194px per row for 5 days
-  const SAFE_BOTTOM = 1470;
-  const rowH = 188;
-  let cursor = pillY + pillH + 70;
-
-  forecast.forEach((day, i) => {
-    const dayAccent = getAccentColor(day.high, day.rain);
-
-    // Day name
-    ctx.fillStyle = 'rgba(255,255,255,0.38)';
-    ctx.font = '500 28px IBM Plex Mono, monospace';
-    ctx.letterSpacing = '7px';
-    ctx.textBaseline = 'top';
-    ctx.fillText(day.day.toUpperCase(), PAD, cursor);
-    ctx.letterSpacing = '0px';
-
-    // High temp
-    ctx.fillStyle = dayAccent;
-    ctx.font = 'bold 110px Archivo Black, sans-serif';
-    ctx.textBaseline = 'top';
-    ctx.fillText(`${Math.round(day.high)}°`, PAD, cursor + 36);
-
-    // Rain — right-aligned, vertically centered in row
-    ctx.fillStyle = day.rain > 20 ? '#4ab8d4' : 'rgba(255,255,255,0.45)';
-    ctx.font = '500 32px IBM Plex Mono, monospace';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(day.rain > 0 ? `${day.rain}% rain` : 'dry', W - PAD, cursor + rowH / 2);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-
-    cursor += rowH;
-    if (i < forecast.length - 1) divider(cursor - 16);
-  });
-
-  document.getElementById('forecast-story-info').innerHTML =
-    `${forecast.length} days · 1080 × 1920px<br>Ready to download`;
-  document.getElementById('forecast-dl-btn').disabled = false;
-}
-
-function downloadForecastStory() {
-  const canvas = document.getElementById('forecast-story-canvas');
-  const date = new Date().toISOString().slice(0, 10);
-  const link = document.createElement('a');
-  link.download = `cnw-forecast-${date}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-}
 
 // ── IG AUTO-POST ──
 async function uploadStoryImage() {
