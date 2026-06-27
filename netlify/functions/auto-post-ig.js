@@ -86,6 +86,21 @@ async function createIGContainer(imageUrl, caption, isStory) {
   return data.id;
 }
 
+async function waitForContainer(containerId, maxWaitMs = 30000) {
+  const interval = 3000;
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const res = await fetch(
+      `${META_API}/${containerId}?fields=status_code&access_token=${META_PAGE_ACCESS_TOKEN}`
+    );
+    const data = await res.json();
+    if (data.status_code === 'FINISHED') return;
+    if (data.status_code === 'ERROR') throw new Error(`Meta container processing failed: ${containerId}`);
+    await new Promise(r => setTimeout(r, interval));
+  }
+  throw new Error(`Meta container timed out after ${maxWaitMs}ms: ${containerId}`);
+}
+
 async function publishIGContainer(containerId) {
   const params = new URLSearchParams({
     creation_id: containerId,
@@ -171,6 +186,12 @@ exports.handler = async (event) => {
     const [feedContainerId, storyContainerId] = await Promise.all([
       createIGContainer(feedImageUrl, caption, false),
       createIGContainer(row.story_image_url, null, true)
+    ]);
+
+    // Wait for Meta to finish processing both containers before publishing
+    await Promise.all([
+      waitForContainer(feedContainerId),
+      waitForContainer(storyContainerId)
     ]);
 
     // Publish both in parallel
