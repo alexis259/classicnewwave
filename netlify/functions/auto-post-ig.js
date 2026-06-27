@@ -5,7 +5,7 @@
 const { generateAndUpload } = require('./generate-ig-graphic');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const META_IG_USER_ID = process.env.META_IG_USER_ID;
 const META_PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
@@ -157,14 +157,13 @@ exports.handler = async (event) => {
     // Use dedicated 4:5 feed image if available, fall back to story image
     const feedImageUrl = row.feed_image_url || row.story_image_url;
 
-    // NOTE: duplicate-post guard disabled for testing — re-enable before production
-    // if (row.ig_posted) {
-    //   return {
-    //     statusCode: 200,
-    //     headers,
-    //     body: JSON.stringify({ skipped: true, reason: 'Already posted today' })
-    //   };
-    // }
+    if (row.ig_posted) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ skipped: true, reason: 'Already posted today' })
+      };
+    }
 
     const caption = await generateCaption(row);
 
