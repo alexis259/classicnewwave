@@ -627,131 +627,163 @@ async function drawWeekly(row) {
   const forecast = Array.isArray(row.forecast) ? row.forecast.slice(0, 5) : [];
   const day = getNYCDay(), dateStr = getNYCDate();
 
+  let weatherIconImg = null;
+  try { weatherIconImg = await loadImage(path.join(__dirname, `assets/${getWeatherIconFile(row.condition)}`)); } catch {}
+
+  // ── BACKGROUND + GRAIN (matches daily) ──
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const grainImg = ctx.getImageData(0, 0, W, H);
+  let rv = 0x5F3759DF;
+  function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
+  for (let i = 0; i < 22000; i++) {
+    const gx = Math.floor(grainRand() * W);
+    const gy = Math.floor(grainRand() * H);
+    const gb = Math.floor(grainRand() * 30);
+    const idx = (gy * W + gx) * 4;
+    grainImg.data[idx]     = Math.min(255, grainImg.data[idx]     + gb);
+    grainImg.data[idx + 1] = Math.min(255, grainImg.data[idx + 1] + gb);
+    grainImg.data[idx + 2] = Math.min(255, grainImg.data[idx + 2] + gb);
+  }
+  ctx.putImageData(grainImg, 0, 0);
   scanlines(ctx);
-  border(ctx);
 
-  // Header
+  // ── HEADER (matches daily) ──
+  const headerH = 135;
   ctx.fillStyle = '#0f0f0f';
-  ctx.fillRect(INSET, INSET, W - INSET * 2, 80);
-  hline(ctx, INSET + 80, '#222', 1, INSET, W - INSET);
-  logo(ctx, INSET + 22, INSET + 12, 1.2);
+  ctx.fillRect(0, 0, W, headerH);
+  hline(ctx, headerH, '#333', 1, 0, W);
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 36px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('classicnewweather', INSET + 22, headerH / 2);
+  ctx.fillStyle = '#E8B800';
+  ctx.font = '400 32px "Share Tech Mono"';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${day}  ${dateStr}`, W - INSET - 22, headerH / 2);
 
-  // "LOCAL FORECAST" badge
-  const lfx = W / 2 - 90;
-  ctx.fillStyle = ACCENT;
-  ctx.font = '700 14px "Share Tech Mono"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('LOCAL FORECAST', W / 2, INSET + 44);
-
-  dateBadge(ctx, W - INSET - 232, INSET + 8, day, dateStr);
-
-  // City + high
-  ctx.fillStyle = ACCENT;
-  ctx.font = '400 88px "Barlow Condensed BK"';
+  // ── NEW YORK CITY — Bebas Neue, solid orange ──
+  ctx.fillStyle = '#cc4400';
+  ctx.font = '400 130px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('NEW YORK CITY', W / 2, INSET + 92);
+  ctx.fillText('NEW YORK CITY', W / 2, headerH + 10);
 
-  ctx.fillStyle = '#666';
-  ctx.font = '400 22px "Share Tech Mono"';
-  ctx.fillText(`HIGH ${high}°F`, W / 2, INSET + 183);
+  // ── SCORE SECTION ──
+  const scoreTop = headerH + 118;  // 253
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(INSET + 20, scoreTop + 3); ctx.lineTo(W - INSET - 20, scoreTop + 3); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 32px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 14);
 
-  // Score + condition icon — side by side
-  ctx.fillStyle = ACCENT;
-  ctx.font = '400 180px "VT323"';
-  ctx.textAlign = 'right';
-  ctx.fillText(String(score), W / 2 - 20, INSET + 196);
+  // Score — Bebas Neue, left of center
+  ctx.fillStyle = '#cc4400';
+  ctx.font = '400 200px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  ctx.fillText(String(score), W / 2 - 16, scoreTop + 50);
 
-  weatherIcon(ctx, W / 2 + 74, INSET + 258, 90, row.condition);
+  // Weather icon — PNG with white bg removal, right of center
+  const iconSize = 130;
+  const iconCx = W / 2 + 86;
+  const iconCy = scoreTop + 50 + 96;
+  if (weatherIconImg) {
+    const wic = createCanvas(iconSize, iconSize);
+    const wictx = wic.getContext('2d');
+    wictx.drawImage(weatherIconImg, 0, 0, iconSize, iconSize);
+    const wd = wictx.getImageData(0, 0, iconSize, iconSize);
+    for (let pi = 0; pi < wd.data.length; pi += 4) {
+      if (wd.data[pi] > 210 && wd.data[pi + 1] > 210 && wd.data[pi + 2] > 210) wd.data[pi + 3] = 0;
+    }
+    wictx.putImageData(wd, 0, 0);
+    ctx.drawImage(wic, iconCx - iconSize / 2, iconCy - iconSize / 2);
+  } else {
+    weatherIcon(ctx, iconCx, iconCy, 86, row.condition);
+  }
 
+  // Condition label + OUT OF 10
+  const condY = scoreTop + 272;  // 525
   ctx.fillStyle = '#888';
-  ctx.font = '400 16px "Share Tech Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(conditionLabel(row.condition), W / 2 + 24, INSET + 322);
+  ctx.font = '400 26px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(conditionLabel(row.condition).toUpperCase(), W / 2, condY);
   ctx.fillStyle = '#444';
-  ctx.fillText('OUT OF 10', W / 2 - 160, INSET + 374);
+  ctx.fillText('OUT OF 10', W / 2, condY + 34);
 
-  hline(ctx, INSET + 400, '#222', 1);
-
-  // 4-panel row
+  // ── 4-PANEL ROW ──
+  const panelTop = condY + 76;  // 601
+  hline(ctx, panelTop - 8, '#333', 1);
   const panW = (W - INSET * 2 - 40 - 9) / 4;
-  const panH = 230;
-  const panY = INSET + 414;
+  const panH = 195;
   const panX0 = INSET + 20;
   const cols = [panX0, panX0 + panW + 3, panX0 + (panW + 3) * 2, panX0 + (panW + 3) * 3];
 
-  // TODAY'S MOOD
-  panel(ctx, cols[0], panY, panW, panH, "TODAY'S MOOD");
+  panel(ctx, cols[0], panelTop, panW, panH, "TODAY'S MOOD");
   ctx.fillStyle = '#ccc'; ctx.font = '400 16px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  wrapText(ctx, synopsis || '—', cols[0] + 6, panY + 22, panW - 12, 22, 6);
+  wrapText(ctx, synopsis || '—', cols[0] + 6, panelTop + 22, panW - 12, 22, 6);
 
-  // FIT CHECK
-  panel(ctx, cols[1], panY, panW, panH, 'FIT CHECK');
+  panel(ctx, cols[1], panelTop, panW, panH, 'FIT CHECK');
   ctx.fillStyle = '#ccc'; ctx.font = '400 16px "Share Tech Mono"';
-  wrapText(ctx, outfit.slice(0, 4).join('\n'), cols[1] + 6, panY + 22, panW - 12, 22, 6);
+  wrapText(ctx, outfit.slice(0, 4).join('\n'), cols[1] + 6, panelTop + 22, panW - 12, 22, 6);
 
-  // HAIR REPORT
-  panel(ctx, cols[2], panY, panW, panH, 'HAIR REPORT');
+  panel(ctx, cols[2], panelTop, panW, panH, 'HAIR REPORT');
   ctx.fillStyle = hair.color; ctx.font = '700 14px "Share Tech Mono"';
-  wrapText(ctx, hair.level, cols[2] + 6, panY + 22, panW - 12, 18, 3);
+  wrapText(ctx, hair.level, cols[2] + 6, panelTop + 22, panW - 12, 18, 3);
   ctx.fillStyle = '#888'; ctx.font = '400 13px "Share Tech Mono"';
-  ctx.fillText(`HUM: ${row.humidity}%`, cols[2] + 6, panY + 80);
-  wrapText(ctx, hair.sub, cols[2] + 6, panY + 100, panW - 12, 18, 3);
+  ctx.fillText(`HUM: ${row.humidity}%`, cols[2] + 6, panelTop + 80);
+  wrapText(ctx, hair.sub, cols[2] + 6, panelTop + 100, panW - 12, 18, 3);
 
-  // OUTSIDE METER
-  panel(ctx, cols[3], panY, panW, panH, 'OUTSIDE METER');
-  semiGauge(ctx, cols[3] + panW / 2, panY + 120, panW / 2 - 10, meter.pct, meter.color);
+  panel(ctx, cols[3], panelTop, panW, panH, 'OUTSIDE METER');
+  semiGauge(ctx, cols[3] + panW / 2, panelTop + 100, panW / 2 - 10, meter.pct, meter.color);
   ctx.fillStyle = meter.color; ctx.font = '700 13px "Barlow Condensed"';
   ctx.textAlign = 'center';
-  ctx.fillText(meter.label, cols[3] + panW / 2, panY + 148);
+  ctx.fillText(meter.label, cols[3] + panW / 2, panelTop + 128);
   ctx.fillStyle = '#666'; ctx.font = '400 12px "Share Tech Mono"';
-  ctx.fillText(meter.sub, cols[3] + panW / 2, panY + 164);
+  ctx.fillText(meter.sub, cols[3] + panW / 2, panelTop + 144);
 
-  hline(ctx, panY + panH + 16, '#222', 1);
-
-  // WEEK AHEAD strip
-  const wkY = panY + panH + 30;
+  // ── WEEK AHEAD STRIP ──
+  const wkY = panelTop + panH + 14;  // 810
+  hline(ctx, wkY, '#222', 1);
   ctx.fillStyle = '#555'; ctx.font = '700 13px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText('THE CULTURE\'S WEATHER CHANNEL', INSET + 20, wkY);
+  ctx.fillText("THE CULTURE'S WEATHER CHANNEL", INSET + 20, wkY + 12);
   ctx.fillStyle = ACCENT; ctx.font = '700 13px "Share Tech Mono"';
-  ctx.fillText('WEEK AHEAD', W - INSET - 140, wkY);
+  ctx.fillText('WEEK AHEAD', W - INSET - 140, wkY + 12);
 
   const dayW = (W - INSET * 2 - 40) / 5;
   forecast.forEach((f, i) => {
     const fx = INSET + 20 + i * dayW;
-    const fy = wkY + 24;
+    const fy = wkY + 34;
     ctx.fillStyle = '#888'; ctx.font = '700 14px "Share Tech Mono"';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText(f.day.toUpperCase(), fx + dayW / 2, fy);
-    weatherIcon(ctx, fx + dayW / 2, fy + 34, 40, f.rain > 50 ? 'rain' : 'clear');
-    ctx.fillStyle = '#ddd'; ctx.font = '700 22px "Barlow Condensed"';
-    ctx.fillText(`${Math.round(f.high)}°`, fx + dayW / 2, fy + 68);
+    weatherIcon(ctx, fx + dayW / 2, fy + 28, 36, f.rain > 50 ? 'rain' : 'clear');
+    ctx.fillStyle = '#ddd'; ctx.font = '400 22px "Bebas Neue", "Barlow Condensed"';
+    ctx.fillText(`${Math.round(f.high)}°`, fx + dayW / 2, fy + 62);
     ctx.fillStyle = f.rain > 30 ? '#5599dd' : '#555'; ctx.font = '400 13px "Share Tech Mono"';
-    ctx.fillText(f.rain > 0 ? `${f.rain}%` : 'dry', fx + dayW / 2, fy + 93);
+    ctx.fillText(f.rain > 0 ? `${f.rain}%` : 'dry', fx + dayW / 2, fy + 86);
   });
 
-  hline(ctx, wkY + 120, '#222', 1);
+  hline(ctx, wkY + 112, '#222', 1);
 
   // Bottom crawl
   ctx.textAlign = 'left';
   ctx.fillStyle = '#333'; ctx.font = '400 14px "Share Tech Mono"';
   ctx.textBaseline = 'top';
-  ctx.fillText('>>> STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY  ·  CHECK ON YOUR PEOPLE  >>>', INSET + 20, wkY + 130);
+  ctx.fillText('>>> STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY  ·  CHECK ON YOUR PEOPLE  >>>', INSET + 20, wkY + 122);
 
-  // Statement block — fills remaining vertical space
-  hline(ctx, wkY + 160, '#1a1a1a', 1);
+  // ── STATEMENT BLOCK ──
+  hline(ctx, wkY + 148, '#1a1a1a', 1);
   ctx.fillStyle = ACCENT;
-  ctx.font = '400 196px "Barlow Condensed BK"';
+  ctx.font = '400 168px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('ALL NYC.', W / 2, wkY + 174);
+  ctx.fillText('ALL NYC.', W / 2, wkY + 160);
   ctx.fillStyle = '#1c1c1c';
-  ctx.font = '400 156px "Barlow Condensed BK"';
-  ctx.fillText('ALL WEATHER.', W / 2, wkY + 372);
+  ctx.font = '400 134px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.fillText('ALL WEATHER.', W / 2, wkY + 326);
   ctx.fillStyle = '#333';
   ctx.font = '400 16px "Share Tech Mono"';
-  ctx.fillText('classicnewweather.com', W / 2, wkY + 548);
+  ctx.fillText('classicnewweather.com', W / 2, wkY + 466);
 
   ticker(ctx, 'STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY  ·  START YOUR WEEK RIGHT');
 
