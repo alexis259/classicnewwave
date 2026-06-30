@@ -106,43 +106,51 @@
     /* ── HERO ── */
     .hero {
       display: flex;
-      align-items: center;
-      padding: 16px 16px 12px;
+      flex-direction: column;
+      padding: 24px 16px 20px;
       border-bottom: 1px solid var(--border);
-      gap: 12px;
+      gap: 16px;
     }
 
-    .score-col { flex-shrink: 0; width: 130px; }
+    .hero-main {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .score-col { flex-shrink: 0; width: 110px; }
 
     .score-num {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 130px;
-      line-height: 0.88;
+      font-size: 120px;
+      line-height: 0.85;
       color: var(--accent);
     }
 
     .out-of-10 {
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-
-    .high-feels {
       font-size: 11px;
-      color: var(--dim);
+      letter-spacing: 0.18em;
+      color: var(--accent);
+      opacity: 0.7;
       margin-top: 6px;
-      letter-spacing: 0.05em;
-      white-space: nowrap;
     }
 
-    .vibe-col { flex: 1; }
+    .vibe-col { flex: 1; min-width: 0; }
 
     .vibe-text {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(40px, 9vw, 54px);
-      line-height: 1.05;
+      font-size: clamp(36px, 10vw, 54px);
+      line-height: 1.0;
       color: var(--text);
+    }
+
+    .hero-temp {
+      font-size: 12px;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      white-space: nowrap;
     }
 
     /* ── PANEL BASE ── */
@@ -362,14 +370,16 @@
 
       <!-- Hero -->
       <div class="hero">
-        <div class="score-col">
-          <div class="score-num" id="score-num">—</div>
-          <div class="out-of-10">OUT OF 10</div>
-          <div class="high-feels" id="high-feels"></div>
+        <div class="hero-main">
+          <div class="score-col">
+            <div class="score-num" id="score-num">—</div>
+            <div class="out-of-10">OUT OF 10</div>
+          </div>
+          <div class="vibe-col">
+            <div class="vibe-text" id="vibe-text"></div>
+          </div>
         </div>
-        <div class="vibe-col">
-          <div class="vibe-text" id="vibe-text"></div>
-        </div>
+        <div class="hero-temp" id="high-feels"></div>
       </div>
 
       <!-- TODAY'S MOOD -->
