@@ -3,189 +3,713 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classic New Wave — Coming Back Soon</title>
+  <title>Classic New Weather — NYC Daily Weather</title>
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#080808" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="CNW" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;1,300&family=Archivo+Black&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --black: #080808;
-      --red: #E8230A;
-      --white: #f0f0f0;
+      --accent: #CC3300;
+      --bg: #0a0a0a;
+      --panel-bg: #0d0d0d;
+      --label-bg: #111;
+      --border: #252525;
+      --text: #f0f0f0;
       --muted: #555;
+      --dim: #888;
     }
 
     html, body {
-      background: var(--black);
-      color: var(--white);
-      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
       min-height: 100vh;
-      overflow: hidden;
     }
 
-    /* film grain */
+    /* grain */
     body::after {
       content: '';
-      position: fixed;
-      inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 999;
-      mix-blend-mode: overlay;
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 999; mix-blend-mode: overlay;
     }
 
     /* scanlines */
     body::before {
       content: '';
-      position: fixed;
-      inset: 0;
-      background: repeating-linear-gradient(
-        to bottom,
-        transparent 0px,
-        transparent 3px,
-        rgba(0,0,0,0.08) 3px,
-        rgba(0,0,0,0.08) 4px
-      );
-      pointer-events: none;
-      z-index: 998;
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px);
+      pointer-events: none; z-index: 998;
     }
 
+    /* ── PAGE LAYOUT ── */
     .page {
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 40px 24px;
-      text-align: center;
+      padding: 24px 16px 40px;
+      min-height: 100vh;
     }
 
-    .logo {
-      font-family: 'Archivo Black', sans-serif;
-      font-size: clamp(13px, 2vw, 16px);
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 48px;
+    /* ── SITE HEADER ── */
+    .site-header {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 20px;
     }
 
-    .logo span {
-      color: var(--red);
-    }
-
-    .headline {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: clamp(36px, 10vw, 96px);
-      font-weight: 400;
-      line-height: 1;
-      letter-spacing: -0.02em;
-      color: var(--white);
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
       margin-bottom: 8px;
     }
 
-    .headline .red {
-      color: var(--red);
+    .logo-svg { flex-shrink: 0; }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      line-height: 1.1;
     }
 
-    .subhead {
-      font-size: clamp(11px, 2vw, 13px);
+    .logo-classic { font-size: 26px; color: var(--text); }
+    .logo-newweather { font-size: 24px; color: var(--text); }
+
+    .tagline {
+      font-size: 11px;
       letter-spacing: 0.2em;
-      text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 56px;
+      text-transform: uppercase;
     }
 
-    .divider {
-      width: 40px;
-      height: 2px;
-      background: var(--red);
-      margin: 0 auto 40px;
+    /* ── CARD ── */
+    .card {
+      width: 100%;
+      max-width: 480px;
+      border: 1px solid var(--accent);
+      background: var(--bg);
     }
 
-    .message {
-      font-size: clamp(13px, 2.5vw, 15px);
-      line-height: 1.7;
-      color: #999;
-      max-width: 420px;
-      margin-bottom: 56px;
-    }
-
-    .message strong {
-      color: var(--white);
-      font-weight: 400;
-    }
-
-    .ig-link {
-      display: inline-flex;
+    /* ── DATE BAR ── */
+    .date-bar {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      padding: 9px 12px;
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border);
       font-size: 12px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--muted);
-      text-decoration: none;
-      border: 1px solid #2a2a2a;
-      padding: 12px 24px;
-      transition: color 0.2s, border-color 0.2s;
+      letter-spacing: 0.1em;
+      color: var(--accent);
     }
 
-    .ig-link:hover {
-      color: var(--white);
-      border-color: var(--red);
+    /* ── HERO ── */
+    .hero {
+      display: flex;
+      align-items: center;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
     }
 
-    .ig-link svg {
-      width: 14px;
-      height: 14px;
-      fill: currentColor;
+    .score-col { flex-shrink: 0; width: 130px; }
+
+    .score-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 130px;
+      line-height: 0.88;
+      color: var(--accent);
     }
 
-    .footer {
-      position: fixed;
-      bottom: 24px;
-      left: 0;
-      right: 0;
-      text-align: center;
+    .out-of-10 {
       font-size: 10px;
       letter-spacing: 0.15em;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .high-feels {
+      font-size: 11px;
+      color: var(--dim);
+      margin-top: 6px;
+      letter-spacing: 0.05em;
+    }
+
+    .vibe-col { flex: 1; }
+
+    .vibe-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(40px, 9vw, 54px);
+      line-height: 1.05;
+      color: var(--text);
+    }
+
+    /* ── PANEL BASE ── */
+    .panel { border-bottom: 1px solid var(--border); }
+
+    .panel-label {
+      background: var(--label-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 5px 10px;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      color: var(--accent);
       text-transform: uppercase;
-      color: #333;
+    }
+
+    /* ── TODAY'S MOOD ── */
+    .mood-body {
+      display: flex;
+      gap: 14px;
+      padding: 14px 12px;
+      align-items: flex-start;
+    }
+
+    .mood-icon {
+      font-size: 52px;
+      line-height: 1;
+      flex-shrink: 0;
+      width: 68px;
+      text-align: center;
+      padding-top: 2px;
+    }
+
+    .mood-text {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #ccc;
+      white-space: pre-wrap;
+      flex: 1;
+    }
+
+    /* ── TODAY'S FIT ── */
+    .fit-body {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px;
+      flex-wrap: wrap;
+    }
+
+    .fit-icons {
+      display: flex;
+      gap: 6px;
+      font-size: 38px;
+      flex-shrink: 0;
+    }
+
+    .fit-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .fit-pill {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      padding: 5px 10px;
+      text-transform: uppercase;
+    }
+
+    /* ── HAIR FORECAST ── */
+    .hair-body {
+      display: flex;
+      gap: 14px;
+      padding: 12px;
+      align-items: center;
+    }
+
+    .hair-icons { flex-shrink: 0; }
+
+    .hair-level {
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .hair-humidity {
+      font-size: 12px;
+      color: var(--dim);
+      margin-bottom: 3px;
+    }
+
+    .hair-sub {
+      font-size: 12px;
+      color: var(--dim);
+      line-height: 1.5;
+    }
+
+    /* ── OUTSIDE METER ── */
+    .meter-body {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      align-items: center;
+    }
+
+    .gauge-wrap { flex-shrink: 0; }
+
+    .meter-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 38px;
+      line-height: 1.1;
+    }
+
+    .meter-sub {
+      font-size: 12px;
+      color: var(--dim);
+      margin-top: 2px;
+    }
+
+    /* ── 5-DAY OUTLOOK ── */
+    .forecast-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+    }
+
+    .forecast-day {
+      padding: 10px 4px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+
+    .forecast-day:last-child { border-right: none; }
+
+    .fc-name {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      margin-bottom: 6px;
+    }
+
+    .fc-icon { font-size: 22px; margin: 4px 0; }
+
+    .fc-temp {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .fc-rain {
+      font-size: 10px;
+      color: #5599dd;
+      margin-top: 3px;
+    }
+
+    .fc-dry {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* ── CHANNEL FOOTER ── */
+    .channel-footer {
+      padding: 14px 12px 12px;
+      text-align: center;
+      border-top: 1px solid var(--accent);
+      background: var(--panel-bg);
+    }
+
+    .channel-name {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .ticker-text {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    /* ── LOADING / ERROR ── */
+    .loading-state {
+      padding: 48px 16px;
+      text-align: center;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      animation: blink 1.2s step-end infinite;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .error-state {
+      padding: 48px 16px;
+      text-align: center;
+      font-size: 12px;
+      color: #cc2200;
+      letter-spacing: 0.1em;
+    }
+
+    .hidden { display: none; }
+
+    /* ── COPYRIGHT ── */
+    .copyright {
+      margin-top: 20px;
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: #2a2a2a;
+      text-align: center;
     }
   </style>
 </head>
 <body>
+<div class="page">
 
-  <div class="page">
-
-    <div class="logo">Classic <span>New</span> Wave &mdash; NYC</div>
-
-    <div class="headline">BE<span class="red">BACK</span><br>SOON.</div>
-
-    <div class="subhead">We're refreshing the experience</div>
-
-    <div class="divider"></div>
-
-    <p class="message">
-      <strong>classicnewweather.com</strong> is temporarily offline while we work on something new.<br><br>
-      Daily NYC weather scores will return shortly.
-    </p>
-
-    <a class="ig-link" href="https://instagram.com/classicnewweather" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+  <!-- SITE HEADER -->
+  <header class="site-header">
+    <div class="logo-wrap">
+      <svg class="logo-svg" viewBox="0 0 64 58" width="56" height="52" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#F0B800"/>
+            <stop offset="100%" stop-color="#CC4400"/>
+          </linearGradient>
+          <clipPath id="sc"><path d="M5 55 A27 27 0 0 1 59 55 Z"/></clipPath>
+        </defs>
+        <path d="M5 55 A27 27 0 0 1 59 55 Z" fill="url(#sg)"/>
+        <rect x="5" y="40" width="54" height="3" fill="#0a0a0a" opacity="0.55" clip-path="url(#sc)"/>
+        <rect x="5" y="46" width="54" height="3" fill="#0a0a0a" opacity="0.55" clip-path="url(#sc)"/>
+        <rect x="5" y="52" width="54" height="3" fill="#0a0a0a" opacity="0.55" clip-path="url(#sc)"/>
+        <rect x="20" y="9" width="5" height="21" fill="#888"/>
+        <rect x="39" y="9" width="5" height="21" fill="#888"/>
+        <path d="M22.5 9 Q32 19 41.5 9" fill="none" stroke="#666" stroke-width="2"/>
+        <rect x="5" y="28" width="54" height="2" fill="#555"/>
       </svg>
-      @classicnewweather
-    </a>
+      <div class="logo-text">
+        <span class="logo-classic">classic</span>
+        <span class="logo-newweather">newweather</span>
+      </div>
+    </div>
+    <div class="tagline">NYC &nbsp;·&nbsp; Daily Weather &nbsp;·&nbsp; AM Edition</div>
+  </header>
 
-  </div>
+  <!-- WEATHER CARD -->
+  <div class="card">
+    <div id="loading" class="loading-state">LOADING FORECAST...</div>
+    <div id="error" class="error-state hidden">FORECAST UNAVAILABLE</div>
 
-  <div class="footer">classicnewweather.com &mdash; NYC weather, scored.</div>
+    <div id="weather" class="hidden">
 
+      <!-- Date bar -->
+      <div class="date-bar">
+        <span id="date-left"></span>
+        <span>NEW YORK CITY</span>
+      </div>
+
+      <!-- Hero -->
+      <div class="hero">
+        <div class="score-col">
+          <div class="score-num" id="score-num">—</div>
+          <div class="out-of-10">OUT OF 10</div>
+          <div class="high-feels" id="high-feels"></div>
+        </div>
+        <div class="vibe-col">
+          <div class="vibe-text" id="vibe-text"></div>
+        </div>
+      </div>
+
+      <!-- TODAY'S MOOD -->
+      <div class="panel">
+        <div class="panel-label">Today's Mood</div>
+        <div class="mood-body">
+          <div class="mood-icon" id="mood-icon"></div>
+          <div class="mood-text" id="synopsis"></div>
+        </div>
+      </div>
+
+      <!-- TODAY'S FIT -->
+      <div class="panel">
+        <div class="panel-label">Today's Fit</div>
+        <div class="fit-body">
+          <div class="fit-icons" id="fit-icons"></div>
+          <div class="fit-pills" id="fit-pills"></div>
+        </div>
+      </div>
+
+      <!-- HAIR FORECAST -->
+      <div class="panel">
+        <div class="panel-label">Hair Forecast</div>
+        <div class="hair-body">
+          <div class="hair-icons">
+            <svg viewBox="0 0 108 54" width="100" height="50" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Afro puff -->
+              <ellipse cx="18" cy="22" rx="13" ry="14" fill="#3a3a3a"/>
+              <ellipse cx="18" cy="38" rx="6" ry="7" fill="#3a3a3a"/>
+              <!-- Twists -->
+              <rect x="38" y="10" width="16" height="22" rx="4" fill="#3a3a3a"/>
+              <rect x="40" y="32" width="4" height="14" rx="2" fill="#3a3a3a"/>
+              <rect x="47" y="32" width="4" height="14" rx="2" fill="#3a3a3a"/>
+              <!-- Straight -->
+              <ellipse cx="84" cy="24" rx="10" ry="12" fill="#3a3a3a"/>
+              <rect x="74" y="30" width="20" height="18" rx="0" fill="#3a3a3a"/>
+              <rect x="72" y="30" width="2" height="14" rx="1" fill="#3a3a3a"/>
+              <rect x="94" y="30" width="2" height="14" rx="1" fill="#3a3a3a"/>
+            </svg>
+          </div>
+          <div>
+            <div class="hair-level" id="hair-level"></div>
+            <div class="hair-humidity" id="hair-humidity"></div>
+            <div class="hair-sub" id="hair-sub"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OUTSIDE METER -->
+      <div class="panel">
+        <div class="panel-label">Outside Meter</div>
+        <div class="meter-body">
+          <div class="gauge-wrap">
+            <svg viewBox="0 0 140 85" width="130" height="80" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#CC2200"/>
+                  <stop offset="50%" stop-color="#CCAA00"/>
+                  <stop offset="100%" stop-color="#22CC44"/>
+                </linearGradient>
+              </defs>
+              <path d="M12 80 A58 58 0 0 1 128 80" fill="none" stroke="#1e1e1e" stroke-width="12" stroke-linecap="round"/>
+              <path id="gauge-arc" d="M12 80 A58 58 0 0 1 128 80" fill="none" stroke="url(#gg)" stroke-width="12" stroke-linecap="round" stroke-dasharray="182" stroke-dashoffset="182"/>
+              <line id="gauge-needle" x1="70" y1="80" x2="70" y2="24" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="70" cy="80" r="5" fill="#2a2a2a" stroke="#555" stroke-width="1"/>
+            </svg>
+          </div>
+          <div>
+            <div class="meter-label" id="meter-label"></div>
+            <div class="meter-sub" id="meter-sub"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5-DAY OUTLOOK -->
+      <div class="panel">
+        <div class="panel-label">5-Day Outlook</div>
+        <div class="forecast-row" id="forecast-row"></div>
+      </div>
+
+      <!-- CHANNEL FOOTER -->
+      <div class="channel-footer">
+        <div class="channel-name">THE CULTURE'S WEATHER CHANNEL</div>
+        <div class="ticker-text">STAY COOL &nbsp;·&nbsp; DRINK WATER &nbsp;·&nbsp; ENJOY THE DAY &nbsp;·&nbsp; CHECK ON YOUR PEOPLE</div>
+      </div>
+
+    </div><!-- /#weather -->
+  </div><!-- /.card -->
+
+  <div class="copyright">&copy; 2026 CLASSIC NEWWEATHER</div>
+
+</div><!-- /.page -->
+
+<script>
+// ── HELPERS ──
+
+function getThemeColor(high, precip) {
+  if (precip >= 70) return '#1177BB';
+  if (precip >= 45) return '#2299AA';
+  if (high >= 89)   return '#FF3300';
+  if (high >= 83)   return '#E85500';
+  if (high >= 78)   return '#CC4400';
+  if (high >= 65)   return '#CC3300';
+  if (high >= 55)   return '#AA7700';
+  if (high >= 50)   return '#3388AA';
+  if (high >= 42)   return '#2266CC';
+  if (high >= 28)   return '#1155BB';
+  return '#0044AA';
+}
+
+function getScoreVibe(score) {
+  const v = {
+    10: 'A PERFECT DAY',  9: 'DAMN NEAR PERFECT',
+    8:  'A SOLID DAY',    7: 'NOT BAD AT ALL',
+    6:  'MANAGEABLE',     5: 'DRESS ACCORDINGLY',
+    4:  'ROUGH OUT THERE',3: 'STAY READY',
+    2:  'TOUGH OUT THERE',1: 'STAY INSIDE'
+  };
+  return v[score] || 'CHECK THE FORECAST';
+}
+
+function getWeatherEmoji(condition) {
+  const c = (condition || '').toLowerCase();
+  if (c.includes('thunder') || c.includes('storm')) return '⛈️';
+  if (c.includes('snow'))                            return '❄️';
+  if (c.includes('sleet') || c.includes('wintry'))  return '🌨️';
+  if (c.includes('rain') || c.includes('drizzle') || c.includes('shower')) return '🌧️';
+  if (c.includes('fog') || c.includes('mist') || c.includes('haze')) return '🌫️';
+  if (c.includes('wind'))                            return '💨';
+  if (c.includes('partly') || c.includes('scattered')) return '⛅';
+  if (c.includes('cloud') || c.includes('overcast') || c.includes('broken')) return '☁️';
+  return '☀️';
+}
+
+function getForecastEmoji(rain) {
+  if (rain >= 70) return '🌧️';
+  if (rain >= 40) return '🌦️';
+  if (rain >= 20) return '⛅';
+  return '☀️';
+}
+
+function getHairStatus(humidity, rain) {
+  if (rain >= 70)     return { level: 'PROTECTIVE STYLES ONLY.', humidity: `${humidity}% humidity`, sub: "It's a wash.", color: '#cc2200' };
+  if (humidity >= 80) return { level: 'SILK PRESS WARNING.',     humidity: `Humidity: ${humidity}%`, sub: 'Proceed at your own risk.', color: '#cc6600' };
+  if (humidity >= 68) return { level: 'FRIZZ ADVISORY.',         humidity: `Humidity: ${humidity}%`, sub: 'Monitor closely.',           color: '#aa8800' };
+  return               { level: 'LOW RISK.',                     humidity: `Humidity: ${humidity}%`, sub: 'Hair looking good today.',    color: '#22aa44' };
+}
+
+function getOutsideMeter(score) {
+  const pct = (score - 1) / 9;
+  if (score >= 9) return { label: 'WE OUTSIDE.',         sub: 'Go enjoy it.',       color: '#22cc44', pct };
+  if (score >= 7) return { label: 'PROBABLY OUTSIDE.',   sub: 'Weather says go.',   color: '#88cc22', pct };
+  if (score >= 5) return { label: 'OUTSIDE IF YOU MUST.',sub: 'Dress for it.',      color: '#ccaa00', pct };
+  if (score >= 3) return { label: 'QUESTIONABLE.',       sub: 'Bring layers.',      color: '#cc6600', pct };
+  return           { label: 'STAY IN.',                  sub: 'Seriously.',         color: '#cc2200', pct };
+}
+
+function getOutfit(high, rain) {
+  const items = [];
+  if (high >= 80)      items.push('TANK');
+  else if (high >= 68) items.push('TEE');
+  else if (high >= 58) items.push('LONG SLEEVE');
+  else if (high >= 48) items.push('HOODIE');
+  else if (high >= 38) items.push('JACKET');
+  else                 items.push('HEAVY COAT');
+
+  if (high >= 68)      items.push('SHORTS');
+  else if (high >= 50) items.push('JEANS');
+  else                 items.push('SWEATS');
+
+  if (rain >= 50) { items.push('WATERPROOF BOOTS'); items.push('UMBRELLA'); }
+  else              items.push('SNEAKERS');
+
+  return items;
+}
+
+function getFitEmoji(item) {
+  const m = {
+    'TANK': '🎽', 'TEE': '👕', 'LONG SLEEVE': '👕', 'HOODIE': '🧥',
+    'JACKET': '🧥', 'HEAVY COAT': '🧥', 'SHORTS': '🩳',
+    'JEANS': '👖', 'SWEATS': '👖', 'SNEAKERS': '👟',
+    'WATERPROOF BOOTS': '🥾', 'UMBRELLA': '☂️'
+  };
+  return m[item] || '👕';
+}
+
+function formatNYCDate() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+  }).formatToParts(now);
+  const g = t => parts.find(p => p.type === t)?.value || '';
+  return `${g('weekday').toUpperCase()}, ${g('month').toUpperCase()} ${g('day')}, ${g('year')}`;
+}
+
+// ── GAUGE ──
+function updateGauge(pct) {
+  const totalLen = Math.PI * 58; // ~182.2
+  const arc = document.getElementById('gauge-arc');
+  const needle = document.getElementById('gauge-needle');
+  arc.style.strokeDasharray = totalLen;
+  arc.style.strokeDashoffset = totalLen * (1 - Math.max(0, Math.min(1, pct)));
+  const angle = Math.PI * (1 - pct);
+  needle.setAttribute('x2', (70 + 52 * Math.cos(angle)).toFixed(1));
+  needle.setAttribute('y2', (80 - 52 * Math.sin(angle)).toFixed(1));
+}
+
+// ── RENDER ──
+function render(data) {
+  const high   = Math.round(data.high ?? data.temp);
+  const precip = data.precip_chance ?? 0;
+  const score  = data.score ?? 5;
+
+  // Dynamic accent color
+  const accent = getThemeColor(high, precip);
+  document.documentElement.style.setProperty('--accent', accent);
+
+  // Date
+  document.getElementById('date-left').textContent = formatNYCDate();
+
+  // Hero
+  document.getElementById('score-num').textContent = score;
+  document.getElementById('vibe-text').textContent  = getScoreVibe(score);
+  document.getElementById('high-feels').textContent =
+    `High ${high}°F · Feels ${Math.round(data.feels_like ?? data.temp)}°F`;
+
+  // Mood
+  document.getElementById('mood-icon').textContent  = getWeatherEmoji(data.condition);
+  document.getElementById('synopsis').textContent   =
+    data.synopsis_approved || `${data.condition || ''} · ${precip}% rain`;
+
+  // Fit
+  const outfit = getOutfit(high, precip);
+  document.getElementById('fit-icons').innerHTML =
+    outfit.slice(0, 3).map(i => `<span>${getFitEmoji(i)}</span>`).join('');
+  document.getElementById('fit-pills').innerHTML =
+    outfit.map(i => `<span class="fit-pill">${i}</span>`).join('');
+
+  // Hair
+  const hair = getHairStatus(data.humidity ?? 50, precip);
+  document.getElementById('hair-level').textContent    = hair.level;
+  document.getElementById('hair-level').style.color    = hair.color;
+  document.getElementById('hair-humidity').textContent = hair.humidity;
+  document.getElementById('hair-sub').textContent      = hair.sub;
+
+  // Outside meter
+  const meter = getOutsideMeter(score);
+  document.getElementById('meter-label').textContent   = meter.label;
+  document.getElementById('meter-label').style.color   = meter.color;
+  document.getElementById('meter-sub').textContent     = meter.sub;
+  updateGauge(meter.pct);
+
+  // Forecast
+  const forecast = Array.isArray(data.forecast) ? data.forecast.slice(0, 5) : [];
+  document.getElementById('forecast-row').innerHTML = forecast.map(f => `
+    <div class="forecast-day">
+      <div class="fc-name">${f.day.toUpperCase()}</div>
+      <div class="fc-icon">${getForecastEmoji(f.rain)}</div>
+      <div class="fc-temp">${Math.round(f.high)}°</div>
+      <div class="${f.rain > 0 ? 'fc-rain' : 'fc-dry'}">${f.rain > 0 ? `${f.rain}%` : 'dry'}</div>
+    </div>
+  `).join('');
+
+  // Show
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('weather').classList.remove('hidden');
+}
+
+// ── INIT ──
+async function init() {
+  try {
+    const res  = await fetch('/.netlify/functions/get-daily');
+    if (!res.ok) throw new Error(`${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    render(data);
+  } catch (err) {
+    console.error('Weather fetch failed:', err);
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('error').classList.remove('hidden');
+  }
+}
+
+init();
+</script>
 </body>
 </html>
