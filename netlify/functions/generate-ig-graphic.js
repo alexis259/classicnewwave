@@ -492,16 +492,22 @@ async function drawDaily(row) {
   ctx.fillStyle = '#0f0f0f';
   ctx.fillRect(0, 0, W, headerH);
   hline(ctx, headerH, '#333', 1, 0, W);
+
+  // Vertically center text using ink bounding box (textBaseline='middle' undershoots for Share Tech Mono)
+  ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#fff';
   ctx.font = '400 36px "Share Tech Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText('classicnewweather', INSET + 22, headerH / 2);
+  ctx.textAlign = 'left';
+  { const hm = ctx.measureText('classicnewweather');
+    ctx.fillText('classicnewweather', INSET + 22, (headerH + hm.actualBoundingBoxAscent - hm.actualBoundingBoxDescent) / 2); }
 
-  // Date — inline, right-aligned, same row as logo
+  // Date — right-aligned, same row
   ctx.fillStyle = '#E8B800';
   ctx.font = '400 32px "Share Tech Mono"';
-  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  ctx.fillText(`${day}  ${dateStr}`, W - INSET - 22, headerH / 2);
+  ctx.textAlign = 'right';
+  { const dl = `${day}  ${dateStr}`;
+    const dm = ctx.measureText(dl);
+    ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
 
   // ── NEW YORK CITY — Bebas Neue, solid orange, vertically centered ──
   ctx.fillStyle = themeColor;
@@ -553,7 +559,7 @@ async function drawDaily(row) {
   const FIT_H_FIXED = SECTION_H;
   const moodH = panelH - FIT_H_FIXED - HAIR_H;
   const fitH  = FIT_H_FIXED;
-  const MOOD_LABEL_H = 56, MOOD_LINE_H = 38, MOOD_FONT = '400 32px "Share Tech Mono"';
+  const MOOD_LABEL_H = 56, MOOD_LINE_H = 34, MOOD_FONT = '400 26px "Share Tech Mono"';
   const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
 
   // Rounded ACCENT outline
@@ -602,7 +608,8 @@ async function drawDaily(row) {
   ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
   ctx.fillStyle = '#fff';
   ctx.font = MOOD_FONT;
-  wrapText(ctx, moodText, sbx + ICON_W + 18, sby + MOOD_LABEL_H, pw - ICON_W - 32, MOOD_LINE_H);
+  const maxMoodLines = Math.floor((moodH - MOOD_LABEL_H - 8) / MOOD_LINE_H);
+  wrapText(ctx, moodText, sbx + ICON_W + 18, sby + MOOD_LABEL_H, pw - ICON_W - 32, MOOD_LINE_H, maxMoodLines);
 
   // ── TODAY'S FIT — individual PNG icons in a horizontal row ──
   const FIT_ICN   = 80, FIT_GAP = 10;
