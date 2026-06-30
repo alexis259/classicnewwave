@@ -65,7 +65,10 @@ Write just the caption text.`;
   });
   const data = await res.json();
   const text = data.content?.[0]?.text?.trim();
-  if (!text) throw new Error('No caption from Claude');
+  if (!text) {
+    console.warn('auto-post-ig: caption generation failed — using fallback');
+    return `${Math.round(row.high)}° in NYC today. score: ${row.score}/10. check the link in bio.\n\n#NYC #NewYork #NewYorkCity #NYCWeather #classicnewweather`;
+  }
   return text;
 }
 
@@ -86,7 +89,7 @@ async function createIGContainer(imageUrl, caption, isStory) {
   return data.id;
 }
 
-async function waitForContainer(containerId, maxWaitMs = 30000) {
+async function waitForContainer(containerId, maxWaitMs = 90000) {
   const interval = 3000;
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
@@ -161,6 +164,15 @@ exports.handler = async (event) => {
     const nycDay = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long' }).format(new Date());
     const templateType = nycDay === 'Monday' ? 'weekly' : 'daily';
 
+    if (row.ig_posted) {
+      console.log('auto-post-ig: already posted today — skipping');
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ skipped: true, reason: 'Already posted today' })
+      };
+    }
+
     // Auto-generate graphic if not already uploaded
     if (!row.story_image_url) {
       console.log(`auto-post-ig: no image queued — generating (${templateType})`);
@@ -171,14 +183,6 @@ exports.handler = async (event) => {
 
     // Use dedicated 4:5 feed image if available, fall back to story image
     const feedImageUrl = row.feed_image_url || row.story_image_url;
-
-    if (row.ig_posted) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ skipped: true, reason: 'Already posted today' })
-      };
-    }
 
     const caption = await generateCaption(row);
 
