@@ -436,6 +436,9 @@ async function drawDaily(row) {
   let weatherIconImg = null;
   try { weatherIconImg = await loadImage(path.join(__dirname, `assets/${getWeatherIconFile(row.condition)}`)); } catch {}
 
+  let hairIconImg = null;
+  try { hairIconImg = await loadImage(path.join(__dirname, `assets/${getHairIconFile(row.humidity, row.precip_chance)}`)); } catch {}
+
   const themeColor = getThemeColor(high, row.precip_chance);
 
   const fitItems = getRepresentativeFitItems(outfit);
@@ -547,13 +550,15 @@ async function drawDaily(row) {
   const SBR = 12;
   const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
 
-  // Dynamic mood height — expands to fit synopsis, fitH gets the remainder (min 200px)
+  // Panel split: MOOD (dynamic) / FIT (fixed 140px) / HAIR (fixed 140px)
+  const HAIR_H = 140;
+  const FIT_H_FIXED = 140;
   const MOOD_LABEL_H = 68, MOOD_LINE_H = 44, MOOD_FONT = '400 36px "Share Tech Mono"';
   const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
   ctx.font = MOOD_FONT;
   const moodLineCount = measureLines(ctx, moodText, pw - ICON_W - 32);
-  const moodH = Math.min(panelH - 200, MOOD_LABEL_H + moodLineCount * MOOD_LINE_H + 24);
-  const fitH  = panelH - moodH;
+  const moodH = Math.min(panelH - FIT_H_FIXED - HAIR_H, MOOD_LABEL_H + moodLineCount * MOOD_LINE_H + 24);
+  const fitH  = panelH - HAIR_H - moodH;
 
   // Rounded ACCENT outline
   ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
@@ -632,6 +637,30 @@ async function drawDaily(row) {
   ctx.fillStyle = '#fff';
   ctx.font = MOOD_FONT;
   ctx.fillText(fitItems.join(' · '), sbx + ICON_W + 18, divY + MOOD_LABEL_H);
+
+  // ── HAIR FORECAST ──
+  const hairDivY = divY + fitH;
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sbx, hairDivY); ctx.lineTo(sbx + sbw, hairDivY); ctx.stroke();
+
+  const hair = getHairStatus(row.humidity, row.precip_chance);
+  const hairCy = hairDivY + HAIR_H / 2;
+
+  if (hairIconImg) {
+    const hicnSz = 100;
+    ctx.drawImage(hairIconImg, sbx + ICON_W / 2 - hicnSz / 2, hairCy - hicnSz / 2, hicnSz, hicnSz);
+  }
+
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 36px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('HAIR FORECAST', sbx + ICON_W + 18, hairDivY + 12);
+  ctx.fillStyle = hair.color;
+  ctx.font = '400 28px "Share Tech Mono"';
+  ctx.fillText(hair.level, sbx + ICON_W + 18, hairDivY + 58);
+  ctx.fillStyle = '#777';
+  ctx.font = '400 24px "Share Tech Mono"';
+  ctx.fillText(`HUM: ${row.humidity}%  ·  ${hair.sub}`, sbx + ICON_W + 18, hairDivY + 98);
 
   // ── TICKER — broadcast bar, INSIDE card border ──
   ctx.fillStyle = themeColor;
