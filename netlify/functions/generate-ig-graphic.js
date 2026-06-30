@@ -77,10 +77,10 @@ function getHairStatus(humidity, rain) {
 }
 
 function getHairIconFile(humidity, rain) {
-  if (rain > 60 || humidity >= 80) return 'cornrows.png';
-  if (rain > 40 || humidity >= 70) return 'afro-puff.png';
-  if (rain > 25 || humidity >= 55) return 'wash-and-go.png';
-  return 'silk-press.png';
+  if (rain > 60 || humidity >= 80) return 'cornrows.png';    // SILK PRESS WARNING → go protective
+  if (rain > 40 || humidity >= 70) return 'afro-puff.png';   // HIGH HUMIDITY ALERT → protective
+  if (rain > 25 || humidity >= 55) return 'silk-press.png';  // PROCEED WITH CAUTION → silk press at risk
+  return 'wash-and-go.png';                                   // WASH & GO APPROVED → it's that kinda day
 }
 
 // Returns 3 icons for the full hair graphic panel

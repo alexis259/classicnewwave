@@ -473,10 +473,10 @@ function getForecastEmoji(rain) {
 }
 
 function getHairIconFile(humidity, rain) {
-  if (rain >= 70)     return 'cornrows.png';    // protective styles only
-  if (humidity >= 80) return 'afro-puff.png';   // silk press warning
-  if (humidity >= 68) return 'wash-and-go.png'; // frizz advisory
-  return 'silk-press.png';                      // low risk
+  if (rain > 60 || humidity >= 80) return 'cornrows.png';    // SILK PRESS WARNING → go protective
+  if (rain > 40 || humidity >= 70) return 'afro-puff.png';   // HIGH HUMIDITY ALERT → protective
+  if (rain > 25 || humidity >= 55) return 'silk-press.png';  // PROCEED WITH CAUTION → silk press at risk
+  return 'wash-and-go.png';                                   // WASH & GO APPROVED → it's that kinda day
 }
 
 function getHairStatus(humidity, rain) {
