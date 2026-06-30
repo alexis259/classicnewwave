@@ -158,12 +158,18 @@ exports.handler = async (event) => {
 
     // No row yet — nobody has hit the site today. Trigger get-daily to create it.
     if (!rows || rows.length === 0) {
-      console.log('auto-post-ig: no row found — triggering get-daily to fetch weather');
       const siteUrl = process.env.URL || process.env.DEPLOY_URL;
+      console.log(`auto-post-ig: no row for ${dateKey} — triggering get-daily (siteUrl=${siteUrl})`);
       if (siteUrl) {
-        await fetch(`${siteUrl}/.netlify/functions/get-daily`);
+        const gdRes = await fetch(`${siteUrl}/.netlify/functions/get-daily`);
+        console.log(`auto-post-ig: get-daily responded ${gdRes.status}`);
         rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
+        console.log(`auto-post-ig: re-fetch found ${rows?.length ?? 0} row(s)`);
+      } else {
+        console.error('auto-post-ig: URL env var not set — cannot trigger get-daily');
       }
+    } else {
+      console.log(`auto-post-ig: found row for ${dateKey}`);
     }
 
     if (!rows || rows.length === 0) {
