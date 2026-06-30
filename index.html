@@ -395,20 +395,7 @@
         <div class="panel-label">Hair Forecast</div>
         <div class="hair-body">
           <div class="hair-icons">
-            <svg viewBox="0 0 108 54" width="100" height="50" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- Afro puff -->
-              <ellipse cx="18" cy="22" rx="13" ry="14" fill="#3a3a3a"/>
-              <ellipse cx="18" cy="38" rx="6" ry="7" fill="#3a3a3a"/>
-              <!-- Twists -->
-              <rect x="38" y="10" width="16" height="22" rx="4" fill="#3a3a3a"/>
-              <rect x="40" y="32" width="4" height="14" rx="2" fill="#3a3a3a"/>
-              <rect x="47" y="32" width="4" height="14" rx="2" fill="#3a3a3a"/>
-              <!-- Straight -->
-              <ellipse cx="84" cy="24" rx="10" ry="12" fill="#3a3a3a"/>
-              <rect x="74" y="30" width="20" height="18" rx="0" fill="#3a3a3a"/>
-              <rect x="72" y="30" width="2" height="14" rx="1" fill="#3a3a3a"/>
-              <rect x="94" y="30" width="2" height="14" rx="1" fill="#3a3a3a"/>
-            </svg>
+            <img id="hair-icon" src="" alt="" width="64" height="64" style="object-fit:contain;" />
           </div>
           <div>
             <div class="hair-level" id="hair-level"></div>
@@ -483,6 +470,13 @@ function getForecastEmoji(rain) {
   if (rain >= 40) return '🌦️';
   if (rain >= 20) return '⛅';
   return '☀️';
+}
+
+function getHairIconFile(humidity, rain) {
+  if (rain >= 70)     return 'cornrows.png';    // protective styles only
+  if (humidity >= 80) return 'afro-puff.png';   // silk press warning
+  if (humidity >= 68) return 'wash-and-go.png'; // frizz advisory
+  return 'silk-press.png';                      // low risk
 }
 
 function getHairStatus(humidity, rain) {
@@ -566,6 +560,7 @@ function render(data) {
 
   // Hair
   const hair = getHairStatus(data.humidity ?? 50, precip);
+  document.getElementById('hair-icon').src = `/assets/hair/${getHairIconFile(data.humidity ?? 50, precip)}`;
   document.getElementById('hair-level').textContent    = hair.level;
   document.getElementById('hair-level').style.color    = hair.color;
   document.getElementById('hair-humidity').textContent = hair.humidity;

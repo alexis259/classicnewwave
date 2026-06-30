@@ -76,6 +76,21 @@ function getHairStatus(humidity, rain) {
   return                                    { level: 'WASH & GO APPROVED',   color: '#5AAA40', sub: "YOU'RE GOOD.",               rec: 'SILK PRESS  •  BLOWOUT  •  ANY STYLE' };
 }
 
+function getHairIconFile(humidity, rain) {
+  if (rain > 60 || humidity >= 80) return 'cornrows.png';
+  if (rain > 40 || humidity >= 70) return 'afro-puff.png';
+  if (rain > 25 || humidity >= 55) return 'wash-and-go.png';
+  return 'silk-press.png';
+}
+
+// Returns 3 icons for the full hair graphic panel
+function getHairIconFilesForDisplay(humidity, rain) {
+  if (rain > 60 || humidity >= 80) return ['cornrows.png', 'bantu-knots.png', 'afro-puff.png'];
+  if (rain > 40 || humidity >= 70) return ['afro-puff.png', 'wash-and-go.png', 'bantu-knots.png'];
+  if (rain > 25 || humidity >= 55) return ['wash-and-go.png', 'afro-puff.png', 'silk-press.png'];
+  return ['silk-press.png', 'wash-and-go.png', 'afro-puff.png'];
+}
+
 function getOutsideMeter(score) {
   if (score >= 8) return { label: 'WE OUTSIDE.', sub: 'Go enjoy it.', pct: 1.0, color: '#3AAA50' };
   if (score >= 6) return { label: 'GO FOR IT.',  sub: 'Conditions solid.', pct: 0.75, color: '#8AAA20' };
@@ -1102,32 +1117,19 @@ async function drawHair(row) {
   ctx.fillStyle = '#f0f0f0'; ctx.font = '400 26px "Share Tech Mono"';
   wrapText(ctx, hair.rec, CX, ALT_Y + 44, icnAreaX - CX - 20, 30, 2);
 
-  // Hair icons — crop from sprite sheet, remove white bg via pixel manipulation
-  if (iconsSheet) {
-    const idxs  = getHairIconIndices(hair);
-    const cellW = iconsSheet.width / 4;
-    const cellH = iconsSheet.height / 4;
-    const ICN_SZ    = 76;
-    const icnGap    = 12;
-    const totalIconW = 3 * ICN_SZ + 2 * icnGap;
+  // Hair icons — individual PNGs (already have transparent backgrounds)
+  const hairIconFiles = getHairIconFilesForDisplay(row.humidity, row.precip_chance);
+  const loadedHairImgs = await Promise.all(
+    hairIconFiles.map(async f => { try { return await loadImage(path.join(__dirname, `assets/${f}`)); } catch { return null; } })
+  );
+  const validHairImgs = loadedHairImgs.filter(Boolean);
+  if (validHairImgs.length > 0) {
+    const ICN_SZ = 76, icnGap = 12;
+    const totalIconW = validHairImgs.length * ICN_SZ + (validHairImgs.length - 1) * icnGap;
     const icnStartX  = icnAreaX + (ICN_AREA_W - totalIconW) / 2;
     const icnY       = ALT_Y + (ALT_H - ICN_SZ) / 2;
-
-    idxs.slice(0, 3).forEach((idx, i) => {
-      const srcX  = (idx % 4) * cellW;
-      const srcY  = Math.floor(idx / 4) * cellH;
-      const destX = icnStartX + i * (ICN_SZ + icnGap);
-      // Render to offscreen canvas, strip white background
-      const ic   = createCanvas(ICN_SZ, ICN_SZ);
-      const ictx = ic.getContext('2d');
-      ictx.drawImage(iconsSheet, srcX, srcY, cellW, cellH * 0.78, 0, 0, ICN_SZ, ICN_SZ);
-      const d = ictx.getImageData(0, 0, ICN_SZ, ICN_SZ);
-      for (let pi = 0; pi < d.data.length; pi += 4) {
-        if (d.data[pi] > 200 && d.data[pi + 1] > 200 && d.data[pi + 2] > 200)
-          d.data[pi + 3] = 0;
-      }
-      ictx.putImageData(d, 0, 0);
-      ctx.drawImage(ic, destX, icnY);
+    validHairImgs.forEach((img, i) => {
+      ctx.drawImage(img, icnStartX + i * (ICN_SZ + icnGap), icnY, ICN_SZ, ICN_SZ);
     });
   }
 
