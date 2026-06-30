@@ -739,6 +739,219 @@
     </div>
   </div>
 
+  <!-- DYNAMIC THEME COLOR -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Dynamic Theme Color</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">shared between web app + IG graphic</div>
+    </div>
+    <div class="section-body">
+      <div class="doc-p">The accent color updates automatically based on today's high temperature and rain chance. It drives <code>--accent</code> on the web app and the graphic border/header/ticker color on IG posts. Rain overrides temp.</div>
+      <table class="score-table">
+        <thead><tr><th>Condition</th><th>Color</th><th>Hex</th></tr></thead>
+        <tbody>
+          <tr><td>Rain ≥ 70%</td><td style="color:#1177BB">Heavy Rain</td><td>#1177BB</td></tr>
+          <tr><td>Rain ≥ 45%</td><td style="color:#2299AA">Rain</td><td>#2299AA</td></tr>
+          <tr><td>High ≥ 89°F</td><td style="color:#FF3300">Brutal Heat</td><td>#FF3300</td></tr>
+          <tr><td>High ≥ 83°F</td><td style="color:#E85500">Hot</td><td>#E85500</td></tr>
+          <tr><td>High ≥ 78°F</td><td style="color:#CC4400">Warm</td><td>#CC4400</td></tr>
+          <tr><td>High ≥ 65°F</td><td style="color:#CC3300">Perfect</td><td>#CC3300</td></tr>
+          <tr><td>High ≥ 55°F</td><td style="color:#AA7700">Cool</td><td>#AA7700</td></tr>
+          <tr><td>High ≥ 50°F</td><td style="color:#3388AA">Chilly</td><td>#3388AA</td></tr>
+          <tr><td>High ≥ 42°F</td><td style="color:#2266CC">Cold</td><td>#2266CC</td></tr>
+          <tr><td>High ≥ 28°F</td><td style="color:#1155BB">Cold AF</td><td>#1155BB</td></tr>
+          <tr><td>Below 28°F</td><td style="color:#0044AA">Brutal Cold</td><td>#0044AA</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- HAIR FORECAST -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Hair Forecast</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">web app + daily IG graphic</div>
+    </div>
+    <div class="section-body">
+      <div class="doc-p">Hair Forecast uses humidity % and rain chance % to determine risk level and recommend protective styles. An icon is selected from 5 PNGs stored in <code>assets/hair/</code> (web) and <code>netlify/functions/assets/</code> (server).</div>
+
+      <div class="doc-label">Status Levels (humidity / rain thresholds)</div>
+      <table class="score-table">
+        <thead><tr><th>Condition</th><th>Level</th><th>Icon</th></tr></thead>
+        <tbody>
+          <tr><td>Rain &gt;60% or Humidity ≥ 80%</td><td style="color:#E8C500">SILK PRESS WARNING</td><td>cornrows.png</td></tr>
+          <tr><td>Rain &gt;40% or Humidity ≥ 70%</td><td style="color:#E88000">HIGH HUMIDITY ALERT</td><td>afro-puff.png</td></tr>
+          <tr><td>Rain &gt;25% or Humidity ≥ 55%</td><td style="color:#C8A000">PROCEED WITH CAUTION</td><td>wash-and-go.png</td></tr>
+          <tr><td>Everything else</td><td style="color:#5AAA40">WASH &amp; GO APPROVED</td><td>silk-press.png</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Icons</div>
+      <div class="rule-list">
+        <div class="rule-item cyan">5 PNGs: <code>cornrows.png</code> <code>afro-puff.png</code> <code>wash-and-go.png</code> <code>silk-press.png</code> <code>bantu-knots.png</code></div>
+        <div class="rule-item cyan">White backgrounds removed via pixel loop (r,g,b &gt; 210 → alpha = 0) on canvas ImageData</div>
+        <div class="rule-item">Web app uses single icon from <code>/assets/hair/</code>. IG daily graphic uses single icon from <code>netlify/functions/assets/</code>.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEB APP -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Web App</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">classicnewweather.com · index.html</div>
+    </div>
+    <div class="section-body">
+      <div class="doc-label">Sections</div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-text"><strong>Header</strong> — "classicnewweather" in white Share Tech Mono. Tagline: DAILY WEATHER · DON'T GET CAUGHT SLIPPIN. No logo.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-text"><strong>Score + Vibe</strong> — large score number, headline label, today's approved synopsis below. Accent color applied to score.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-text"><strong>TODAY'S MOOD</strong> — current temp, high, feels like (all on one line), condition, rain chance. Weather emoji.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-text"><strong>TODAY'S FIT</strong> — outfit recommendation based on high temp. Daytime only (no night split on web).</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-text"><strong>HAIR FORECAST</strong> — status level, humidity %, recommendation string, hair icon image.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">6</div>
+          <div class="flow-text"><strong>5-Day Outlook</strong> — next 5 days from <code>forecast</code> JSON field. Shows day, high/low, emoji.</div>
+        </div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Key Behaviors</div>
+      <div class="rule-list">
+        <div class="rule-item cyan"><strong>--accent CSS var</strong> — set by <code>getThemeColor(high, precipChance)</code> on load. All accent borders, score color, section headers update automatically.</div>
+        <div class="rule-item"><strong>Cache</strong> — <code>localStorage</code> under <code>cnw_weather</code>, key <code>v4</code>, 30-minute TTL.</div>
+        <div class="rule-item yellow"><strong>Synopsis</strong> — only shows if <code>approved = true</code> on today's row. Falls back to "today's vibe dropping soon…"</div>
+        <div class="rule-item"><strong>Hair icon</strong> — loaded from <code>/assets/hair/[filename]</code> based on humidity + rain. Static files served from repo root.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IG AUTOMATION -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">IG Automation</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">auto-post-ig.js · cron 7:30 AM EDT</div>
+    </div>
+    <div class="section-body">
+
+      <div class="doc-label">Pipeline</div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-text"><strong>Cron fires</strong> — Netlify scheduled function at <code>30 11 * * *</code> UTC = 7:30 AM EDT (summer). Change to <code>30 12 * * *</code> in winter (EST).
+            <div class="flow-sub">Also triggerable manually: POST to <code>/.netlify/functions/auto-post-ig</code> with <code>{ "password": "..." }</code></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-text"><strong>Check ig_posted</strong> — fetch today's Supabase row. If <code>ig_posted = true</code>, exit immediately (no graphic rendered).
+            <div class="flow-sub">Guard fires before any expensive work to avoid wasted renders on re-runs.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-text"><strong>Generate graphic</strong> — if no <code>story_image_url</code> on the row, calls <code>generateAndUpload()</code>. Monday → weekly template, all other days → daily template.
+            <div class="flow-sub">Uploads feed (1080×1350) and story (1080×1920) PNGs to Supabase storage. Saves URLs to daily row.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-text"><strong>Generate caption</strong> — Claude Haiku writes 2–3 line caption with score, vibe, and hashtags. If Anthropic fails, a fallback caption is used so the post still goes out.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-text"><strong>Create Meta containers</strong> — POST to <code>/{ig_user_id}/media</code> for feed (4:5, with caption) and story (9:16, no caption) in parallel.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">6</div>
+          <div class="flow-text"><strong>Wait for FINISHED</strong> — poll <code>/{container_id}?fields=status_code</code> every 3 seconds, up to 90 seconds per container. Throws if status = ERROR or timeout.
+            <div class="flow-sub">This step is required — publishing before FINISHED returns "MEDIA ID IS NOT AVAILABLE" error.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">7</div>
+          <div class="flow-text"><strong>Publish</strong> — POST to <code>/{ig_user_id}/media_publish</code> for feed and story in parallel.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">8</div>
+          <div class="flow-text"><strong>Record in Supabase</strong> — PATCH daily row: <code>ig_posted = true</code>, <code>ig_post_id</code>, <code>ig_caption</code>, <code>ig_posted_at</code>.</div>
+        </div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Notes &amp; Gotchas</div>
+      <div class="rule-list">
+        <div class="rule-item yellow"><strong>Token expiry</strong> — <code>META_PAGE_ACCESS_TOKEN</code> expires every ~60 days. Replace with a never-expiring system user token before Aug 2026.</div>
+        <div class="rule-item"><strong>If posting fails</strong> — <code>ig_posted</code> stays false. Re-run manually from admin panel; if the graphic was already generated it won't re-render, just re-posts.</div>
+        <div class="rule-item green"><strong>Safe to deploy without Meta creds</strong> — if <code>META_IG_USER_ID</code> or <code>META_PAGE_ACCESS_TOKEN</code> env vars are missing, the function exits with <code>skipped: true</code> and no error.</div>
+        <div class="rule-item">Env vars needed: <code>META_IG_USER_ID</code> <code>META_PAGE_ACCESS_TOKEN</code> <code>ANTHROPIC_KEY</code> <code>SUPABASE_URL</code> <code>SUPABASE_SERVICE_KEY</code> <code>ADMIN_PW</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IG GRAPHIC GENERATOR -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">IG Graphic Generator</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">generate-ig-graphic.js · @napi-rs/canvas</div>
+    </div>
+    <div class="section-body">
+
+      <div class="doc-label">Templates</div>
+      <table class="fn-table">
+        <thead><tr><th>Type</th><th>Dimensions</th><th>When Used</th></tr></thead>
+        <tbody>
+          <tr><td class="fn-name">daily</td><td>1080×1350 (4:5)</td><td>Every day except Monday</td></tr>
+          <tr><td class="fn-name">weekly</td><td>1080×1350 (4:5)</td><td>Mondays — shows 5-day forecast cards</td></tr>
+          <tr><td class="fn-name">alert</td><td>1080×1350 (4:5)</td><td>Admin on-demand — extreme weather alerts</td></tr>
+          <tr><td class="fn-name">hair</td><td>1080×1350 (4:5)</td><td>Admin on-demand — dedicated hair forecast card</td></tr>
+          <tr><td class="fn-name">teaser</td><td>1080×1350 (4:5)</td><td>Admin on-demand — countdown/teaser graphic</td></tr>
+          <tr><td class="fn-name">dashboard</td><td>1080×1350 (4:5)</td><td>Admin on-demand</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Daily Graphic Layout</div>
+      <div class="rule-list">
+        <div class="rule-item cyan"><strong>Header</strong> — 0–135px. "classicnewweather" left, date right.</div>
+        <div class="rule-item cyan"><strong>City + Score</strong> — 135–680px. "NEW YORK CITY" in Bebas Neue + theme color. Score digit (320px font) optically centered. HIGH °F and OUT OF 10 labels.</div>
+        <div class="rule-item cyan"><strong>3-section panel</strong> — 680–1215px (535px total). Equal thirds (~178px each): TODAY'S MOOD / TODAY'S FIT / HAIR FORECAST. Left col (260px) = icon. Right col = label + text.</div>
+        <div class="rule-item cyan"><strong>Ticker</strong> — 1215–1350px. Solid accent color bar with broadcast text.</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Story Wrapper</div>
+      <div class="rule-list">
+        <div class="rule-item">Feed graphic (1080×1350) is painted onto a 1080×1920 canvas with dark background, centered vertically. Stored separately as <code>{date}-feed.png</code> vs <code>{date}.png</code>.</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Fonts</div>
+      <div class="rule-list">
+        <div class="rule-item"><code>Bebas Neue</code> — score number, "NEW YORK CITY" headline</div>
+        <div class="rule-item"><code>Share Tech Mono</code> — labels, body text throughout</div>
+        <div class="rule-item"><code>Barlow Condensed</code> — fallback / secondary text</div>
+        <div class="rule-item yellow">All fonts are loaded from <code>netlify/functions/fonts/</code> via <code>GlobalFonts.registerFromPath()</code> at cold start. Must be listed in <code>included_files</code> in netlify.toml.</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Image Storage</div>
+      <div class="rule-list">
+        <div class="rule-item">PNGs uploaded to Supabase storage bucket <code>story-images</code> via service key. Public URL format: <code>{SUPABASE_URL}/storage/v1/object/public/story-images/{filename}</code></div>
+        <div class="rule-item green">Upload uses <code>x-upsert: true</code> — re-generating overwrites the same filename in place.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- NETLIFY FUNCTIONS -->
   <div class="section">
     <div class="section-header">
@@ -759,6 +972,16 @@
             <td class="fn-name">get-daily.js</td>
             <td class="fn-caller">Both pages</td>
             <td>Fetches/caches weather from OWM, runs scoring on first insert, auto-generates synopsis after 9AM if missing</td>
+          </tr>
+          <tr>
+            <td class="fn-name">generate-ig-graphic.js</td>
+            <td class="fn-caller">Admin panel + auto-post-ig</td>
+            <td>Renders canvas PNG for 6 templates (daily, weekly, alert, hair, teaser, dashboard). Uploads feed + story PNGs to Supabase storage. Exports <code>generateAndUpload()</code> for cron use.</td>
+          </tr>
+          <tr>
+            <td class="fn-name">auto-post-ig.js</td>
+            <td class="fn-caller">Netlify cron + Admin panel</td>
+            <td>Scheduled at 7:30 AM EDT. Orchestrates: ig_posted check → graphic gen → caption gen → Meta container → waitForContainer → publish feed + story → record in Supabase.</td>
           </tr>
           <tr>
             <td class="fn-name">generate-synopsis.js</td>
@@ -807,6 +1030,8 @@
         <div class="rule-item cyan">Weather fields: <code>temp</code> <code>high</code> <code>low</code> <code>feels_like</code> <code>condition</code> <code>humidity</code> <code>precip_chance</code> <code>wind_speed</code> <code>forecast</code> (JSON)</div>
         <div class="rule-item cyan">Score fields: <code>score</code> <code>penalties</code> (array)</div>
         <div class="rule-item cyan">Synopsis fields: <code>synopsis_draft</code> <code>synopsis_approved</code> <code>approved</code> (bool)</div>
+        <div class="rule-item cyan">Image fields: <code>feed_image_url</code> (1080×1350 4:5 PNG) · <code>story_image_url</code> (1080×1920 9:16 PNG). Set by <code>generateAndUpload()</code>, persisted so the cron re-uses them without re-rendering.</div>
+        <div class="rule-item cyan">IG fields: <code>ig_posted</code> (bool) · <code>ig_post_id</code> · <code>ig_caption</code> · <code>ig_posted_at</code></div>
         <div class="rule-item cyan">Meta: <code>updated_at</code></div>
       </div>
 
