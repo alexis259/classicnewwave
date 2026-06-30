@@ -477,19 +477,16 @@ async function drawDaily(row) {
   }
 
 
-  // ── SECTION Y POSITIONS — 10/15/30/35/10% of 1350px ──
-  const hY       = 0;
-  const headerH  = 135;   // 10%  → 0–135
-  const cityY    = 135;   // 15%  → 135–337
-  const cityH    = 202;
-  const scoreTop = 337;   // 30%  → 337–780 (extended slightly for OUT OF 10 breathing room)
-  const scoreH   = 443;
-  const TICKER_H = 135;   // 10%  → 1215–1350
+  // ── SECTION Y POSITIONS ──
+  const headerH  = 135;   // 0–135
+  const cityY    = 135;   // 135–320
+  const scoreTop = 320;   // 320–680
+  const TICKER_H = 135;   // 1215–1350
   const tickerY  = 1215;
-  const panelTop = 780;   // 35%  → 780–1215
+  const panelTop = 680;   // 680–1215 → 535px for 3 equal sections
   const panelBot = tickerY;
-  const panelH   = panelBot - panelTop;   // 435
-  const outOf10Y = scoreTop + 377;        // = 714, leaving 66px gap before panel
+  const panelH   = panelBot - panelTop;   // 535
+  const outOf10Y = scoreTop + 290;        // = 610, ~70px gap before panel
 
   // ── HEADER ──
   ctx.fillStyle = '#0f0f0f';
@@ -522,7 +519,7 @@ async function drawDaily(row) {
 
   // Score — optically centered both axes using actual ink bounding box
   ctx.fillStyle = themeColor;
-  ctx.font = '400 400px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.font = '400 320px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const scoreStr = String(score);
   const sm = ctx.measureText(scoreStr);
@@ -550,15 +547,14 @@ async function drawDaily(row) {
   const SBR = 12;
   const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
 
-  // Panel split: MOOD (dynamic) / FIT (fixed 140px) / HAIR (fixed 140px)
-  const HAIR_H = 140;
-  const FIT_H_FIXED = 140;
-  const MOOD_LABEL_H = 68, MOOD_LINE_H = 44, MOOD_FONT = '400 36px "Share Tech Mono"';
+  // Panel split: equal thirds — MOOD / FIT / HAIR
+  const SECTION_H = Math.floor(panelH / 3);  // ~178px each
+  const HAIR_H = SECTION_H;
+  const FIT_H_FIXED = SECTION_H;
+  const moodH = panelH - FIT_H_FIXED - HAIR_H;
+  const fitH  = FIT_H_FIXED;
+  const MOOD_LABEL_H = 56, MOOD_LINE_H = 38, MOOD_FONT = '400 32px "Share Tech Mono"';
   const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
-  ctx.font = MOOD_FONT;
-  const moodLineCount = measureLines(ctx, moodText, pw - ICON_W - 32);
-  const moodH = Math.min(panelH - FIT_H_FIXED - HAIR_H, MOOD_LABEL_H + moodLineCount * MOOD_LINE_H + 24);
-  const fitH  = panelH - HAIR_H - moodH;
 
   // Rounded ACCENT outline
   ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
