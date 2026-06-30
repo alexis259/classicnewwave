@@ -389,6 +389,21 @@ function drawOutfitIcon(ctx, cx, cy) {
   ctx.restore();
 }
 
+// ── THEME COLOR — dynamic accent based on temp + rain ──
+function getThemeColor(high, precipChance) {
+  if (precipChance >= 70) return '#1177BB';   // heavy rain — blue
+  if (precipChance >= 45) return '#2299AA';   // rain — teal
+  if (high >= 89) return '#FF3300';           // brutal heat — bright red
+  if (high >= 83) return '#E85500';           // hot — burnt orange
+  if (high >= 78) return '#CC4400';           // warm — orange
+  if (high >= 65) return '#CC3300';           // perfect — red-orange
+  if (high >= 55) return '#AA7700';           // cool — amber
+  if (high >= 50) return '#3388AA';           // chilly — slate blue
+  if (high >= 42) return '#2266CC';           // cold — blue
+  if (high >= 28) return '#1155BB';           // cold af — deep blue
+  return '#0044AA';                           // freezing/brutal — cold blue
+}
+
 // ── TEMPLATE 1: DAILY ──
 
 async function drawDaily(row) {
@@ -405,6 +420,8 @@ async function drawDaily(row) {
 
   let weatherIconImg = null;
   try { weatherIconImg = await loadImage(path.join(__dirname, `assets/${getWeatherIconFile(row.condition)}`)); } catch {}
+
+  const themeColor = getThemeColor(high, row.precip_chance);
 
   const fitItems = getRepresentativeFitItems(outfit);
   const fitIconImgs = await Promise.all(fitItems.map(async item => {
@@ -472,13 +489,13 @@ async function drawDaily(row) {
   ctx.fillText(`${day}  ${dateStr}`, W - INSET - 22, headerH / 2);
 
   // ── NEW YORK CITY — Bebas Neue, solid orange, vertically centered ──
-  ctx.fillStyle = '#cc4400';
+  ctx.fillStyle = themeColor;
   ctx.font = '400 152px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('NEW YORK CITY', W / 2, cityY + 46);
 
   // ── SCORE SECTION: rule · HIGH · score number — equal spacing ──
-  ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(INSET + 20, scoreTop + 3); ctx.lineTo(W - INSET - 20, scoreTop + 3); ctx.stroke();
   ctx.fillStyle = '#fff';
   ctx.font = '400 32px "Share Tech Mono"';
@@ -486,7 +503,7 @@ async function drawDaily(row) {
   ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
 
   // Score — optically centered both axes using actual ink bounding box
-  ctx.fillStyle = '#cc4400';
+  ctx.fillStyle = themeColor;
   ctx.font = '400 400px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const scoreStr = String(score);
@@ -524,7 +541,7 @@ async function drawDaily(row) {
   const fitH  = panelH - moodH;
 
   // Rounded ACCENT outline
-  ctx.strokeStyle = ACCENT; ctx.lineWidth = 2;
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(sbx + SBR, sby); ctx.lineTo(sbx + sbw - SBR, sby);
   ctx.arcTo(sbx + sbw, sby, sbx + sbw, sby + SBR, SBR);
@@ -543,7 +560,7 @@ async function drawDaily(row) {
 
   // ACCENT horizontal divider between mood and fit sections
   const divY = sby + moodH;
-  ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(sbx, divY); ctx.lineTo(sbx + sbw, divY); ctx.stroke();
 
   // ── TODAY'S MOOD — weather icon from individual PNG ──
@@ -563,7 +580,7 @@ async function drawDaily(row) {
     weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 160, row.condition);
   }
 
-  ctx.fillStyle = '#cc4400';
+  ctx.fillStyle = themeColor;
   ctx.font = '400 36px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
@@ -593,7 +610,7 @@ async function drawDaily(row) {
     drawOutfitIcon(ctx, sbx + ICON_W / 2, divY + fitH / 2);
   }
 
-  ctx.fillStyle = '#cc4400';
+  ctx.fillStyle = themeColor;
   ctx.font = '400 36px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, divY + 14);
@@ -602,7 +619,7 @@ async function drawDaily(row) {
   ctx.fillText(fitItems.join(' · '), sbx + ICON_W + 18, divY + MOOD_LABEL_H);
 
   // ── TICKER — broadcast bar, INSIDE card border ──
-  ctx.fillStyle = ACCENT;
+  ctx.fillStyle = themeColor;
   ctx.fillRect(sbx, tickerY, sbw, TICKER_H);
   ctx.fillStyle = '#fff';
   ctx.font = '400 52px "Share Tech Mono"';
@@ -626,6 +643,8 @@ async function drawWeekly(row) {
   const meter = getOutsideMeter(score);
   const forecast = Array.isArray(row.forecast) ? row.forecast.slice(0, 5) : [];
   const day = getNYCDay(), dateStr = getNYCDate();
+
+  const themeColor = getThemeColor(high, row.precip_chance);
 
   let weatherIconImg = null;
   try { weatherIconImg = await loadImage(path.join(__dirname, `assets/${getWeatherIconFile(row.condition)}`)); } catch {}
@@ -662,14 +681,14 @@ async function drawWeekly(row) {
   ctx.fillText(`${day}  ${dateStr}`, W - INSET - 22, headerH / 2);
 
   // ── NEW YORK CITY — Bebas Neue, solid orange ──
-  ctx.fillStyle = '#cc4400';
+  ctx.fillStyle = themeColor;
   ctx.font = '400 130px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('NEW YORK CITY', W / 2, headerH + 10);
 
   // ── SCORE SECTION ──
   const scoreTop = headerH + 118;  // 253
-  ctx.strokeStyle = ACCENT; ctx.lineWidth = 1;
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(INSET + 20, scoreTop + 3); ctx.lineTo(W - INSET - 20, scoreTop + 3); ctx.stroke();
   ctx.fillStyle = '#fff';
   ctx.font = '400 32px "Share Tech Mono"';
@@ -677,7 +696,7 @@ async function drawWeekly(row) {
   ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 14);
 
   // Score — Bebas Neue, left of center
-  ctx.fillStyle = '#cc4400';
+  ctx.fillStyle = themeColor;
   ctx.font = '400 200px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
   ctx.fillText(String(score), W / 2 - 16, scoreTop + 50);
@@ -717,23 +736,23 @@ async function drawWeekly(row) {
   const panX0 = INSET + 20;
   const cols = [panX0, panX0 + panW + 3, panX0 + (panW + 3) * 2, panX0 + (panW + 3) * 3];
 
-  panel(ctx, cols[0], panelTop, panW, panH, "TODAY'S MOOD");
+  panel(ctx, cols[0], panelTop, panW, panH, "TODAY'S MOOD", themeColor);
   ctx.fillStyle = '#ccc'; ctx.font = '400 16px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   wrapText(ctx, synopsis || '—', cols[0] + 6, panelTop + 22, panW - 12, 22, 6);
 
-  panel(ctx, cols[1], panelTop, panW, panH, 'FIT CHECK');
+  panel(ctx, cols[1], panelTop, panW, panH, 'FIT CHECK', themeColor);
   ctx.fillStyle = '#ccc'; ctx.font = '400 16px "Share Tech Mono"';
   wrapText(ctx, outfit.slice(0, 4).join('\n'), cols[1] + 6, panelTop + 22, panW - 12, 22, 6);
 
-  panel(ctx, cols[2], panelTop, panW, panH, 'HAIR REPORT');
+  panel(ctx, cols[2], panelTop, panW, panH, 'HAIR REPORT', themeColor);
   ctx.fillStyle = hair.color; ctx.font = '700 14px "Share Tech Mono"';
   wrapText(ctx, hair.level, cols[2] + 6, panelTop + 22, panW - 12, 18, 3);
   ctx.fillStyle = '#888'; ctx.font = '400 13px "Share Tech Mono"';
   ctx.fillText(`HUM: ${row.humidity}%`, cols[2] + 6, panelTop + 80);
   wrapText(ctx, hair.sub, cols[2] + 6, panelTop + 100, panW - 12, 18, 3);
 
-  panel(ctx, cols[3], panelTop, panW, panH, 'OUTSIDE METER');
+  panel(ctx, cols[3], panelTop, panW, panH, 'OUTSIDE METER', themeColor);
   semiGauge(ctx, cols[3] + panW / 2, panelTop + 100, panW / 2 - 10, meter.pct, meter.color);
   ctx.fillStyle = meter.color; ctx.font = '700 13px "Barlow Condensed"';
   ctx.textAlign = 'center';
@@ -747,7 +766,7 @@ async function drawWeekly(row) {
   ctx.fillStyle = '#555'; ctx.font = '700 13px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("THE CULTURE'S WEATHER CHANNEL", INSET + 20, wkY + 12);
-  ctx.fillStyle = ACCENT; ctx.font = '700 13px "Share Tech Mono"';
+  ctx.fillStyle = themeColor; ctx.font = '700 13px "Share Tech Mono"';
   ctx.fillText('WEEK AHEAD', W - INSET - 140, wkY + 12);
 
   const dayW = (W - INSET * 2 - 40) / 5;
@@ -774,7 +793,7 @@ async function drawWeekly(row) {
 
   // ── STATEMENT BLOCK ──
   hline(ctx, wkY + 148, '#1a1a1a', 1);
-  ctx.fillStyle = ACCENT;
+  ctx.fillStyle = themeColor;
   ctx.font = '400 168px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('ALL NYC.', W / 2, wkY + 160);
@@ -785,7 +804,7 @@ async function drawWeekly(row) {
   ctx.font = '400 16px "Share Tech Mono"';
   ctx.fillText('classicnewweather.com', W / 2, wkY + 466);
 
-  ticker(ctx, 'STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY  ·  START YOUR WEEK RIGHT');
+  ticker(ctx, 'STAY COOL  ·  DRINK WATER  ·  ENJOY THE DAY  ·  START YOUR WEEK RIGHT', themeColor);
 
   return canvas;
 }
