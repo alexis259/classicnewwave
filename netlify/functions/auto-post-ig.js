@@ -154,7 +154,18 @@ exports.handler = async (event) => {
   try {
     const dateKey = toNYCDateKey(new Date());
 
-    const rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
+    let rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
+
+    // No row yet — nobody has hit the site today. Trigger get-daily to create it.
+    if (!rows || rows.length === 0) {
+      console.log('auto-post-ig: no row found — triggering get-daily to fetch weather');
+      const siteUrl = process.env.URL || process.env.DEPLOY_URL;
+      if (siteUrl) {
+        await fetch(`${siteUrl}/.netlify/functions/get-daily`);
+        rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
+      }
+    }
+
     if (!rows || rows.length === 0) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'No weather data for today' }) };
     }
