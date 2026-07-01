@@ -677,7 +677,7 @@ async function drawDaily(row) {
   return canvas;
 }
 
-// ── TEMPLATE: DAILY SLIDE 1 — Rating + Mood ──
+// ── TEMPLATE: DAILY SLIDE 1 — Rating + Mood + Fit ──
 
 async function drawDailySlide1(row) {
   const canvas = createCanvas(W, H);
@@ -686,181 +686,14 @@ async function drawDailySlide1(row) {
   const score = row.score;
   const synopsis = row.synopsis_approved || '';
   const day = getNYCDay(), dateStr = getNYCDate();
+  const themeColor = getThemeColor(high, row.precip_chance);
+  const outfit  = outfitItems(high, row.precip_chance);
+  const fitRep  = getRepresentativeFitItems(outfit);
 
   let weatherIconImg = null;
   try { weatherIconImg = await loadImage(path.join(__dirname, `assets/${getWeatherIconFile(row.condition)}`)); } catch {}
 
-  const themeColor = getThemeColor(high, row.precip_chance);
-
-  // ── BACKGROUND + GRAIN ──
-  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
-  const grainImg = ctx.getImageData(0, 0, W, H);
-  let rv = 0x5F3759DF;
-  function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
-  for (let i = 0; i < 22000; i++) {
-    const gx = Math.floor(grainRand() * W);
-    const gy = Math.floor(grainRand() * H);
-    const gb = Math.floor(grainRand() * 30);
-    const idx = (gy * W + gx) * 4;
-    grainImg.data[idx]     = Math.min(255, grainImg.data[idx]     + gb);
-    grainImg.data[idx + 1] = Math.min(255, grainImg.data[idx + 1] + gb);
-    grainImg.data[idx + 2] = Math.min(255, grainImg.data[idx + 2] + gb);
-  }
-  ctx.putImageData(grainImg, 0, 0);
-  scanlines(ctx);
-
-  // ── SECTION Y POSITIONS ──
-  const headerH  = 135;
-  const cityY    = 135;
-  const scoreTop = 320;
-  const TICKER_H = 135;
-  const tickerY  = 1215;
-  const panelTop = 680;
-  const panelBot = tickerY;
-  const panelH   = panelBot - panelTop;
-  const outOf10Y = scoreTop + 290;
-
-  // ── HEADER ──
-  ctx.fillStyle = '#0f0f0f';
-  ctx.fillRect(0, 0, W, headerH);
-  hline(ctx, headerH, '#333', 1, 0, W);
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#fff';
-  ctx.font = '400 36px "Share Tech Mono"';
-  ctx.textAlign = 'left';
-  { const hm = ctx.measureText('classicnewweather');
-    ctx.fillText('classicnewweather', INSET + 22, (headerH + hm.actualBoundingBoxAscent - hm.actualBoundingBoxDescent) / 2); }
-  ctx.fillStyle = '#E8B800';
-  ctx.font = '400 32px "Share Tech Mono"';
-  ctx.textAlign = 'right';
-  { const dl = `${day}  ${dateStr}`;
-    const dm = ctx.measureText(dl);
-    ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
-
-  // ── NEW YORK CITY ──
-  ctx.fillStyle = themeColor;
-  ctx.font = '400 152px "Bebas Neue", "Barlow Condensed BK"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('NEW YORK CITY', W / 2, cityY + 46);
-
-  // ── SCORE SECTION ──
-  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(INSET + 20, scoreTop + 3); ctx.lineTo(W - INSET - 20, scoreTop + 3); ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.font = '400 32px "Share Tech Mono"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
-  ctx.fillStyle = themeColor;
-  ctx.font = '400 320px "Bebas Neue", "Barlow Condensed BK"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const scoreStr = String(score);
-  const sm = ctx.measureText(scoreStr);
-  const scoreCx = W / 2 + (sm.actualBoundingBoxLeft - sm.actualBoundingBoxRight) / 2;
-  const highBottom = scoreTop + 49;
-  const zoneCenter = (highBottom + outOf10Y) / 2;
-  const scoreCy = zoneCenter + (sm.actualBoundingBoxAscent - sm.actualBoundingBoxDescent) / 2;
-  ctx.fillText(scoreStr, scoreCx, scoreCy);
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#fff';
-  ctx.font = '400 28px "Share Tech Mono"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('OUT OF 10', W / 2, outOf10Y);
-
-  hline(ctx, panelTop - 8, '#333', 1);
-
-  // ── MOOD PANEL — full height ──
-  const px = INSET + 20, pw = W - INSET * 2 - 40;
-  const ICON_W = 260;
-  const SBR = 12;
-  const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
-  const MOOD_LABEL_H = 62, MOOD_LINE_H = 48, MOOD_FONT = '400 36px "Share Tech Mono"';
-  const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
-
-  ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(sbx + SBR, sby); ctx.lineTo(sbx + sbw - SBR, sby);
-  ctx.arcTo(sbx + sbw, sby, sbx + sbw, sby + SBR, SBR);
-  ctx.lineTo(sbx + sbw, sby + sbh - SBR);
-  ctx.arcTo(sbx + sbw, sby + sbh, sbx + sbw - SBR, sby + sbh, SBR);
-  ctx.lineTo(sbx + SBR, sby + sbh);
-  ctx.arcTo(sbx, sby + sbh, sbx, sby + sbh - SBR, SBR);
-  ctx.lineTo(sbx, sby + SBR);
-  ctx.arcTo(sbx, sby, sbx + SBR, sby, SBR);
-  ctx.closePath(); ctx.stroke();
-
-  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(sbx + ICON_W, sby); ctx.lineTo(sbx + ICON_W, sby + sbh); ctx.stroke();
-
-  const moodCy = sby + panelH / 2;
-  if (weatherIconImg) {
-    const iconSize = 200;
-    const wic = createCanvas(iconSize, iconSize);
-    const wictx = wic.getContext('2d');
-    wictx.drawImage(weatherIconImg, 0, 0, iconSize, iconSize);
-    const wd = wictx.getImageData(0, 0, iconSize, iconSize);
-    for (let pi = 0; pi < wd.data.length; pi += 4) {
-      if (wd.data[pi] > 210 && wd.data[pi + 1] > 210 && wd.data[pi + 2] > 210) wd.data[pi + 3] = 0;
-    }
-    wictx.putImageData(wd, 0, 0);
-    ctx.drawImage(wic, sbx + ICON_W / 2 - iconSize / 2, moodCy - iconSize / 2);
-  } else {
-    weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 200, row.condition);
-  }
-
-  ctx.fillStyle = themeColor;
-  ctx.font = '400 36px "Share Tech Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
-
-  // Vertically center body copy in the space below the label
-  ctx.fillStyle = '#fff';
-  ctx.font = MOOD_FONT;
-  const moodMaxW = pw - ICON_W - 32;
-  const maxMoodLines = Math.floor((panelH - MOOD_LABEL_H - 12) / MOOD_LINE_H);
-  // Count actual lines without drawing
-  const moodWords = moodText.split(' ');
-  let moodLine = '', moodLineCount = 0;
-  for (let n = 0; n < moodWords.length; n++) {
-    const test = moodLine + moodWords[n] + ' ';
-    if (ctx.measureText(test).width > moodMaxW && n > 0) {
-      moodLineCount++;
-      moodLine = moodWords[n] + ' ';
-      if (moodLineCount >= maxMoodLines) break;
-    } else { moodLine = test; }
-  }
-  if (moodLineCount < maxMoodLines) moodLineCount++;
-  const moodBlockH = moodLineCount * MOOD_LINE_H;
-  const availH = panelH - MOOD_LABEL_H;
-  const moodTextY = sby + MOOD_LABEL_H + Math.floor((availH - moodBlockH) / 2);
-  wrapText(ctx, moodText, sbx + ICON_W + 18, moodTextY, moodMaxW, MOOD_LINE_H, maxMoodLines);
-
-  // ── TICKER ──
-  ctx.fillStyle = themeColor;
-  ctx.fillRect(sbx, tickerY, sbw, TICKER_H);
-  ctx.fillStyle = '#fff';
-  ctx.font = '400 52px "Share Tech Mono"';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('DRINK WATER  ·  ENJOY THE DAY', sbx + sbw / 2, tickerY + TICKER_H / 2);
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-
-  return canvas;
-}
-
-// ── TEMPLATE: DAILY SLIDE 2 — Fit + Hair ──
-
-async function drawDailySlide2(row) {
-  const canvas = createCanvas(W, H);
-  const ctx = canvas.getContext('2d');
-  const high = Math.round(row.high ?? row.temp);
-  const outfit = outfitItems(high, row.precip_chance);
-  const day = getNYCDay(), dateStr = getNYCDate();
-  const themeColor = getThemeColor(high, row.precip_chance);
-
-  let hairIconImg = null;
-  try { hairIconImg = await loadImage(path.join(__dirname, `assets/${getHairIconFile(row.humidity, row.precip_chance)}`)); } catch {}
-
-  const fitItems = outfit;  // show all outfit items, not just representative ones
-  const fitIconImgs = await Promise.all(fitItems.map(async item => {
+  const fitIconImgs = await Promise.all(fitRep.map(async item => {
     const file = getFitIconFile(item);
     if (!file) return null;
     try { return await loadImage(path.join(__dirname, `assets/${file}`)); } catch { return null; }
@@ -883,128 +716,332 @@ async function drawDailySlide2(row) {
   ctx.putImageData(grainImg, 0, 0);
   scanlines(ctx);
 
+  // ── LAYOUT CONSTANTS ──
+  const headerH  = 90;
+  const TICKER_H = 100;
+  const tickerY  = H - TICKER_H;   // 1250
+  const FIT_H    = 112;
+  const fitBoxY  = tickerY - FIT_H; // 1138
+  const panelTop = 628;             // mood box top
+  const moodH    = fitBoxY - 6 - panelTop; // 504 — 6px gap between boxes
+  const SBR      = 8;
+  const px = INSET + 20, pw = W - INSET * 2 - 40;
+  const ICON_W   = 200;
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
   // ── HEADER ──
-  const headerH = 135;
   ctx.fillStyle = '#0f0f0f';
   ctx.fillRect(0, 0, W, headerH);
   hline(ctx, headerH, '#333', 1, 0, W);
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#fff';
-  ctx.font = '400 36px "Share Tech Mono"';
+  ctx.fillStyle = '#888';
+  ctx.font = '400 28px "IBM Plex Mono"';
   ctx.textAlign = 'left';
   { const hm = ctx.measureText('classicnewweather');
     ctx.fillText('classicnewweather', INSET + 22, (headerH + hm.actualBoundingBoxAscent - hm.actualBoundingBoxDescent) / 2); }
-  ctx.fillStyle = '#E8B800';
-  ctx.font = '400 32px "Share Tech Mono"';
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 26px "IBM Plex Mono"';
   ctx.textAlign = 'right';
   { const dl = `${day}  ${dateStr}`;
     const dm = ctx.measureText(dl);
     ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
 
-  // ── CONTENT AREA: two separate content-hugging boxes ──
-  const TICKER_H = 135;
-  const tickerY  = 1215;
-  const ICON_W   = 260;
-  const SBR      = 12;
-  const PAD      = 36;   // consistent top/bottom padding inside each box
-  const BOX_GAP  = 24;   // gap between the two boxes
-  const px = INSET + 20, pw = W - INSET * 2 - 40;
-  const sbx = px, sbw = pw;
+  // ── NEW YORK CITY ──
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 148px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('NEW YORK CITY', W / 2, headerH + 22);
 
-  // Fit box height: dynamic — driven by actual icon count (100px each, 14px gaps)
-  const FIT_ICN = 100, FIT_GAP = 14;
-  const fitIconStackH = fitItems.length * FIT_ICN + Math.max(0, fitItems.length - 1) * FIT_GAP;
-  const fitH = fitIconStackH + PAD * 2;
+  // ── SCORE SECTION ──
+  const scoreTop  = 308;
+  const outOf10Y  = 576;
 
-  // Hair box height: driven by text content (~4 lines) + hair icon (160px)
-  const hairH = 280;
-
-  // Center both boxes vertically in content area (headerH to tickerY = 1080px)
-  const totalBoxH = fitH + BOX_GAP + hairH;
-  const centerOffset = Math.floor((tickerY - headerH - totalBoxH) / 2);
-  const sby     = headerH + centerOffset;   // fit box top
-  const hairDivY = sby + fitH + BOX_GAP;   // hair box top
-
-  function drawBox(bx, by, bw, bh) {
-    ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(bx + SBR, by); ctx.lineTo(bx + bw - SBR, by);
-    ctx.arcTo(bx + bw, by, bx + bw, by + SBR, SBR);
-    ctx.lineTo(bx + bw, by + bh - SBR);
-    ctx.arcTo(bx + bw, by + bh, bx + bw - SBR, by + bh, SBR);
-    ctx.lineTo(bx + SBR, by + bh);
-    ctx.arcTo(bx, by + bh, bx, by + bh - SBR, SBR);
-    ctx.lineTo(bx, by + SBR);
-    ctx.arcTo(bx, by, bx + SBR, by, SBR);
-    ctx.closePath(); ctx.stroke();
-    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(bx + ICON_W, by); ctx.lineTo(bx + ICON_W, by + bh); ctx.stroke();
-  }
-
-  drawBox(sbx, sby, sbw, fitH);
-  drawBox(sbx, hairDivY, sbw, hairH);
-
-  // ── FIT — icons stacked vertically in icon column ──
-  const validFitImgs = fitIconImgs.filter(Boolean);
-  if (validFitImgs.length > 0) {
-    const fitTotalH = validFitImgs.length * FIT_ICN + (validFitImgs.length - 1) * FIT_GAP;
-    const iconsStartY = sby + Math.floor((fitH - fitTotalH) / 2);
-    const iconCenterX = sbx + Math.floor(ICON_W / 2);
-    validFitImgs.forEach((img, i) => {
-      const fic = createCanvas(FIT_ICN, FIT_ICN);
-      const fictx = fic.getContext('2d');
-      fictx.drawImage(img, 0, 0, FIT_ICN, FIT_ICN);
-      const fd = fictx.getImageData(0, 0, FIT_ICN, FIT_ICN);
-      for (let pi = 0; pi < fd.data.length; pi += 4) {
-        if (fd.data[pi] > 210 && fd.data[pi + 1] > 210 && fd.data[pi + 2] > 210) fd.data[pi + 3] = 0;
-      }
-      fictx.putImageData(fd, 0, 0);
-      ctx.drawImage(fic, iconCenterX - Math.floor(FIT_ICN / 2), iconsStartY + i * (FIT_ICN + FIT_GAP));
-    });
-  } else {
-    drawOutfitIcon(ctx, sbx + ICON_W / 2, sby + fitH / 2);
-  }
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(INSET + 20, scoreTop); ctx.lineTo(W - INSET - 20, scoreTop); ctx.stroke();
+  ctx.fillStyle = '#aaa';
+  ctx.font = '400 26px "IBM Plex Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 14);
 
   ctx.fillStyle = themeColor;
-  ctx.font = '400 40px "Share Tech Mono"';
+  ctx.font = '400 280px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const scoreStr = String(score);
+  const sm = ctx.measureText(scoreStr);
+  const scoreCx = W / 2 + (sm.actualBoundingBoxLeft - sm.actualBoundingBoxRight) / 2;
+  const highBottom = scoreTop + 40;
+  const zoneCenter = (highBottom + outOf10Y) / 2;
+  const scoreCy = zoneCenter + (sm.actualBoundingBoxAscent - sm.actualBoundingBoxDescent) / 2;
+  ctx.fillText(scoreStr, scoreCx, scoreCy);
+
+  ctx.fillStyle = '#888';
+  ctx.font = '400 24px "IBM Plex Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('OUT OF 10', W / 2, outOf10Y);
+
+  // ── MOOD BOX ──
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
+  roundRect(px, panelTop, pw, moodH, SBR);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(px + ICON_W, panelTop); ctx.lineTo(px + ICON_W, panelTop + moodH); ctx.stroke();
+
+  const moodCy = panelTop + moodH / 2;
+  if (weatherIconImg) {
+    const iconSize = 160;
+    const wic = createCanvas(iconSize, iconSize);
+    const wictx = wic.getContext('2d');
+    wictx.drawImage(weatherIconImg, 0, 0, iconSize, iconSize);
+    const wd = wictx.getImageData(0, 0, iconSize, iconSize);
+    for (let pi = 0; pi < wd.data.length; pi += 4) {
+      if (wd.data[pi] > 210 && wd.data[pi + 1] > 210 && wd.data[pi + 2] > 210) wd.data[pi + 3] = 0;
+    }
+    wictx.putImageData(wd, 0, 0);
+    ctx.drawImage(wic, px + Math.floor(ICON_W / 2) - Math.floor(iconSize / 2), moodCy - Math.floor(iconSize / 2));
+  } else {
+    weatherIcon(ctx, px + ICON_W / 2, moodCy, 160, row.condition);
+  }
+
+  // TODAY'S MOOD label pinned top-left
+  const MOOD_LABEL_H = 50;
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 22px "IBM Plex Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, sby + PAD);
+  ctx.fillText("TODAY'S MOOD", px + ICON_W + 16, panelTop + 14);
+
+  // Body copy vertically centered in remaining space below label
+  const moodBodyMaxW = pw - ICON_W - 28;
+  const MOOD_LINE_H  = 42;
+  ctx.font = '400 28px "IBM Plex Mono"';
+  const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
+  const maxMoodLines = Math.floor((moodH - MOOD_LABEL_H - 8) / MOOD_LINE_H);
+  const moodWords = moodText.split(' ');
+  let moodLine = '', moodLineCount = 0;
+  for (let n = 0; n < moodWords.length; n++) {
+    const test = moodLine + moodWords[n] + ' ';
+    if (ctx.measureText(test).width > moodBodyMaxW && n > 0) {
+      moodLineCount++;
+      moodLine = moodWords[n] + ' ';
+      if (moodLineCount >= maxMoodLines) break;
+    } else { moodLine = test; }
+  }
+  if (moodLineCount < maxMoodLines) moodLineCount++;
+  const moodBlockH = moodLineCount * MOOD_LINE_H;
+  const availH = moodH - MOOD_LABEL_H;
+  const moodBodyY = panelTop + MOOD_LABEL_H + Math.floor((availH - moodBlockH) / 2);
   ctx.fillStyle = '#fff';
-  ctx.font = '400 34px "Share Tech Mono"';
-  fitItems.forEach((item, i) => {
-    ctx.fillText(item, sbx + ICON_W + 18, sby + PAD + 54 + i * 46);
+  wrapText(ctx, moodText, px + ICON_W + 16, moodBodyY, moodBodyMaxW, MOOD_LINE_H, maxMoodLines);
+
+  // ── FIT BOX ──
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
+  roundRect(px, fitBoxY, pw, FIT_H, SBR);
+  ctx.stroke();
+
+  // "TODAY'S FIT" label top-left
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 20px "IBM Plex Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText("TODAY'S FIT", px + 16, fitBoxY + 12);
+
+  // Icons (36×36) + dot-separated names on the same row below label
+  const FIT_ICON_SZ  = 36, FIT_ICON_GAP = 8;
+  const validFitImgs = fitIconImgs.filter(Boolean);
+  const iconsRowX    = px + 16;
+  const iconsRowY    = fitBoxY + 44;
+
+  validFitImgs.forEach((img, i) => {
+    const fic = createCanvas(FIT_ICON_SZ, FIT_ICON_SZ);
+    const fictx = fic.getContext('2d');
+    fictx.drawImage(img, 0, 0, FIT_ICON_SZ, FIT_ICON_SZ);
+    const fd = fictx.getImageData(0, 0, FIT_ICON_SZ, FIT_ICON_SZ);
+    for (let pi = 0; pi < fd.data.length; pi += 4) {
+      if (fd.data[pi] > 210 && fd.data[pi + 1] > 210 && fd.data[pi + 2] > 210) fd.data[pi + 3] = 0;
+    }
+    fictx.putImageData(fd, 0, 0);
+    ctx.drawImage(fic, iconsRowX + i * (FIT_ICON_SZ + FIT_ICON_GAP), iconsRowY);
   });
 
-  // ── HAIR ──
-  const hair = getHairStatus(row.humidity, row.precip_chance);
-  const hairCy = hairDivY + Math.floor(hairH / 2);
-
-  if (hairIconImg) {
-    const hicnSz = 160;
-    ctx.drawImage(hairIconImg, sbx + Math.floor(ICON_W / 2) - Math.floor(hicnSz / 2), hairCy - Math.floor(hicnSz / 2), hicnSz, hicnSz);
-  }
-
-  ctx.fillStyle = themeColor;
-  ctx.font = '400 40px "Share Tech Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText('HAIR FORECAST', sbx + ICON_W + 18, hairDivY + PAD);
-  ctx.fillStyle = hair.color;
-  ctx.font = '400 34px "Share Tech Mono"';
-  ctx.fillText(hair.level, sbx + ICON_W + 18, hairDivY + PAD + 54);
-  ctx.fillStyle = '#777';
-  ctx.font = '400 28px "Share Tech Mono"';
-  ctx.fillText(`HUM: ${row.humidity}%  ·  ${hair.sub}`, sbx + ICON_W + 18, hairDivY + PAD + 104);
-  ctx.fillStyle = '#aaa';
-  ctx.font = '400 26px "Share Tech Mono"';
-  ctx.fillText(hair.rec || '', sbx + ICON_W + 18, hairDivY + PAD + 146);
+  const iconsBlockW  = validFitImgs.length * FIT_ICON_SZ + Math.max(0, validFitImgs.length - 1) * FIT_ICON_GAP;
+  const fitNamesStr  = fitRep.join('  ·  ');
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 22px "IBM Plex Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(fitNamesStr, iconsRowX + iconsBlockW + 18, iconsRowY + FIT_ICON_SZ / 2);
 
   // ── TICKER ──
   ctx.fillStyle = themeColor;
-  ctx.fillRect(sbx, tickerY, sbw, TICKER_H);
+  ctx.fillRect(0, tickerY, W, TICKER_H);
   ctx.fillStyle = '#fff';
-  ctx.font = '400 52px "Share Tech Mono"';
+  ctx.font = '400 38px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('DRINK WATER  ·  ENJOY THE DAY', sbx + sbw / 2, tickerY + TICKER_H / 2);
+  ctx.fillText('DRINK WATER  ·  ENJOY THE DAY', W / 2, tickerY + TICKER_H / 2);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+
+  return canvas;
+}
+
+// ── TEMPLATE: DAILY SLIDE 2 — Hair Forecast ──
+
+async function drawDailySlide2(row) {
+  const canvas = createCanvas(W, H);
+  const ctx    = canvas.getContext('2d');
+  const day    = getNYCDay(), dateStr = getNYCDate();
+  const hum    = row.humidity;
+  const rain   = row.precip_chance;
+
+  // Palette
+  const BG_G  = '#0e1a10';
+  const GOLD  = '#c8a840';
+  const MUTED = '#8fb88f';
+  const HDR_BG = '#162018';
+  const DIV_C  = '#2a3c2a';
+
+  // Hair level + copy
+  let alertLevel, proceedText, recText;
+  if (hum >= 80 || rain > 60) {
+    alertLevel = 'SILK PRESS WARNING';  proceedText = 'PROCEED AT YOUR OWN RISK.';  recText = 'PUFF  ·  BRAIDS  ·  BUN';
+  } else if (hum >= 65 || rain > 40) {
+    alertLevel = 'HIGH HUMIDITY ALERT'; proceedText = 'PROCEED AT YOUR OWN RISK.';  recText = 'WASH & GO  ·  PROTECTIVE STYLE';
+  } else if (hum >= 50 || rain > 25) {
+    alertLevel = 'MODERATE RISK';       proceedText = 'PROCEED WITH CAUTION.';      recText = 'ANTI-HUMIDITY SPRAY  ·  BRAID OUT';
+  } else {
+    alertLevel = 'GOOD HAIR DAY';       proceedText = "YOU'RE GOOD.";               recText = 'SILK PRESS  ·  BLOWOUT  ·  ANY STYLE';
+  }
+
+  // Hair icons (3 files from existing helper)
+  const hairIconFiles = getHairIconFilesForDisplay(hum, rain);
+  const hairIconImgs  = await Promise.all(hairIconFiles.map(async f => {
+    try { return await loadImage(path.join(__dirname, `assets/${f}`)); } catch { return null; }
+  }));
+
+  // ── BACKGROUND (green palette, subtle grain) ──
+  ctx.fillStyle = BG_G; ctx.fillRect(0, 0, W, H);
+  const grainImg = ctx.getImageData(0, 0, W, H);
+  let rv = 0x5F3759DF;
+  function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
+  for (let i = 0; i < 14000; i++) {
+    const gx = Math.floor(grainRand() * W);
+    const gy = Math.floor(grainRand() * H);
+    const gb = Math.floor(grainRand() * 18);
+    const idx = (gy * W + gx) * 4;
+    grainImg.data[idx]     = Math.min(255, grainImg.data[idx]     + gb);
+    grainImg.data[idx + 1] = Math.min(255, grainImg.data[idx + 1] + gb);
+    grainImg.data[idx + 2] = Math.min(255, grainImg.data[idx + 2] + gb);
+  }
+  ctx.putImageData(grainImg, 0, 0);
+
+  // ── LAYOUT CONSTANTS ──
+  const headerH  = 90;
+  const TICKER_H = 90;
+  const tickerY  = H - TICKER_H;   // 1260
+  const marginX  = INSET + 40;     // 58px left/right margin
+
+  // ── HEADER ──
+  ctx.fillStyle = HDR_BG;
+  ctx.fillRect(0, 0, W, headerH);
+  hline(ctx, headerH, DIV_C, 1, 0, W);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = MUTED;
+  ctx.font = '400 28px "IBM Plex Mono"';
+  ctx.textAlign = 'left';
+  { const hm = ctx.measureText('classicnewweather');
+    ctx.fillText('classicnewweather', INSET + 22, (headerH + hm.actualBoundingBoxAscent - hm.actualBoundingBoxDescent) / 2); }
+  ctx.fillStyle = GOLD;
+  ctx.font = '400 26px "IBM Plex Mono"';
+  ctx.textAlign = 'right';
+  { const dl = `${day}  ${dateStr}`;
+    const dm = ctx.measureText(dl);
+    ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
+
+  // ── HAIR FORECAST section label ──
+  ctx.fillStyle = GOLD;
+  ctx.font = '400 20px "IBM Plex Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('HAIR FORECAST', marginX, headerH + 34);
+
+  // ── ALERT LEVEL HEADLINE — Bebas Neue, large, gold ──
+  ctx.font = '400 148px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.fillStyle = GOLD;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const headlineY   = headerH + 72;
+  const headlineMaxW = W - marginX * 2;
+  const headlineLineH = 152;
+  const headlineLines = wrapText(ctx, alertLevel, marginX, headlineY, headlineMaxW, headlineLineH);
+  const headlineBottom = headlineY + headlineLines * headlineLineH;
+
+  // ── HUMIDITY STAT ──
+  // Anchor humidity section at a fixed Y so layout is consistent regardless of headline line count
+  const humSectionY = Math.max(headlineBottom + 48, 560);
+
+  ctx.fillStyle = MUTED;
+  ctx.font = '400 22px "IBM Plex Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('HUMIDITY:', marginX, humSectionY);
+
+  ctx.fillStyle = GOLD;
+  ctx.font = '400 190px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(`${hum}%`, marginX, humSectionY + 28);
+  const humBottom = humSectionY + 28 + 194;  // 190px font approx
+
+  ctx.fillStyle = MUTED;
+  ctx.font = '400 20px "IBM Plex Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(proceedText, marginX, humBottom + 14);
+
+  // ── DIVIDER ──
+  const dividerY = humBottom + 60;
+  ctx.strokeStyle = DIV_C; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(marginX, dividerY); ctx.lineTo(W - marginX, dividerY); ctx.stroke();
+
+  // ── RECOMMENDATION ──
+  const recLabelY = dividerY + 28;
+  ctx.fillStyle = GOLD;
+  ctx.font = '400 18px "IBM Plex Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('ALTERNATIVE RECOMMENDATION:', marginX, recLabelY);
+
+  // Hair icons — 3 icons centered horizontally
+  const HAIR_ICN = 64, HAIR_GAP = 24;
+  const validHairImgs = hairIconImgs.filter(Boolean);
+  const iconsRowW = validHairImgs.length * HAIR_ICN + Math.max(0, validHairImgs.length - 1) * HAIR_GAP;
+  const iconsRowX = Math.floor((W - iconsRowW) / 2);
+  const iconsY    = recLabelY + 36;
+  validHairImgs.forEach((img, i) => {
+    if (!img) return;
+    ctx.drawImage(img, iconsRowX + i * (HAIR_ICN + HAIR_GAP), iconsY, HAIR_ICN, HAIR_ICN);
+  });
+
+  // Rec text centered below icons
+  ctx.fillStyle = GOLD;
+  ctx.font = '400 28px "IBM Plex Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(recText, W / 2, iconsY + HAIR_ICN + 22);
+
+  // ── TICKER — dark green bar, 3 items in gold ──
+  ctx.fillStyle = '#0a1208';
+  ctx.fillRect(0, tickerY, W, TICKER_H);
+  const tickerItems = ['STAY SMOOTH.', 'CHECK THE FORECAST.', 'RESPECT THE WEATHER.'];
+  ctx.fillStyle = GOLD;
+  ctx.font = '400 22px "IBM Plex Mono"';
+  ctx.textBaseline = 'middle';
+  const tickerCy = tickerY + TICKER_H / 2;
+  ctx.textAlign = 'left';   ctx.fillText(tickerItems[0], marginX,           tickerCy);
+  ctx.textAlign = 'center'; ctx.fillText(tickerItems[1], W / 2,             tickerCy);
+  ctx.textAlign = 'right';  ctx.fillText(tickerItems[2], W - marginX,       tickerCy);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 
   return canvas;
