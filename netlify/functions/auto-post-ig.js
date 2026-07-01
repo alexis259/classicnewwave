@@ -89,6 +89,37 @@ async function createIGContainer(imageUrl, caption, isStory) {
   return data.id;
 }
 
+async function createCarouselItem(imageUrl) {
+  const params = new URLSearchParams({
+    access_token: META_PAGE_ACCESS_TOKEN,
+    image_url: imageUrl,
+    is_carousel_item: 'true'
+  });
+  const res = await fetch(`${META_API}/${META_IG_USER_ID}/media`, {
+    method: 'POST',
+    body: params
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(`Meta carousel item error: ${data.error.message}`);
+  return data.id;
+}
+
+async function createCarouselContainer(childIds, caption) {
+  const params = new URLSearchParams({
+    access_token: META_PAGE_ACCESS_TOKEN,
+    media_type: 'CAROUSEL',
+    caption,
+    children: childIds.join(',')
+  });
+  const res = await fetch(`${META_API}/${META_IG_USER_ID}/media`, {
+    method: 'POST',
+    body: params
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(`Meta carousel container error: ${data.error.message}`);
+  return data.id;
+}
+
 async function waitForContainer(containerId, maxWaitMs = 90000) {
   const interval = 3000;
   const start = Date.now();
@@ -190,36 +221,42 @@ exports.handler = async (event) => {
       };
     }
 
-    // Auto-generate graphic if not already uploaded
-    if (!row.story_image_url) {
-      console.log(`auto-post-ig: no image queued — generating (${templateType})`);
+    // Always regenerate for daily to ensure both carousel slides are available
+    if (!row.story_image_url || templateType === 'daily') {
+      console.log(`auto-post-ig: generating graphics (${templateType})`);
       const urls = await generateAndUpload(row, dateKey, templateType);
       row.feed_image_url = urls.feedImageUrl;
       row.story_image_url = urls.storyImageUrl;
+      row.slide2_url = urls.slide2Url;
     }
 
-    // Use dedicated 4:5 feed image if available, fall back to story image
     const feedImageUrl = row.feed_image_url || row.story_image_url;
-
     const caption = await generateCaption(row);
 
-    // Create feed + story containers in parallel
-    const [feedContainerId, storyContainerId] = await Promise.all([
-      createIGContainer(feedImageUrl, caption, false),
-      createIGContainer(row.story_image_url, null, true)
-    ]);
+    let feedPostId;
 
-    // Wait for Meta to finish processing both containers before publishing
-    await Promise.all([
-      waitForContainer(feedContainerId),
-      waitForContainer(storyContainerId)
-    ]);
+    if (templateType === 'daily' && row.slide2_url) {
+      // 2-slide carousel: slide 1 = rating + mood, slide 2 = fit + hair
+      console.log('auto-post-ig: posting daily as 2-slide carousel');
+      const [item1Id, item2Id] = await Promise.all([
+        createCarouselItem(feedImageUrl),
+        createCarouselItem(row.slide2_url)
+      ]);
+      await Promise.all([waitForContainer(item1Id), waitForContainer(item2Id)]);
+      const carouselId = await createCarouselContainer([item1Id, item2Id], caption);
+      await waitForContainer(carouselId);
+      feedPostId = await publishIGContainer(carouselId);
+    } else {
+      // Single image post (weekly and other templates)
+      const feedContainerId = await createIGContainer(feedImageUrl, caption, false);
+      await waitForContainer(feedContainerId);
+      feedPostId = await publishIGContainer(feedContainerId);
+    }
 
-    // Publish both in parallel
-    const [feedPostId, storyPostId] = await Promise.all([
-      publishIGContainer(feedContainerId),
-      publishIGContainer(storyContainerId)
-    ]);
+    // Story post (always single image)
+    const storyContainerId = await createIGContainer(row.story_image_url, null, true);
+    await waitForContainer(storyContainerId);
+    const storyPostId = await publishIGContainer(storyContainerId);
 
     // Record in Supabase
     await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {

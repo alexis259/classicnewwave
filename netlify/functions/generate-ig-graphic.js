@@ -60,7 +60,7 @@ function outfitItems(temp, rain) {
   else if (temp < 50) pieces.push('JACKET');
   else if (temp < 60) pieces.push('LIGHT JACKET');
   else if (temp < 68) pieces.push('LAYER UP');
-  pieces.push(temp < 40 ? 'SWEATER' : temp < 55 ? 'HOODIE' : temp < 68 ? 'LONG SLEEVE' : 'TEE');
+  pieces.push(temp < 40 ? 'SWEATER' : temp < 55 ? 'HOODIE' : temp < 68 ? 'LONG SLEEVE' : temp < 80 ? 'TEE' : 'TANK');
   pieces.push(temp < 45 ? 'SWEATS' : temp < 65 ? 'JEANS' : 'SHORTS');
   pieces.push(temp < 35 || rain > 60 ? 'WATERPROOF BOOTS' : temp < 55 ? 'BOOTS' : 'SNEAKERS');
   if (temp < 32) pieces.push('HAT + GLOVES');
@@ -666,6 +666,312 @@ async function drawDaily(row) {
   ctx.fillText(`HUM: ${row.humidity}%  ·  ${hair.sub}`, sbx + ICON_W + 18, hairDivY + 98);
 
   // ── TICKER — broadcast bar, INSIDE card border ──
+  ctx.fillStyle = themeColor;
+  ctx.fillRect(sbx, tickerY, sbw, TICKER_H);
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 52px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('DRINK WATER  ·  ENJOY THE DAY', sbx + sbw / 2, tickerY + TICKER_H / 2);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+
+  return canvas;
+}
+
+// ── TEMPLATE: DAILY SLIDE 1 — Rating + Mood ──
+
+async function drawDailySlide1(row) {
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  const high = Math.round(row.high ?? row.temp);
+  const score = row.score;
+  const synopsis = row.synopsis_approved || '';
+  const day = getNYCDay(), dateStr = getNYCDate();
+
+  let weatherIconImg = null;
+  try { weatherIconImg = await loadImage(path.join(__dirname, `assets/${getWeatherIconFile(row.condition)}`)); } catch {}
+
+  const themeColor = getThemeColor(high, row.precip_chance);
+
+  // ── BACKGROUND + GRAIN ──
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const grainImg = ctx.getImageData(0, 0, W, H);
+  let rv = 0x5F3759DF;
+  function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
+  for (let i = 0; i < 22000; i++) {
+    const gx = Math.floor(grainRand() * W);
+    const gy = Math.floor(grainRand() * H);
+    const gb = Math.floor(grainRand() * 30);
+    const idx = (gy * W + gx) * 4;
+    grainImg.data[idx]     = Math.min(255, grainImg.data[idx]     + gb);
+    grainImg.data[idx + 1] = Math.min(255, grainImg.data[idx + 1] + gb);
+    grainImg.data[idx + 2] = Math.min(255, grainImg.data[idx + 2] + gb);
+  }
+  ctx.putImageData(grainImg, 0, 0);
+  scanlines(ctx);
+
+  // ── SECTION Y POSITIONS ──
+  const headerH  = 135;
+  const cityY    = 135;
+  const scoreTop = 320;
+  const TICKER_H = 135;
+  const tickerY  = 1215;
+  const panelTop = 680;
+  const panelBot = tickerY;
+  const panelH   = panelBot - panelTop;
+  const outOf10Y = scoreTop + 290;
+
+  // ── HEADER ──
+  ctx.fillStyle = '#0f0f0f';
+  ctx.fillRect(0, 0, W, headerH);
+  hline(ctx, headerH, '#333', 1, 0, W);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 36px "Share Tech Mono"';
+  ctx.textAlign = 'left';
+  { const hm = ctx.measureText('classicnewweather');
+    ctx.fillText('classicnewweather', INSET + 22, (headerH + hm.actualBoundingBoxAscent - hm.actualBoundingBoxDescent) / 2); }
+  ctx.fillStyle = '#E8B800';
+  ctx.font = '400 32px "Share Tech Mono"';
+  ctx.textAlign = 'right';
+  { const dl = `${day}  ${dateStr}`;
+    const dm = ctx.measureText(dl);
+    ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
+
+  // ── NEW YORK CITY ──
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 152px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('NEW YORK CITY', W / 2, cityY + 46);
+
+  // ── SCORE SECTION ──
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(INSET + 20, scoreTop + 3); ctx.lineTo(W - INSET - 20, scoreTop + 3); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 32px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(`HIGH ${high}°F`, W / 2, scoreTop + 17);
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 320px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const scoreStr = String(score);
+  const sm = ctx.measureText(scoreStr);
+  const scoreCx = W / 2 + (sm.actualBoundingBoxLeft - sm.actualBoundingBoxRight) / 2;
+  const highBottom = scoreTop + 49;
+  const zoneCenter = (highBottom + outOf10Y) / 2;
+  const scoreCy = zoneCenter + (sm.actualBoundingBoxAscent - sm.actualBoundingBoxDescent) / 2;
+  ctx.fillText(scoreStr, scoreCx, scoreCy);
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 28px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('OUT OF 10', W / 2, outOf10Y);
+
+  hline(ctx, panelTop - 8, '#333', 1);
+
+  // ── MOOD PANEL — full height ──
+  const px = INSET + 20, pw = W - INSET * 2 - 40;
+  const ICON_W = 260;
+  const SBR = 12;
+  const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
+  const MOOD_LABEL_H = 56, MOOD_LINE_H = 34, MOOD_FONT = '400 26px "Share Tech Mono"';
+  const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
+
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sbx + SBR, sby); ctx.lineTo(sbx + sbw - SBR, sby);
+  ctx.arcTo(sbx + sbw, sby, sbx + sbw, sby + SBR, SBR);
+  ctx.lineTo(sbx + sbw, sby + sbh - SBR);
+  ctx.arcTo(sbx + sbw, sby + sbh, sbx + sbw - SBR, sby + sbh, SBR);
+  ctx.lineTo(sbx + SBR, sby + sbh);
+  ctx.arcTo(sbx, sby + sbh, sbx, sby + sbh - SBR, SBR);
+  ctx.lineTo(sbx, sby + SBR);
+  ctx.arcTo(sbx, sby, sbx + SBR, sby, SBR);
+  ctx.closePath(); ctx.stroke();
+
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sbx + ICON_W, sby); ctx.lineTo(sbx + ICON_W, sby + sbh); ctx.stroke();
+
+  const moodCy = sby + panelH / 2;
+  if (weatherIconImg) {
+    const iconSize = 200;
+    const wic = createCanvas(iconSize, iconSize);
+    const wictx = wic.getContext('2d');
+    wictx.drawImage(weatherIconImg, 0, 0, iconSize, iconSize);
+    const wd = wictx.getImageData(0, 0, iconSize, iconSize);
+    for (let pi = 0; pi < wd.data.length; pi += 4) {
+      if (wd.data[pi] > 210 && wd.data[pi + 1] > 210 && wd.data[pi + 2] > 210) wd.data[pi + 3] = 0;
+    }
+    wictx.putImageData(wd, 0, 0);
+    ctx.drawImage(wic, sbx + ICON_W / 2 - iconSize / 2, moodCy - iconSize / 2);
+  } else {
+    weatherIcon(ctx, sbx + ICON_W / 2, moodCy, 200, row.condition);
+  }
+
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 36px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
+  ctx.fillStyle = '#fff';
+  ctx.font = MOOD_FONT;
+  const maxMoodLines = Math.floor((panelH - MOOD_LABEL_H - 8) / MOOD_LINE_H);
+  wrapText(ctx, moodText, sbx + ICON_W + 18, sby + MOOD_LABEL_H, pw - ICON_W - 32, MOOD_LINE_H, maxMoodLines);
+
+  // ── TICKER ──
+  ctx.fillStyle = themeColor;
+  ctx.fillRect(sbx, tickerY, sbw, TICKER_H);
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 52px "Share Tech Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('DRINK WATER  ·  ENJOY THE DAY', sbx + sbw / 2, tickerY + TICKER_H / 2);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+
+  return canvas;
+}
+
+// ── TEMPLATE: DAILY SLIDE 2 — Fit + Hair ──
+
+async function drawDailySlide2(row) {
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  const high = Math.round(row.high ?? row.temp);
+  const outfit = outfitItems(high, row.precip_chance);
+  const day = getNYCDay(), dateStr = getNYCDate();
+  const themeColor = getThemeColor(high, row.precip_chance);
+
+  let hairIconImg = null;
+  try { hairIconImg = await loadImage(path.join(__dirname, `assets/${getHairIconFile(row.humidity, row.precip_chance)}`)); } catch {}
+
+  const fitItems = getRepresentativeFitItems(outfit);
+  const fitIconImgs = await Promise.all(fitItems.map(async item => {
+    const file = getFitIconFile(item);
+    if (!file) return null;
+    try { return await loadImage(path.join(__dirname, `assets/${file}`)); } catch { return null; }
+  }));
+
+  // ── BACKGROUND + GRAIN ──
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const grainImg = ctx.getImageData(0, 0, W, H);
+  let rv = 0x5F3759DF;
+  function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
+  for (let i = 0; i < 22000; i++) {
+    const gx = Math.floor(grainRand() * W);
+    const gy = Math.floor(grainRand() * H);
+    const gb = Math.floor(grainRand() * 30);
+    const idx = (gy * W + gx) * 4;
+    grainImg.data[idx]     = Math.min(255, grainImg.data[idx]     + gb);
+    grainImg.data[idx + 1] = Math.min(255, grainImg.data[idx + 1] + gb);
+    grainImg.data[idx + 2] = Math.min(255, grainImg.data[idx + 2] + gb);
+  }
+  ctx.putImageData(grainImg, 0, 0);
+  scanlines(ctx);
+
+  // ── HEADER ──
+  const headerH = 135;
+  ctx.fillStyle = '#0f0f0f';
+  ctx.fillRect(0, 0, W, headerH);
+  hline(ctx, headerH, '#333', 1, 0, W);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 36px "Share Tech Mono"';
+  ctx.textAlign = 'left';
+  { const hm = ctx.measureText('classicnewweather');
+    ctx.fillText('classicnewweather', INSET + 22, (headerH + hm.actualBoundingBoxAscent - hm.actualBoundingBoxDescent) / 2); }
+  ctx.fillStyle = '#E8B800';
+  ctx.font = '400 32px "Share Tech Mono"';
+  ctx.textAlign = 'right';
+  { const dl = `${day}  ${dateStr}`;
+    const dm = ctx.measureText(dl);
+    ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
+
+  // ── CONTENT AREA: fit (top half) + hair (bottom half) ──
+  const TICKER_H = 135;
+  const tickerY  = 1215;
+  const ICON_W   = 260;
+  const SBR      = 12;
+  const px = INSET + 20, pw = W - INSET * 2 - 40;
+  const sbx = px, sby = headerH, sbw = pw, sbh = tickerY - headerH;
+
+  const fitH     = Math.floor(sbh / 2);
+  const hairH    = sbh - fitH;
+  const hairDivY = sby + fitH;
+
+  // Panel outline
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sbx + SBR, sby); ctx.lineTo(sbx + sbw - SBR, sby);
+  ctx.arcTo(sbx + sbw, sby, sbx + sbw, sby + SBR, SBR);
+  ctx.lineTo(sbx + sbw, sby + sbh - SBR);
+  ctx.arcTo(sbx + sbw, sby + sbh, sbx + sbw - SBR, sby + sbh, SBR);
+  ctx.lineTo(sbx + SBR, sby + sbh);
+  ctx.arcTo(sbx, sby + sbh, sbx, sby + sbh - SBR, SBR);
+  ctx.lineTo(sbx, sby + SBR);
+  ctx.arcTo(sbx, sby, sbx + SBR, sby, SBR);
+  ctx.closePath(); ctx.stroke();
+
+  // Vertical separator
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sbx + ICON_W, sby); ctx.lineTo(sbx + ICON_W, sby + sbh); ctx.stroke();
+
+  // Horizontal divider fit/hair
+  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sbx, hairDivY); ctx.lineTo(sbx + sbw, hairDivY); ctx.stroke();
+
+  // ── FIT — icons stacked vertically in icon column ──
+  const FIT_ICN = 100, FIT_GAP = 14;
+  const validFitImgs = fitIconImgs.filter(Boolean);
+  if (validFitImgs.length > 0) {
+    const fitTotalH = validFitImgs.length * FIT_ICN + (validFitImgs.length - 1) * FIT_GAP;
+    const iconsStartY = sby + Math.floor((fitH - fitTotalH) / 2);
+    const iconCenterX = sbx + Math.floor(ICON_W / 2);
+    validFitImgs.forEach((img, i) => {
+      const fic = createCanvas(FIT_ICN, FIT_ICN);
+      const fictx = fic.getContext('2d');
+      fictx.drawImage(img, 0, 0, FIT_ICN, FIT_ICN);
+      const fd = fictx.getImageData(0, 0, FIT_ICN, FIT_ICN);
+      for (let pi = 0; pi < fd.data.length; pi += 4) {
+        if (fd.data[pi] > 210 && fd.data[pi + 1] > 210 && fd.data[pi + 2] > 210) fd.data[pi + 3] = 0;
+      }
+      fictx.putImageData(fd, 0, 0);
+      ctx.drawImage(fic, iconCenterX - Math.floor(FIT_ICN / 2), iconsStartY + i * (FIT_ICN + FIT_GAP));
+    });
+  } else {
+    drawOutfitIcon(ctx, sbx + ICON_W / 2, sby + fitH / 2);
+  }
+
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 40px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, sby + 16);
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 34px "Share Tech Mono"';
+  fitItems.forEach((item, i) => {
+    ctx.fillText(item, sbx + ICON_W + 18, sby + 74 + i * 46);
+  });
+
+  // ── HAIR ──
+  const hair = getHairStatus(row.humidity, row.precip_chance);
+  const hairCy = hairDivY + Math.floor(hairH / 2);
+
+  if (hairIconImg) {
+    const hicnSz = 160;
+    ctx.drawImage(hairIconImg, sbx + Math.floor(ICON_W / 2) - Math.floor(hicnSz / 2), hairCy - Math.floor(hicnSz / 2), hicnSz, hicnSz);
+  }
+
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 40px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('HAIR FORECAST', sbx + ICON_W + 18, hairDivY + 16);
+  ctx.fillStyle = hair.color;
+  ctx.font = '400 34px "Share Tech Mono"';
+  ctx.fillText(hair.level, sbx + ICON_W + 18, hairDivY + 72);
+  ctx.fillStyle = '#777';
+  ctx.font = '400 28px "Share Tech Mono"';
+  ctx.fillText(`HUM: ${row.humidity}%  ·  ${hair.sub}`, sbx + ICON_W + 18, hairDivY + 118);
+  ctx.fillStyle = '#aaa';
+  ctx.font = '400 26px "Share Tech Mono"';
+  ctx.fillText(hair.rec || '', sbx + ICON_W + 18, hairDivY + 160);
+
+  // ── TICKER ──
   ctx.fillStyle = themeColor;
   ctx.fillRect(sbx, tickerY, sbw, TICKER_H);
   ctx.fillStyle = '#fff';
@@ -1453,26 +1759,51 @@ async function uploadImage(buffer, filename) {
 }
 
 async function generateAndUpload(row, dateKey, type = 'daily') {
-  const renderers = { daily: drawDaily, weekly: drawWeekly, alert: drawAlert, hair: drawHair, teaser: drawTeaser, dashboard: drawDashboard };
-  const fn = renderers[type] || drawDaily;
-  const feedCanvas = await fn(row);
-  const feedBuffer = await feedCanvas.encode('png');
+  let feedBuffer, storyBuffer, slide2Buffer = null;
 
-  // 9:16 story wrapper
-  const storyCanvas = createCanvas(1080, 1920);
-  const sCtx = storyCanvas.getContext('2d');
-  sCtx.fillStyle = type === 'teaser' ? '#000' : BG;
-  sCtx.fillRect(0, 0, 1080, 1920);
-  sCtx.drawImage(feedCanvas, 0, (1920 - 1350) / 2);
-  const storyBuffer = await storyCanvas.encode('png');
+  if (type === 'daily') {
+    // Generate both carousel slides in parallel
+    const [slide1Canvas, slide2Canvas] = await Promise.all([
+      drawDailySlide1(row),
+      drawDailySlide2(row)
+    ]);
+    feedBuffer = await slide1Canvas.encode('png');
+    slide2Buffer = await slide2Canvas.encode('png');
+
+    // Story: slide 1 centered in 9:16 frame
+    const storyCanvas = createCanvas(1080, 1920);
+    const sCtx = storyCanvas.getContext('2d');
+    sCtx.fillStyle = BG;
+    sCtx.fillRect(0, 0, 1080, 1920);
+    sCtx.drawImage(slide1Canvas, 0, (1920 - 1350) / 2);
+    storyBuffer = await storyCanvas.encode('png');
+  } else {
+    const renderers = { weekly: drawWeekly, alert: drawAlert, hair: drawHair, teaser: drawTeaser, dashboard: drawDashboard };
+    const fn = renderers[type] || drawDaily;
+    const feedCanvas = await fn(row);
+    feedBuffer = await feedCanvas.encode('png');
+
+    const storyCanvas = createCanvas(1080, 1920);
+    const sCtx = storyCanvas.getContext('2d');
+    sCtx.fillStyle = type === 'teaser' ? '#000' : BG;
+    sCtx.fillRect(0, 0, 1080, 1920);
+    sCtx.drawImage(feedCanvas, 0, (1920 - 1350) / 2);
+    storyBuffer = await storyCanvas.encode('png');
+  }
 
   const slug = type === 'daily' ? dateKey : `${dateKey}-${type}`;
-  const [feedImageUrl, storyImageUrl] = await Promise.all([
-    uploadImage(feedBuffer, `${slug}-feed.png`),
+  const uploadJobs = [
+    uploadImage(feedBuffer, type === 'daily' ? `${slug}-daily-slide1.png` : `${slug}-feed.png`),
     uploadImage(storyBuffer, `${slug}.png`)
-  ]);
+  ];
+  if (slide2Buffer) uploadJobs.push(uploadImage(slide2Buffer, `${slug}-daily-slide2.png`));
 
-  // Save to Supabase (only update feed/story URLs for daily type — others are on-demand)
+  const urls = await Promise.all(uploadJobs);
+  const feedImageUrl  = urls[0];
+  const storyImageUrl = urls[1];
+  const slide2Url     = slide2Buffer ? urls[2] : null;
+
+  // Save to Supabase (only update feed/story URLs for daily/weekly — others are on-demand)
   if (type === 'daily' || type === 'weekly') {
     await fetch(`${SUPABASE_URL}/rest/v1/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
       method: 'PATCH',
@@ -1486,7 +1817,7 @@ async function generateAndUpload(row, dateKey, type = 'daily') {
     });
   }
 
-  return { feedImageUrl, storyImageUrl };
+  return { feedImageUrl, storyImageUrl, slide2Url };
 }
 
 exports.generateAndUpload = generateAndUpload;
