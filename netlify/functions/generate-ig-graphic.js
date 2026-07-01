@@ -773,7 +773,7 @@ async function drawDailySlide1(row) {
   const ICON_W = 260;
   const SBR = 12;
   const sbx = px, sby = panelTop, sbw = pw, sbh = panelH;
-  const MOOD_LABEL_H = 56, MOOD_LINE_H = 34, MOOD_FONT = '400 26px "Share Tech Mono"';
+  const MOOD_LABEL_H = 62, MOOD_LINE_H = 48, MOOD_FONT = '400 36px "Share Tech Mono"';
   const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
 
   ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
@@ -813,7 +813,7 @@ async function drawDailySlide1(row) {
   ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
   ctx.fillStyle = '#fff';
   ctx.font = MOOD_FONT;
-  const maxMoodLines = Math.floor((panelH - MOOD_LABEL_H - 8) / MOOD_LINE_H);
+  const maxMoodLines = Math.floor((panelH - MOOD_LABEL_H - 12) / MOOD_LINE_H);
   wrapText(ctx, moodText, sbx + ICON_W + 18, sby + MOOD_LABEL_H, pw - ICON_W - 32, MOOD_LINE_H, maxMoodLines);
 
   // ── TICKER ──
@@ -1848,8 +1848,8 @@ exports.handler = async (event) => {
     const rows = await res.json();
     if (!rows?.length) return { statusCode: 404, headers, body: JSON.stringify({ error: 'No weather data for today' }) };
 
-    const { feedImageUrl, storyImageUrl } = await generateAndUpload(rows[0], dateKey, type);
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, type, feedImageUrl, storyImageUrl }) };
+    const { feedImageUrl, storyImageUrl, slide2Url } = await generateAndUpload(rows[0], dateKey, type);
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, type, feedImageUrl, storyImageUrl, slide2Url }) };
   } catch (err) {
     console.error('generate-ig-graphic error:', err);
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };

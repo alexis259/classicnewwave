@@ -1008,7 +1008,8 @@
       <div class="panel-body">
         <div class="story-wrap">
           <div class="story-canvas-wrap" style="position:relative">
-            <img id="graphic-preview-img" style="width:100%;display:none;border-radius:2px" alt="graphic preview">
+            <img id="graphic-preview-img" style="width:100%;display:none;border-radius:2px" alt="graphic preview slide 1">
+            <img id="graphic-preview-img-2" style="width:100%;display:none;border-radius:2px;margin-top:8px" alt="graphic preview slide 2">
             <div id="graphic-preview-placeholder" style="width:100%;aspect-ratio:4/5;background:#111;border:1px solid #1e1e1e;display:flex;align-items:center;justify-content:center;color:#444;font-size:11px;font-family:monospace;border-radius:2px">click generate to preview</div>
           </div>
           <div class="story-controls">
@@ -1765,9 +1766,18 @@ async function regenGraphic() {
     if (data.error) throw new Error(data.error);
 
     // Show preview
-    previewImg.src = data.feedImageUrl + '?t=' + Date.now();
+    const ts = '?t=' + Date.now();
+    previewImg.src = data.feedImageUrl + ts;
     previewImg.style.display = 'block';
     placeholder.style.display = 'none';
+
+    const slide2El = document.getElementById('graphic-preview-img-2');
+    if (data.slide2Url) {
+      slide2El.src = data.slide2Url + ts;
+      slide2El.style.display = 'block';
+    } else {
+      slide2El.style.display = 'none';
+    }
 
     status.className = 'ig-queue-status queued';
     status.textContent = `✓ ${type} graphic ready · queued for posting`;
