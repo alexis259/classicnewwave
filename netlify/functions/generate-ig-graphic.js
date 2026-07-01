@@ -371,7 +371,7 @@ function getFitIconFile(item) {
 // Pick one representative item per category: [outer|top], [bottom], [shoes]
 function getRepresentativeFitItems(outfit) {
   const outer  = outfit.find(i => ['HEAVY COAT','JACKET','LIGHT JACKET','LAYER UP'].includes(i));
-  const top    = outfit.find(i => ['SWEATER','HOODIE','LONG SLEEVE','TEE'].includes(i));
+  const top    = outfit.find(i => ['SWEATER','HOODIE','LONG SLEEVE','TEE','TANK'].includes(i));
   const bottom = outfit.find(i => ['SWEATS','JEANS','SHORTS'].includes(i));
   const shoes  = outfit.find(i => ['WATERPROOF BOOTS','BOOTS','SNEAKERS'].includes(i));
   return [outer || top, bottom, shoes].filter(Boolean);
@@ -811,10 +811,28 @@ async function drawDailySlide1(row) {
   ctx.font = '400 36px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S MOOD", sbx + ICON_W + 18, sby + 14);
+
+  // Vertically center body copy in the space below the label
   ctx.fillStyle = '#fff';
   ctx.font = MOOD_FONT;
+  const moodMaxW = pw - ICON_W - 32;
   const maxMoodLines = Math.floor((panelH - MOOD_LABEL_H - 12) / MOOD_LINE_H);
-  wrapText(ctx, moodText, sbx + ICON_W + 18, sby + MOOD_LABEL_H, pw - ICON_W - 32, MOOD_LINE_H, maxMoodLines);
+  // Count actual lines without drawing
+  const moodWords = moodText.split(' ');
+  let moodLine = '', moodLineCount = 0;
+  for (let n = 0; n < moodWords.length; n++) {
+    const test = moodLine + moodWords[n] + ' ';
+    if (ctx.measureText(test).width > moodMaxW && n > 0) {
+      moodLineCount++;
+      moodLine = moodWords[n] + ' ';
+      if (moodLineCount >= maxMoodLines) break;
+    } else { moodLine = test; }
+  }
+  if (moodLineCount < maxMoodLines) moodLineCount++;
+  const moodBlockH = moodLineCount * MOOD_LINE_H;
+  const availH = panelH - MOOD_LABEL_H;
+  const moodTextY = sby + MOOD_LABEL_H + Math.floor((availH - moodBlockH) / 2);
+  wrapText(ctx, moodText, sbx + ICON_W + 18, moodTextY, moodMaxW, MOOD_LINE_H, maxMoodLines);
 
   // ── TICKER ──
   ctx.fillStyle = themeColor;
@@ -883,38 +901,46 @@ async function drawDailySlide2(row) {
     const dm = ctx.measureText(dl);
     ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
 
-  // ── CONTENT AREA: fit (top half) + hair (bottom half) ──
+  // ── CONTENT AREA: two separate content-hugging boxes ──
   const TICKER_H = 135;
   const tickerY  = 1215;
   const ICON_W   = 260;
   const SBR      = 12;
+  const PAD      = 36;   // consistent top/bottom padding inside each box
+  const BOX_GAP  = 24;   // gap between the two boxes
   const px = INSET + 20, pw = W - INSET * 2 - 40;
-  const sbx = px, sby = headerH, sbw = pw, sbh = tickerY - headerH;
+  const sbx = px, sbw = pw;
 
-  const fitH     = Math.floor(sbh / 2);
-  const hairH    = sbh - fitH;
-  const hairDivY = sby + fitH;
+  // Fit box height: driven by 3 stacked icons (100px × 3 + 14px gaps × 2 = 328px)
+  const fitH = 328 + PAD * 2;   // 400px
 
-  // Panel outline
-  ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(sbx + SBR, sby); ctx.lineTo(sbx + sbw - SBR, sby);
-  ctx.arcTo(sbx + sbw, sby, sbx + sbw, sby + SBR, SBR);
-  ctx.lineTo(sbx + sbw, sby + sbh - SBR);
-  ctx.arcTo(sbx + sbw, sby + sbh, sbx + sbw - SBR, sby + sbh, SBR);
-  ctx.lineTo(sbx + SBR, sby + sbh);
-  ctx.arcTo(sbx, sby + sbh, sbx, sby + sbh - SBR, SBR);
-  ctx.lineTo(sbx, sby + SBR);
-  ctx.arcTo(sbx, sby, sbx + SBR, sby, SBR);
-  ctx.closePath(); ctx.stroke();
+  // Hair box height: driven by text content (~4 lines) + hair icon (160px)
+  const hairH = 280;
 
-  // Vertical separator
-  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(sbx + ICON_W, sby); ctx.lineTo(sbx + ICON_W, sby + sbh); ctx.stroke();
+  // Center both boxes vertically in content area (headerH to tickerY = 1080px)
+  const totalBoxH = fitH + BOX_GAP + hairH;
+  const centerOffset = Math.floor((tickerY - headerH - totalBoxH) / 2);
+  const sby     = headerH + centerOffset;   // fit box top
+  const hairDivY = sby + fitH + BOX_GAP;   // hair box top
 
-  // Horizontal divider fit/hair
-  ctx.strokeStyle = themeColor; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(sbx, hairDivY); ctx.lineTo(sbx + sbw, hairDivY); ctx.stroke();
+  function drawBox(bx, by, bw, bh) {
+    ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx + SBR, by); ctx.lineTo(bx + bw - SBR, by);
+    ctx.arcTo(bx + bw, by, bx + bw, by + SBR, SBR);
+    ctx.lineTo(bx + bw, by + bh - SBR);
+    ctx.arcTo(bx + bw, by + bh, bx + bw - SBR, by + bh, SBR);
+    ctx.lineTo(bx + SBR, by + bh);
+    ctx.arcTo(bx, by + bh, bx, by + bh - SBR, SBR);
+    ctx.lineTo(bx, by + SBR);
+    ctx.arcTo(bx, by, bx + SBR, by, SBR);
+    ctx.closePath(); ctx.stroke();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(bx + ICON_W, by); ctx.lineTo(bx + ICON_W, by + bh); ctx.stroke();
+  }
+
+  drawBox(sbx, sby, sbw, fitH);
+  drawBox(sbx, hairDivY, sbw, hairH);
 
   // ── FIT — icons stacked vertically in icon column ──
   const FIT_ICN = 100, FIT_GAP = 14;
@@ -941,11 +967,11 @@ async function drawDailySlide2(row) {
   ctx.fillStyle = themeColor;
   ctx.font = '400 40px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, sby + 16);
+  ctx.fillText("TODAY'S FIT", sbx + ICON_W + 18, sby + PAD);
   ctx.fillStyle = '#fff';
   ctx.font = '400 34px "Share Tech Mono"';
   fitItems.forEach((item, i) => {
-    ctx.fillText(item, sbx + ICON_W + 18, sby + 74 + i * 46);
+    ctx.fillText(item, sbx + ICON_W + 18, sby + PAD + 54 + i * 46);
   });
 
   // ── HAIR ──
@@ -960,16 +986,16 @@ async function drawDailySlide2(row) {
   ctx.fillStyle = themeColor;
   ctx.font = '400 40px "Share Tech Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText('HAIR FORECAST', sbx + ICON_W + 18, hairDivY + 16);
+  ctx.fillText('HAIR FORECAST', sbx + ICON_W + 18, hairDivY + PAD);
   ctx.fillStyle = hair.color;
   ctx.font = '400 34px "Share Tech Mono"';
-  ctx.fillText(hair.level, sbx + ICON_W + 18, hairDivY + 72);
+  ctx.fillText(hair.level, sbx + ICON_W + 18, hairDivY + PAD + 54);
   ctx.fillStyle = '#777';
   ctx.font = '400 28px "Share Tech Mono"';
-  ctx.fillText(`HUM: ${row.humidity}%  ·  ${hair.sub}`, sbx + ICON_W + 18, hairDivY + 118);
+  ctx.fillText(`HUM: ${row.humidity}%  ·  ${hair.sub}`, sbx + ICON_W + 18, hairDivY + PAD + 104);
   ctx.fillStyle = '#aaa';
   ctx.font = '400 26px "Share Tech Mono"';
-  ctx.fillText(hair.rec || '', sbx + ICON_W + 18, hairDivY + 160);
+  ctx.fillText(hair.rec || '', sbx + ICON_W + 18, hairDivY + PAD + 146);
 
   // ── TICKER ──
   ctx.fillStyle = themeColor;
