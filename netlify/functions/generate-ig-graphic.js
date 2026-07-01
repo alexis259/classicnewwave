@@ -859,7 +859,7 @@ async function drawDailySlide2(row) {
   let hairIconImg = null;
   try { hairIconImg = await loadImage(path.join(__dirname, `assets/${getHairIconFile(row.humidity, row.precip_chance)}`)); } catch {}
 
-  const fitItems = getRepresentativeFitItems(outfit);
+  const fitItems = outfit;  // show all outfit items, not just representative ones
   const fitIconImgs = await Promise.all(fitItems.map(async item => {
     const file = getFitIconFile(item);
     if (!file) return null;
@@ -911,8 +911,10 @@ async function drawDailySlide2(row) {
   const px = INSET + 20, pw = W - INSET * 2 - 40;
   const sbx = px, sbw = pw;
 
-  // Fit box height: driven by 3 stacked icons (100px × 3 + 14px gaps × 2 = 328px)
-  const fitH = 328 + PAD * 2;   // 400px
+  // Fit box height: dynamic — driven by actual icon count (100px each, 14px gaps)
+  const FIT_ICN = 100, FIT_GAP = 14;
+  const fitIconStackH = fitItems.length * FIT_ICN + Math.max(0, fitItems.length - 1) * FIT_GAP;
+  const fitH = fitIconStackH + PAD * 2;
 
   // Hair box height: driven by text content (~4 lines) + hair icon (160px)
   const hairH = 280;
@@ -943,7 +945,6 @@ async function drawDailySlide2(row) {
   drawBox(sbx, hairDivY, sbw, hairH);
 
   // ── FIT — icons stacked vertically in icon column ──
-  const FIT_ICN = 100, FIT_GAP = 14;
   const validFitImgs = fitIconImgs.filter(Boolean);
   if (validFitImgs.length > 0) {
     const fitTotalH = validFitImgs.length * FIT_ICN + (validFitImgs.length - 1) * FIT_GAP;

@@ -221,13 +221,18 @@ exports.handler = async (event) => {
       };
     }
 
-    // Always regenerate for daily to ensure both carousel slides are available
-    if (!row.story_image_url || templateType === 'daily') {
+    // Generate images if not yet created, or if they predate the carousel format
+    const hasCarouselImages = row.feed_image_url?.includes('-daily-slide1');
+    if (!row.story_image_url || (templateType === 'daily' && !hasCarouselImages)) {
       console.log(`auto-post-ig: generating graphics (${templateType})`);
       const urls = await generateAndUpload(row, dateKey, templateType);
       row.feed_image_url = urls.feedImageUrl;
       row.story_image_url = urls.storyImageUrl;
       row.slide2_url = urls.slide2Url;
+    } else if (templateType === 'daily') {
+      // Carousel images already generated — derive slide2 URL from naming convention
+      row.slide2_url = `${SUPABASE_URL}/storage/v1/object/public/story-images/${dateKey}-daily-slide2.png`;
+      console.log('auto-post-ig: using existing carousel images');
     }
 
     const feedImageUrl = row.feed_image_url || row.story_image_url;
