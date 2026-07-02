@@ -820,16 +820,16 @@ async function drawDailySlide1(row) {
   }
 
   // TODAY'S MOOD label pinned top-left
-  const MOOD_LABEL_H = 50;
+  const MOOD_LABEL_H = 52;
   ctx.fillStyle = themeColor;
-  ctx.font = '400 22px "IBM Plex Mono"';
+  ctx.font = '400 30px "IBM Plex Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S MOOD", px + ICON_W + 16, moodBoxY + 14);
 
   // Body copy vertically centered in remaining space below label
   const moodBodyMaxW = pw - ICON_W - 28;
-  const MOOD_LINE_H  = 42;
-  ctx.font = '400 28px "IBM Plex Mono"';
+  const MOOD_LINE_H  = 64;
+  ctx.font = '400 50px "IBM Plex Mono"';
   const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
   const maxMoodLines = Math.floor((moodH - MOOD_LABEL_H - 8) / MOOD_LINE_H);
   const moodWords = moodText.split(' ');
@@ -854,20 +854,24 @@ async function drawDailySlide1(row) {
   roundRect(px, fitBoxY, pw, FIT_H, SBR);
   ctx.stroke();
 
-  // "TODAY'S FIT" label + icons row — vertically centered inside box
-  const FIT_ICON_SZ  = 36, FIT_ICON_GAP = 8;
-  const FIT_LABEL_H  = 32;
+  // TODAY'S FIT — label left, icons + names stacked and centered vertically
+  const FIT_ICON_SZ  = 80, FIT_ICON_GAP = 16;
+  const FIT_LABEL_H  = 36;  // label line height
+  const FIT_NAMES_H  = 48;  // names line height
   const validFitImgs = fitIconImgs.filter(Boolean);
-  const fitContentH  = FIT_LABEL_H + FIT_ICON_SZ;
-  const fitInnerY    = fitBoxY + Math.floor((FIT_H - fitContentH) / 2);
-  ctx.fillStyle = themeColor;
-  ctx.font = '400 20px "IBM Plex Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S FIT", px + 16, fitInnerY);
+  const fitStackH    = FIT_LABEL_H + 14 + FIT_ICON_SZ + 14 + FIT_NAMES_H;
+  const fitStackY    = fitBoxY + Math.floor((FIT_H - fitStackH) / 2);
 
-  // Icons (36×36) + dot-separated names on the same row below label
-  const iconsRowX    = px + 16;
-  const iconsRowY    = fitInnerY + FIT_LABEL_H;
+  // Label — left aligned
+  ctx.fillStyle = themeColor;
+  ctx.font = '400 26px "IBM Plex Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText("TODAY'S FIT", px + 16, fitStackY);
+
+  // Icons — centered horizontally
+  const iconsBlockW = validFitImgs.length * FIT_ICON_SZ + Math.max(0, validFitImgs.length - 1) * FIT_ICON_GAP;
+  const iconsRowX   = px + Math.floor((pw - iconsBlockW) / 2);
+  const iconsRowY   = fitStackY + FIT_LABEL_H + 14;
 
   validFitImgs.forEach((img, i) => {
     const fic = createCanvas(FIT_ICON_SZ, FIT_ICON_SZ);
@@ -881,12 +885,13 @@ async function drawDailySlide1(row) {
     ctx.drawImage(fic, iconsRowX + i * (FIT_ICON_SZ + FIT_ICON_GAP), iconsRowY);
   });
 
-  const iconsBlockW  = validFitImgs.length * FIT_ICON_SZ + Math.max(0, validFitImgs.length - 1) * FIT_ICON_GAP;
-  const fitNamesStr  = fitRep.join('  ·  ');
+  // Names — centered below icons
+  const fitNamesStr = fitRep.join('  ·  ');
   ctx.fillStyle = '#fff';
-  ctx.font = '400 22px "IBM Plex Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText(fitNamesStr, iconsRowX + iconsBlockW + 18, iconsRowY + FIT_ICON_SZ / 2);
+  ctx.font = '400 40px "IBM Plex Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(fitNamesStr, px + pw / 2, iconsRowY + FIT_ICON_SZ + 14);
+  ctx.textAlign = 'left';
 
   // ── TICKER ──
   ctx.fillStyle = themeColor;
@@ -986,14 +991,16 @@ async function drawDailySlide2(row) {
   const z2H = LABEL_H + LABEL_GAP + 130 + 14 + 26;  // label + hum number + gap + proceed text
   const z3H = LABEL_H + LABEL_GAP + 80 + 14 + 28;   // label + icons + gap + rec text
 
-  // Distribute remaining space evenly between zones (space-between)
+  // Center the zone block vertically; cap inter-zone gap at 80px
   const contentTop = headerH + 40;
   const contentBot = tickerY - 40;
-  const gap = Math.floor((contentBot - contentTop - z1H - z2H - z3H) / 2);
+  const ZONE_GAP   = 80;
+  const blockH     = z1H + ZONE_GAP + z2H + ZONE_GAP + z3H;
+  const blockStart = contentTop + Math.floor((contentBot - contentTop - blockH) / 2);
 
-  const z1Y = contentTop;
-  const z2Y = z1Y + z1H + gap;
-  const z3Y = z2Y + z2H + gap;
+  const z1Y = blockStart;
+  const z2Y = z1Y + z1H + ZONE_GAP;
+  const z3Y = z2Y + z2H + ZONE_GAP;
 
   // ── ZONE 1: HAIR FORECAST label + alert headline ──
   ctx.fillStyle = GOLD;
