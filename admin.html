@@ -1029,8 +1029,13 @@
               </select>
               <input id="alert-temp" type="number" placeholder="Temp (°F)" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;box-sizing:border-box;margin-bottom:6px;border-radius:2px">
               <textarea id="alert-custom-copy" rows="3" placeholder="Custom advisory (optional — press Enter for line break)" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;box-sizing:border-box;border-radius:2px;resize:vertical"></textarea>
+              <div style="border-top:1px solid #222;margin-top:10px;padding-top:10px">
+                <div style="font-size:10px;color:#555;font-family:monospace;letter-spacing:0.1em;margin-bottom:6px">IG CAPTION</div>
+                <textarea id="alert-ig-caption" rows="5" placeholder="Write your IG caption here..." style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;box-sizing:border-box;border-radius:2px;resize:vertical;line-height:1.5"></textarea>
+              </div>
             </div>
             <button class="btn-upload" id="regen-graphic-btn" onclick="regenGraphic()" style="width:100%;margin:0 0 8px 0">↺ Generate</button>
+            <button id="download-alert-btn" onclick="downloadAlert()" style="display:none;width:100%;margin:0 0 8px 0;padding:10px;background:#1a1a1a;color:#ccc;border:1px solid #333;font-family:monospace;font-size:12px;cursor:pointer;border-radius:2px">↓ Download Image</button>
             <button class="btn-post-now" id="post-now-btn" onclick="postNow()" disabled>▶ Post to IG Now</button>
             <div class="ig-caption-preview" id="ig-caption-preview" style="display:none"></div>
           </div>
@@ -1753,9 +1758,37 @@ async function uploadStoryImage() {
   }
 }
 
+let lastAlertImageUrl = null;
+
 function onGraphicTypeChange() {
   const type = document.getElementById('graphic-type').value;
   document.getElementById('alert-params').style.display = type === 'alert' ? 'block' : 'none';
+  document.getElementById('download-alert-btn').style.display = 'none';
+  lastAlertImageUrl = null;
+}
+
+async function downloadAlert() {
+  if (!lastAlertImageUrl) return;
+  const btn = document.getElementById('download-alert-btn');
+  btn.textContent = '↓ Downloading…';
+  btn.disabled = true;
+  try {
+    const res = await fetch(lastAlertImageUrl);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `classicnewweather-alert-${document.getElementById('alert-variant').value}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Download failed: ' + e.message);
+  } finally {
+    btn.textContent = '↓ Download Image';
+    btn.disabled = false;
+  }
 }
 
 async function regenGraphic() {
@@ -1784,6 +1817,9 @@ async function regenGraphic() {
       });
       const raw = await res.json();
       if (raw.error) throw new Error(raw.error);
+      // Store URL for download + posting, show download button
+      lastAlertImageUrl = raw.imageUrl;
+      document.getElementById('download-alert-btn').style.display = 'block';
       // Normalize response shape to match generate-ig-graphic
       data = { feedImageUrl: raw.imageUrl };
     } else {
@@ -1830,29 +1866,43 @@ async function postNow() {
   btn.textContent = '▶ Posting…';
 
   try {
-    const res = await fetch('/.netlify/functions/auto-post-ig', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: ADMIN_PW })
-    });
-    const data = await res.json();
+    const type = document.getElementById('graphic-type').value;
 
-    if (data.error) throw new Error(data.error);
-
-    if (data.skipped) {
-      status.className = 'ig-queue-status';
-      status.textContent = data.reason;
-      btn.textContent = '▶ Post to IG Now';
-      btn.disabled = false;
-      return;
+    if (type === 'alert') {
+      if (!lastAlertImageUrl) throw new Error('Generate the alert graphic first');
+      const caption = document.getElementById('alert-ig-caption').value.trim();
+      const res = await fetch('/api/trigger-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ADMIN_PW, action: 'post', imageUrl: lastAlertImageUrl, caption })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      status.className = 'ig-queue-status posted';
+      status.textContent = '✓ alert posted to IG';
+      btn.textContent = '✓ Posted';
+      if (caption) { captionEl.textContent = caption; captionEl.style.display = 'block'; }
+    } else {
+      const res = await fetch('/.netlify/functions/auto-post-ig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ADMIN_PW })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (data.skipped) {
+        status.className = 'ig-queue-status';
+        status.textContent = data.reason;
+        btn.textContent = '▶ Post to IG Now';
+        btn.disabled = false;
+        return;
+      }
+      status.className = 'ig-queue-status posted';
+      status.textContent = '✓ posted · feed + story live';
+      btn.textContent = '✓ Posted';
+      captionEl.textContent = data.caption;
+      captionEl.style.display = 'block';
     }
-
-    status.className = 'ig-queue-status posted';
-    status.textContent = '✓ posted · feed + story live';
-    btn.textContent = '✓ Posted';
-
-    captionEl.textContent = data.caption;
-    captionEl.style.display = 'block';
   } catch(e) {
     status.className = 'ig-queue-status error';
     status.textContent = `✗ ${e.message}`;

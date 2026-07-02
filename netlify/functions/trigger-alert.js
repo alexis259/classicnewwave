@@ -12,9 +12,12 @@ const fs = require('fs');
 
 const W = 1080, H = 1350;
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL         = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const ADMIN_PW = process.env.ADMIN_PW;
+const ADMIN_PW             = process.env.ADMIN_PW;
+const META_IG_USER_ID      = process.env.META_IG_USER_ID;
+const META_PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+const META_API             = 'https://graph.facebook.com/v21.0';
 
 // ── FONTS ──
 
@@ -314,6 +317,36 @@ async function uploadAlertImage(buffer, filename) {
   return `${SUPABASE_URL}/storage/v1/object/public/story-images/${filename}`;
 }
 
+// ── META API (for alert posts) ──
+
+async function metaCreateContainer(imageUrl, caption) {
+  const params = new URLSearchParams({ access_token: META_PAGE_ACCESS_TOKEN, image_url: imageUrl, caption });
+  const res = await fetch(`${META_API}/${META_IG_USER_ID}/media`, { method: 'POST', body: params });
+  const data = await res.json();
+  if (data.error) throw new Error(`Meta container error: ${data.error.message}`);
+  return data.id;
+}
+
+async function metaWaitForContainer(containerId, maxWaitMs = 90000) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const res = await fetch(`${META_API}/${containerId}?fields=status_code&access_token=${META_PAGE_ACCESS_TOKEN}`);
+    const data = await res.json();
+    if (data.status_code === 'FINISHED') return;
+    if (data.status_code === 'ERROR') throw new Error(`Meta container failed: ${containerId}`);
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  throw new Error(`Meta container timed out: ${containerId}`);
+}
+
+async function metaPublish(containerId) {
+  const params = new URLSearchParams({ creation_id: containerId, access_token: META_PAGE_ACCESS_TOKEN });
+  const res = await fetch(`${META_API}/${META_IG_USER_ID}/media_publish`, { method: 'POST', body: params });
+  const data = await res.json();
+  if (data.error) throw new Error(`Meta publish error: ${data.error.message}`);
+  return data.id;
+}
+
 // Exported for local preview script
 exports.drawAlertCard = drawAlertCard;
 
@@ -331,15 +364,33 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
-  let password, variant, temp, custom_copy;
+  let password, variant, temp, custom_copy, action, imageUrl, caption;
   try {
-    ({ password, variant, temp, custom_copy } = JSON.parse(event.body || '{}'));
+    ({ password, variant, temp, custom_copy, action, imageUrl, caption } = JSON.parse(event.body || '{}'));
   } catch {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Bad request' }) };
   }
 
   if (password !== ADMIN_PW) {
     return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
+
+  // ── action: post — publish an alert image to IG with a custom caption ──
+  if (action === 'post') {
+    if (!imageUrl) return { statusCode: 400, headers, body: JSON.stringify({ error: 'imageUrl required' }) };
+    if (!META_IG_USER_ID || !META_PAGE_ACCESS_TOKEN) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Meta credentials not configured' }) };
+    }
+    try {
+      const containerId = await metaCreateContainer(imageUrl, caption || '');
+      await metaWaitForContainer(containerId);
+      const postId = await metaPublish(containerId);
+      console.log(`trigger-alert: posted to IG → ${postId}`);
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, postId }) };
+    } catch (err) {
+      console.error('trigger-alert post error:', err);
+      return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+    }
   }
 
   if (!['hot', 'cold', 'storm'].includes(variant)) {
