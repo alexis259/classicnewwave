@@ -1014,14 +1014,22 @@
           </div>
           <div class="story-controls">
             <div class="ig-queue-status" id="ig-queue-status">not generated</div>
-            <select id="graphic-type" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;margin-bottom:8px;border-radius:2px">
+            <select id="graphic-type" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;margin-bottom:8px;border-radius:2px" onchange="onGraphicTypeChange()">
               <option value="daily">Daily Rating</option>
               <option value="weekly">Weekly Forecast (Monday)</option>
               <option value="alert">Weather Alert</option>
               <option value="hair">Hair Forecast</option>
               <option value="teaser">Teaser / Stand By</option>
-              <option value="dashboard">Dashboard</option>
             </select>
+            <div id="alert-params" style="display:none;margin-bottom:8px">
+              <select id="alert-variant" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;margin-bottom:6px;border-radius:2px">
+                <option value="hot">HOT</option>
+                <option value="cold">COLD</option>
+                <option value="storm">STORM</option>
+              </select>
+              <input id="alert-temp" type="number" placeholder="Temp (°F)" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;box-sizing:border-box;margin-bottom:6px;border-radius:2px">
+              <input id="alert-custom-copy" type="text" placeholder="Custom advisory (optional — use / for line break)" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;box-sizing:border-box;border-radius:2px">
+            </div>
             <button class="btn-upload" id="regen-graphic-btn" onclick="regenGraphic()" style="width:100%;margin:0 0 8px 0">↺ Generate</button>
             <button class="btn-post-now" id="post-now-btn" onclick="postNow()" disabled>▶ Post to IG Now</button>
             <div class="ig-caption-preview" id="ig-caption-preview" style="display:none"></div>
@@ -1745,6 +1753,11 @@ async function uploadStoryImage() {
   }
 }
 
+function onGraphicTypeChange() {
+  const type = document.getElementById('graphic-type').value;
+  document.getElementById('alert-params').style.display = type === 'alert' ? 'block' : 'none';
+}
+
 async function regenGraphic() {
   const btn = document.getElementById('regen-graphic-btn');
   const status = document.getElementById('ig-queue-status');
@@ -1757,13 +1770,31 @@ async function regenGraphic() {
   status.textContent = `generating ${type} graphic…`;
 
   try {
-    const res = await fetch('/.netlify/functions/generate-ig-graphic', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: ADMIN_PW, type })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    let data;
+
+    if (type === 'alert') {
+      const variant    = document.getElementById('alert-variant').value;
+      const temp       = Number(document.getElementById('alert-temp').value);
+      const customCopy = document.getElementById('alert-custom-copy').value.trim() || undefined;
+      if (!temp) throw new Error('Enter a temperature for the alert');
+      const res = await fetch('/api/trigger-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ADMIN_PW, variant, temp, custom_copy: customCopy })
+      });
+      const raw = await res.json();
+      if (raw.error) throw new Error(raw.error);
+      // Normalize response shape to match generate-ig-graphic
+      data = { feedImageUrl: raw.imageUrl };
+    } else {
+      const res = await fetch('/.netlify/functions/generate-ig-graphic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ADMIN_PW, type })
+      });
+      data = await res.json();
+      if (data.error) throw new Error(data.error);
+    }
 
     // Show preview
     const ts = '?t=' + Date.now();
