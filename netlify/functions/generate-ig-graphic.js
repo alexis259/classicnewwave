@@ -1906,6 +1906,8 @@ async function generateAndUpload(row, dateKey, type = 'daily') {
 }
 
 exports.generateAndUpload = generateAndUpload;
+exports.drawDailySlide1   = drawDailySlide1;
+exports.drawDailySlide2   = drawDailySlide2;
 
 // ── HTTP HANDLER ──
 
