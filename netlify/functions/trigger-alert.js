@@ -196,7 +196,7 @@ async function drawAlertCard(variant, temp, customCopy) {
 
   // Advisory lines: custom_copy overrides, "/" splits into two lines
   const advisoryLines = customCopy
-    ? customCopy.split('/').map(s => s.trim()).filter(Boolean)
+    ? customCopy.split(/[\n/]/).map(s => s.trim()).filter(Boolean)
     : cfg.advisory;
 
   // Auto-size headline and temp to fill ~920px (canvas width minus small margins)

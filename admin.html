@@ -1028,7 +1028,7 @@
                 <option value="storm">STORM</option>
               </select>
               <input id="alert-temp" type="number" placeholder="Temp (°F)" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;box-sizing:border-box;margin-bottom:6px;border-radius:2px">
-              <input id="alert-custom-copy" type="text" placeholder="Custom advisory (optional — use / for line break)" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;box-sizing:border-box;border-radius:2px">
+              <textarea id="alert-custom-copy" rows="3" placeholder="Custom advisory (optional — press Enter for line break)" style="background:#111;color:#ccc;border:1px solid #333;padding:8px 10px;font-size:12px;font-family:monospace;width:100%;box-sizing:border-box;border-radius:2px;resize:vertical"></textarea>
             </div>
             <button class="btn-upload" id="regen-graphic-btn" onclick="regenGraphic()" style="width:100%;margin:0 0 8px 0">↺ Generate</button>
             <button class="btn-post-now" id="post-now-btn" onclick="postNow()" disabled>▶ Post to IG Now</button>
