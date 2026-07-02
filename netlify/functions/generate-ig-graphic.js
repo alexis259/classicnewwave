@@ -961,9 +961,9 @@ async function drawDailySlide2(row) {
   const tickerY   = H - TICKER_H;  // 1260
   const marginX   = INSET + 40;    // 58px left/right margin
   const hlMaxW    = W - marginX * 2;
-  const HL_LINE_H = 88;
-  const LABEL_H   = 30;  // section label line height
-  const LABEL_GAP = 14;  // gap below label
+  const HL_LINE_H = 122;
+  const LABEL_H   = 36;  // section label line height
+  const LABEL_GAP = 18;  // gap below label
 
   // ── HEADER ──
   ctx.fillStyle = HDR_BG;
@@ -983,13 +983,13 @@ async function drawDailySlide2(row) {
     ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
 
   // ── MEASURE HEADLINE (dry run) to compute zone heights ──
-  ctx.font = '400 80px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.font = '400 110px "Bebas Neue", "Barlow Condensed BK"';
   const hlLineCount = measureLines(ctx, alertLevel, hlMaxW);
 
   // Zone heights
   const z1H = LABEL_H + LABEL_GAP + hlLineCount * HL_LINE_H;
-  const z2H = LABEL_H + LABEL_GAP + 130 + 14 + 26;  // label + hum number + gap + proceed text
-  const z3H = LABEL_H + LABEL_GAP + 80 + 14 + 28;   // label + icons + gap + rec text
+  const z2H = LABEL_H + LABEL_GAP + 176 + 16 + 34;  // label + hum number + gap + proceed text
+  const z3H = LABEL_H + LABEL_GAP + 110 + 16 + 42;  // label + icons + gap + rec text
 
   // Center the zone block vertically; cap inter-zone gap at 80px
   const contentTop = headerH + 40;
@@ -1004,39 +1004,39 @@ async function drawDailySlide2(row) {
 
   // ── ZONE 1: HAIR FORECAST label + alert headline ──
   ctx.fillStyle = GOLD;
-  ctx.font = '400 20px "IBM Plex Mono"';
+  ctx.font = '400 26px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('HAIR FORECAST', W / 2, z1Y);
 
-  ctx.font = '400 80px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.font = '400 110px "Bebas Neue", "Barlow Condensed BK"';
   ctx.fillStyle = GOLD;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   wrapText(ctx, alertLevel, W / 2, z1Y + LABEL_H + LABEL_GAP, hlMaxW, HL_LINE_H);
 
   // ── ZONE 2: HUMIDITY stat ──
   ctx.fillStyle = MUTED;
-  ctx.font = '400 20px "IBM Plex Mono"';
+  ctx.font = '400 26px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('HUMIDITY', W / 2, z2Y);
 
   ctx.fillStyle = GOLD;
-  ctx.font = '400 120px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.font = '400 160px "Bebas Neue", "Barlow Condensed BK"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(`${hum}%`, W / 2, z2Y + LABEL_H + LABEL_GAP);
 
   ctx.fillStyle = MUTED;
-  ctx.font = '400 20px "IBM Plex Mono"';
+  ctx.font = '400 28px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(proceedText, W / 2, z2Y + LABEL_H + LABEL_GAP + 130 + 14);
+  ctx.fillText(proceedText, W / 2, z2Y + LABEL_H + LABEL_GAP + 176 + 16);
 
   // ── ZONE 3: Alternative recommendation ──
   ctx.fillStyle = GOLD;
-  ctx.font = '400 18px "IBM Plex Mono"';
+  ctx.font = '400 22px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('ALTERNATIVE RECOMMENDATION', W / 2, z3Y);
 
   // Hair icons — 3 icons centered horizontally
-  const HAIR_ICN = 80, HAIR_GAP = 24;
+  const HAIR_ICN = 110, HAIR_GAP = 28;
   const validHairImgs = hairIconImgs.filter(Boolean);
   const iconsRowW = validHairImgs.length * HAIR_ICN + Math.max(0, validHairImgs.length - 1) * HAIR_GAP;
   const iconsRowX = Math.floor((W - iconsRowW) / 2);
@@ -1048,16 +1048,16 @@ async function drawDailySlide2(row) {
 
   // Rec text centered below icons
   ctx.fillStyle = GOLD;
-  ctx.font = '400 22px "IBM Plex Mono"';
+  ctx.font = '400 34px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(recText, W / 2, iconsY + HAIR_ICN + 14);
+  ctx.fillText(recText, W / 2, iconsY + HAIR_ICN + 16);
 
   // ── TICKER — dark green bar, 3 items space-between in gold ──
   ctx.fillStyle = '#1a3a1a';
   ctx.fillRect(0, tickerY, W, TICKER_H);
-  const tickerItems = ['STAY SMOOTH.', 'CHECK THE FORECAST.', 'RESPECT THE WEATHER.'];
+  const tickerItems = ['STAY SMOOTH.', 'CHECK THE FORECAST.', 'DRINK WATER.'];
   ctx.fillStyle = GOLD;
-  ctx.font = '400 20px "IBM Plex Mono"';
+  ctx.font = '400 26px "IBM Plex Mono"';
   ctx.textBaseline = 'middle';
   const tickerCy = tickerY + TICKER_H / 2;
   ctx.textAlign = 'left';   ctx.fillText(tickerItems[0], marginX,     tickerCy);
