@@ -718,12 +718,16 @@ async function drawDailySlide1(row) {
 
   // ── LAYOUT CONSTANTS ──
   const headerH  = 90;
+  const BOX_PAD  = 12;
   const TICKER_H = 100;
   const tickerY  = H - TICKER_H;   // 1250
-  const FIT_H    = 112;
-  const fitBoxY  = tickerY - FIT_H; // 1138
-  const panelTop = 628;             // mood box top
-  const moodH    = fitBoxY - 6 - panelTop; // 504 — 6px gap between boxes
+  const panelTop = 628;
+  const bodyH    = tickerY - panelTop;
+  const boxH     = Math.floor((bodyH - BOX_PAD * 3) / 2);
+  const moodBoxY = panelTop + BOX_PAD;
+  const fitBoxY  = moodBoxY + boxH + BOX_PAD;
+  const moodH    = boxH;
+  const FIT_H    = boxH;
   const SBR      = 8;
   const px = INSET + 20, pw = W - INSET * 2 - 40;
   const ICON_W   = 200;
@@ -793,13 +797,13 @@ async function drawDailySlide1(row) {
 
   // ── MOOD BOX ──
   ctx.strokeStyle = themeColor; ctx.lineWidth = 2;
-  roundRect(px, panelTop, pw, moodH, SBR);
+  roundRect(px, moodBoxY, pw, moodH, SBR);
   ctx.stroke();
 
   ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(px + ICON_W, panelTop); ctx.lineTo(px + ICON_W, panelTop + moodH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px + ICON_W, moodBoxY); ctx.lineTo(px + ICON_W, moodBoxY + moodH); ctx.stroke();
 
-  const moodCy = panelTop + moodH / 2;
+  const moodCy = moodBoxY + moodH / 2;
   if (weatherIconImg) {
     const iconSize = 160;
     const wic = createCanvas(iconSize, iconSize);
@@ -820,7 +824,7 @@ async function drawDailySlide1(row) {
   ctx.fillStyle = themeColor;
   ctx.font = '400 22px "IBM Plex Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S MOOD", px + ICON_W + 16, panelTop + 14);
+  ctx.fillText("TODAY'S MOOD", px + ICON_W + 16, moodBoxY + 14);
 
   // Body copy vertically centered in remaining space below label
   const moodBodyMaxW = pw - ICON_W - 28;
@@ -841,7 +845,7 @@ async function drawDailySlide1(row) {
   if (moodLineCount < maxMoodLines) moodLineCount++;
   const moodBlockH = moodLineCount * MOOD_LINE_H;
   const availH = moodH - MOOD_LABEL_H;
-  const moodBodyY = panelTop + MOOD_LABEL_H + Math.floor((availH - moodBlockH) / 2);
+  const moodBodyY = moodBoxY + MOOD_LABEL_H + Math.floor((availH - moodBlockH) / 2);
   ctx.fillStyle = '#fff';
   wrapText(ctx, moodText, px + ICON_W + 16, moodBodyY, moodBodyMaxW, MOOD_LINE_H, maxMoodLines);
 
@@ -850,17 +854,20 @@ async function drawDailySlide1(row) {
   roundRect(px, fitBoxY, pw, FIT_H, SBR);
   ctx.stroke();
 
-  // "TODAY'S FIT" label top-left
+  // "TODAY'S FIT" label + icons row — vertically centered inside box
+  const FIT_ICON_SZ  = 36, FIT_ICON_GAP = 8;
+  const FIT_LABEL_H  = 32;
+  const validFitImgs = fitIconImgs.filter(Boolean);
+  const fitContentH  = FIT_LABEL_H + FIT_ICON_SZ;
+  const fitInnerY    = fitBoxY + Math.floor((FIT_H - fitContentH) / 2);
   ctx.fillStyle = themeColor;
   ctx.font = '400 20px "IBM Plex Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S FIT", px + 16, fitBoxY + 12);
+  ctx.fillText("TODAY'S FIT", px + 16, fitInnerY);
 
   // Icons (36×36) + dot-separated names on the same row below label
-  const FIT_ICON_SZ  = 36, FIT_ICON_GAP = 8;
-  const validFitImgs = fitIconImgs.filter(Boolean);
   const iconsRowX    = px + 16;
-  const iconsRowY    = fitBoxY + 44;
+  const iconsRowY    = fitInnerY + FIT_LABEL_H;
 
   validFitImgs.forEach((img, i) => {
     const fic = createCanvas(FIT_ICON_SZ, FIT_ICON_SZ);
@@ -944,10 +951,14 @@ async function drawDailySlide2(row) {
   ctx.putImageData(grainImg, 0, 0);
 
   // ── LAYOUT CONSTANTS ──
-  const headerH  = 90;
-  const TICKER_H = 90;
-  const tickerY  = H - TICKER_H;   // 1260
-  const marginX  = INSET + 40;     // 58px left/right margin
+  const headerH   = 90;
+  const TICKER_H  = 90;
+  const tickerY   = H - TICKER_H;  // 1260
+  const marginX   = INSET + 40;    // 58px left/right margin
+  const hlMaxW    = W - marginX * 2;
+  const HL_LINE_H = 88;
+  const LABEL_H   = 30;  // section label line height
+  const LABEL_GAP = 14;  // gap below label
 
   // ── HEADER ──
   ctx.fillStyle = HDR_BG;
@@ -966,60 +977,63 @@ async function drawDailySlide2(row) {
     const dm = ctx.measureText(dl);
     ctx.fillText(dl, W - INSET - 22, (headerH + dm.actualBoundingBoxAscent - dm.actualBoundingBoxDescent) / 2); }
 
-  // ── HAIR FORECAST section label ──
+  // ── MEASURE HEADLINE (dry run) to compute zone heights ──
+  ctx.font = '400 80px "Bebas Neue", "Barlow Condensed BK"';
+  const hlLineCount = measureLines(ctx, alertLevel, hlMaxW);
+
+  // Zone heights
+  const z1H = LABEL_H + LABEL_GAP + hlLineCount * HL_LINE_H;
+  const z2H = LABEL_H + LABEL_GAP + 130 + 14 + 26;  // label + hum number + gap + proceed text
+  const z3H = LABEL_H + LABEL_GAP + 80 + 14 + 28;   // label + icons + gap + rec text
+
+  // Distribute remaining space evenly between zones (space-between)
+  const contentTop = headerH + 40;
+  const contentBot = tickerY - 40;
+  const gap = Math.floor((contentBot - contentTop - z1H - z2H - z3H) / 2);
+
+  const z1Y = contentTop;
+  const z2Y = z1Y + z1H + gap;
+  const z3Y = z2Y + z2H + gap;
+
+  // ── ZONE 1: HAIR FORECAST label + alert headline ──
   ctx.fillStyle = GOLD;
   ctx.font = '400 20px "IBM Plex Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText('HAIR FORECAST', marginX, headerH + 34);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('HAIR FORECAST', W / 2, z1Y);
 
-  // ── ALERT LEVEL HEADLINE — Bebas Neue, large, gold ──
-  ctx.font = '400 148px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.font = '400 80px "Bebas Neue", "Barlow Condensed BK"';
   ctx.fillStyle = GOLD;
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  const headlineY   = headerH + 72;
-  const headlineMaxW = W - marginX * 2;
-  const headlineLineH = 152;
-  const headlineLines = wrapText(ctx, alertLevel, marginX, headlineY, headlineMaxW, headlineLineH);
-  const headlineBottom = headlineY + headlineLines * headlineLineH;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  wrapText(ctx, alertLevel, W / 2, z1Y + LABEL_H + LABEL_GAP, hlMaxW, HL_LINE_H);
 
-  // ── HUMIDITY STAT ──
-  // Anchor humidity section at a fixed Y so layout is consistent regardless of headline line count
-  const humSectionY = Math.max(headlineBottom + 48, 560);
-
+  // ── ZONE 2: HUMIDITY stat ──
   ctx.fillStyle = MUTED;
-  ctx.font = '400 22px "IBM Plex Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText('HUMIDITY:', marginX, humSectionY);
+  ctx.font = '400 20px "IBM Plex Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('HUMIDITY', W / 2, z2Y);
 
   ctx.fillStyle = GOLD;
-  ctx.font = '400 190px "Bebas Neue", "Barlow Condensed BK"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(`${hum}%`, marginX, humSectionY + 28);
-  const humBottom = humSectionY + 28 + 194;  // 190px font approx
+  ctx.font = '400 120px "Bebas Neue", "Barlow Condensed BK"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(`${hum}%`, W / 2, z2Y + LABEL_H + LABEL_GAP);
 
   ctx.fillStyle = MUTED;
   ctx.font = '400 20px "IBM Plex Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(proceedText, marginX, humBottom + 14);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(proceedText, W / 2, z2Y + LABEL_H + LABEL_GAP + 130 + 14);
 
-  // ── DIVIDER ──
-  const dividerY = humBottom + 60;
-  ctx.strokeStyle = DIV_C; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(marginX, dividerY); ctx.lineTo(W - marginX, dividerY); ctx.stroke();
-
-  // ── RECOMMENDATION ──
-  const recLabelY = dividerY + 28;
+  // ── ZONE 3: Alternative recommendation ──
   ctx.fillStyle = GOLD;
   ctx.font = '400 18px "IBM Plex Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText('ALTERNATIVE RECOMMENDATION:', marginX, recLabelY);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('ALTERNATIVE RECOMMENDATION', W / 2, z3Y);
 
   // Hair icons — 3 icons centered horizontally
-  const HAIR_ICN = 64, HAIR_GAP = 24;
+  const HAIR_ICN = 80, HAIR_GAP = 24;
   const validHairImgs = hairIconImgs.filter(Boolean);
   const iconsRowW = validHairImgs.length * HAIR_ICN + Math.max(0, validHairImgs.length - 1) * HAIR_GAP;
   const iconsRowX = Math.floor((W - iconsRowW) / 2);
-  const iconsY    = recLabelY + 36;
+  const iconsY    = z3Y + LABEL_H + LABEL_GAP;
   validHairImgs.forEach((img, i) => {
     if (!img) return;
     ctx.drawImage(img, iconsRowX + i * (HAIR_ICN + HAIR_GAP), iconsY, HAIR_ICN, HAIR_ICN);
@@ -1027,21 +1041,21 @@ async function drawDailySlide2(row) {
 
   // Rec text centered below icons
   ctx.fillStyle = GOLD;
-  ctx.font = '400 28px "IBM Plex Mono"';
+  ctx.font = '400 22px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(recText, W / 2, iconsY + HAIR_ICN + 22);
+  ctx.fillText(recText, W / 2, iconsY + HAIR_ICN + 14);
 
-  // ── TICKER — dark green bar, 3 items in gold ──
-  ctx.fillStyle = '#0a1208';
+  // ── TICKER — dark green bar, 3 items space-between in gold ──
+  ctx.fillStyle = '#1a3a1a';
   ctx.fillRect(0, tickerY, W, TICKER_H);
   const tickerItems = ['STAY SMOOTH.', 'CHECK THE FORECAST.', 'RESPECT THE WEATHER.'];
   ctx.fillStyle = GOLD;
-  ctx.font = '400 22px "IBM Plex Mono"';
+  ctx.font = '400 20px "IBM Plex Mono"';
   ctx.textBaseline = 'middle';
   const tickerCy = tickerY + TICKER_H / 2;
-  ctx.textAlign = 'left';   ctx.fillText(tickerItems[0], marginX,           tickerCy);
-  ctx.textAlign = 'center'; ctx.fillText(tickerItems[1], W / 2,             tickerCy);
-  ctx.textAlign = 'right';  ctx.fillText(tickerItems[2], W - marginX,       tickerCy);
+  ctx.textAlign = 'left';   ctx.fillText(tickerItems[0], marginX,     tickerCy);
+  ctx.textAlign = 'center'; ctx.fillText(tickerItems[1], W / 2,       tickerCy);
+  ctx.textAlign = 'right';  ctx.fillText(tickerItems[2], W - marginX, tickerCy);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 
   return canvas;
