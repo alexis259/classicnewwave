@@ -15,6 +15,14 @@
 [functions."generate-ig-graphic"]
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
+[functions."trigger-alert"]
+  included_files = ["netlify/functions/fonts/**"]
+
+[[redirects]]
+  from = "/api/trigger-alert"
+  to   = "/.netlify/functions/trigger-alert"
+  status = 200
+
 [[redirects]]
   from = "https://classicnewwave.com/*"
   to = "https://classicnewweather.com/:splat"
