@@ -70,17 +70,18 @@ function outfitItems(temp, rain) {
 }
 
 function getHairStatus(humidity, rain) {
-  if (humidity >= 80 || rain > 60) return { level: 'SILK PRESS WARNING', color: '#E8C500', sub: 'PROCEED AT YOUR OWN RISK.', rec: 'PUFF  •  BRAIDS  •  BUN' };
-  if (humidity >= 70 || rain > 40)  return { level: 'HIGH HUMIDITY ALERT',  color: '#E88000', sub: 'MONITOR CLOSELY.',          rec: 'WASH & GO  •  PROTECTIVE STYLE' };
-  if (humidity >= 55 || rain > 25)  return { level: 'PROCEED WITH CAUTION', color: '#C8A000', sub: 'PRODUCT RECOMMENDED.',       rec: 'ANTI-HUMIDITY SPRAY  •  BRAID OUT' };
-  return                                    { level: 'WASH & GO APPROVED',   color: '#5AAA40', sub: "YOU'RE GOOD.",               rec: 'SILK PRESS  •  BLOWOUT  •  ANY STYLE' };
+  if (humidity >= 85 || rain > 60) return { level: 'SILK PRESS WARNING',  color: '#E8C500', sub: 'PROCEED AT YOUR OWN RISK.', rec: 'PUFF  •  BRAIDS  •  BUN' };
+  if (humidity >= 75 || rain > 40) return { level: 'HIGH HUMIDITY ALERT', color: '#E88000', sub: 'MONITOR CLOSELY.',          rec: 'WASH & GO  •  PROTECTIVE STYLE' };
+  if (humidity >= 65 || rain > 25) return { level: 'MODERATE RISK',       color: '#C8A000', sub: 'PROCEED WITH CAUTION.',     rec: 'ANTI-HUMIDITY SPRAY  •  BRAID OUT' };
+  if (humidity >= 55)              return { level: 'LOW RISK',             color: '#88AA40', sub: 'FRIZZ POSSIBLE.',           rec: 'SILK PRESS  •  WASH & GO' };
+  return                                   { level: 'GOOD HAIR DAY',       color: '#5AAA40', sub: "YOU'RE GOOD.",              rec: 'SILK PRESS  •  BLOWOUT  •  ANY STYLE' };
 }
 
 function getHairIconFile(humidity, rain) {
-  if (rain > 60 || humidity >= 80) return 'cornrows.png';    // SILK PRESS WARNING → go protective
-  if (rain > 40 || humidity >= 70) return 'afro-puff.png';   // HIGH HUMIDITY ALERT → protective
-  if (rain > 25 || humidity >= 55) return 'silk-press.png';  // PROCEED WITH CAUTION → silk press at risk
-  return 'wash-and-go.png';                                   // WASH & GO APPROVED → it's that kinda day
+  if (rain > 60 || humidity >= 85) return 'cornrows.png';    // SILK PRESS WARNING → go protective
+  if (rain > 40 || humidity >= 75) return 'afro-puff.png';   // HIGH HUMIDITY ALERT → protective
+  if (rain > 25 || humidity >= 65) return 'silk-press.png';  // MODERATE RISK → silk press at risk
+  return 'wash-and-go.png';                                   // LOW RISK / GOOD HAIR DAY
 }
 
 // Returns 3 icons for the full hair graphic panel
@@ -939,14 +940,16 @@ async function drawDailySlide2(row) {
 
   // Hair level + copy
   let alertLevel, proceedText, recText;
-  if (hum >= 80 || rain > 60) {
+  if (hum >= 85 || rain > 60) {
     alertLevel = 'SILK PRESS WARNING';  proceedText = 'PROCEED AT YOUR OWN RISK.';  recText = 'PUFF  ·  BRAIDS  ·  BUN';
-  } else if (hum >= 65 || rain > 40) {
-    alertLevel = 'HIGH HUMIDITY ALERT'; proceedText = 'PROCEED AT YOUR OWN RISK.';  recText = 'WASH & GO  ·  PROTECTIVE STYLE';
-  } else if (hum >= 50 || rain > 25) {
-    alertLevel = 'MODERATE RISK';       proceedText = 'PROCEED WITH CAUTION.';      recText = 'ANTI-HUMIDITY SPRAY  ·  BRAID OUT';
+  } else if (hum >= 75 || rain > 40) {
+    alertLevel = 'HIGH HUMIDITY ALERT'; proceedText = 'MONITOR CLOSELY.';            recText = 'WASH & GO  ·  PROTECTIVE STYLE';
+  } else if (hum >= 65 || rain > 25) {
+    alertLevel = 'MODERATE RISK';       proceedText = 'PROCEED WITH CAUTION.';       recText = 'ANTI-HUMIDITY SPRAY  ·  BRAID OUT';
+  } else if (hum >= 55) {
+    alertLevel = 'LOW RISK';            proceedText = 'FRIZZ POSSIBLE.';             recText = 'SILK PRESS  ·  WASH & GO';
   } else {
-    alertLevel = 'GOOD HAIR DAY';       proceedText = "YOU'RE GOOD.";               recText = 'SILK PRESS  ·  BLOWOUT  ·  ANY STYLE';
+    alertLevel = 'GOOD HAIR DAY';       proceedText = "YOU'RE GOOD.";                recText = 'SILK PRESS  ·  BLOWOUT  ·  ANY STYLE';
   }
 
   // Hair icons (3 files from existing helper)
@@ -1422,10 +1425,11 @@ async function drawAlert(row) {
 
 function getHairIconIndices(hair) {
   const level = hair.level;
-  if (level === 'SILK PRESS WARNING')   return [0, 3, 5];   // Natural Puff, Box Braids, High Bun
-  if (level === 'HIGH HUMIDITY ALERT')  return [15, 4, 11]; // Wash-and-Go, Cornrows, Bantu Knots
-  if (level === 'PROCEED WITH CAUTION') return [10, 4, 3];  // Twist Out, Cornrows, Box Braids
-  return [7, 8, 14]; // WASH & GO APPROVED: Silk Press, Blowout, Curly Fro
+  if (level === 'SILK PRESS WARNING')  return [0, 3, 5];   // Natural Puff, Box Braids, High Bun
+  if (level === 'HIGH HUMIDITY ALERT') return [15, 4, 11]; // Wash-and-Go, Cornrows, Bantu Knots
+  if (level === 'MODERATE RISK')       return [10, 4, 3];  // Twist Out, Cornrows, Box Braids
+  if (level === 'LOW RISK')            return [7, 10, 14]; // Silk Press, Twist Out, Curly Fro
+  return [7, 8, 14]; // GOOD HAIR DAY: Silk Press, Blowout, Curly Fro
 }
 
 // ── TEMPLATE 4: HAIR FORECAST ──
