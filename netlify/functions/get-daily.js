@@ -258,12 +258,18 @@ exports.handler = async (event) => {
         low: weather.low,
         feels_like: weather.feelsLike,
         condition: weather.condition,
-        humidity: weather.humidity,
-        precip_chance: weather.precipChance,
         wind_speed: weather.windSpeed,
         forecast: weather.forecast,
         updated_at: new Date().toISOString()
       };
+
+      // Lock humidity + precip_chance once the graphic has been posted.
+      // These drive the hair forecast — changing them after the IG post goes out
+      // would contradict the advisory that was already published.
+      if (!row.ig_posted) {
+        refreshed.humidity = weather.humidity;
+        refreshed.precip_chance = weather.precipChance;
+      }
 
       await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
         method: 'PATCH',
