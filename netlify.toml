@@ -8,8 +8,9 @@
   external_node_modules = ["@napi-rs/canvas"]
 
 [functions."auto-post-ig"]
-  # 7:30 AM EDT (UTC-4, summer). Change to "30 12 * * *" in winter (EST, UTC-5)
-  # schedule = "30 11 * * *"  # DISABLED — posting manually while fixing formatting
+  # 8:00 AM EDT (UTC-4, summer). Change to "0 13 * * *" in winter (EST, UTC-5)
+  schedule = "0 12 * * *"
+  type = "background"
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
 [functions."generate-ig-graphic"]

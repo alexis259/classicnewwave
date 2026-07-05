@@ -1888,20 +1888,12 @@ async function postNow() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: ADMIN_PW })
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      if (data.skipped) {
-        status.className = 'ig-queue-status';
-        status.textContent = data.reason;
-        btn.textContent = '▶ Post to IG Now';
-        btn.disabled = false;
-        return;
-      }
+      // Background function — Netlify returns 202 immediately, posts async
       status.className = 'ig-queue-status posted';
-      status.textContent = '✓ posted · feed + story live';
-      btn.textContent = '✓ Posted';
-      captionEl.textContent = data.caption;
-      captionEl.style.display = 'block';
+      status.textContent = res.status === 202
+        ? '⏳ queued — check IG in ~1 minute'
+        : '✓ posted · feed + story live';
+      btn.textContent = res.status === 202 ? '⏳ Queued' : '✓ Posted';
     }
   } catch(e) {
     status.className = 'ig-queue-status error';

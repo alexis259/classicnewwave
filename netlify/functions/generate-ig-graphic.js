@@ -845,13 +845,32 @@ async function drawDailySlide1(row) {
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText("TODAY'S MOOD", px + 16, moodBoxY + 14);
 
-  // Body copy vertically centered in remaining space below label
+  // Body copy vertically centered in remaining space below label — auto-scale font to fit
   const moodBodyMaxW = pw - ICON_W - 28;
-  const MOOD_LINE_H  = 64;
-  ctx.font = '400 50px "IBM Plex Mono"';
   const moodText = (synopsis || 'CLASSICNEWWEATHER.COM').toUpperCase();
-  const maxMoodLines = Math.floor((moodH - MOOD_LABEL_H - 8) / MOOD_LINE_H);
   const moodWords = moodText.split(' ');
+  let moodFontSize = 50;
+  let MOOD_LINE_H = 64;
+  let maxMoodLines = 1;
+
+  // Find largest font size where all text fits within the box height
+  while (moodFontSize >= 24) {
+    MOOD_LINE_H  = Math.round(moodFontSize * 1.28);
+    maxMoodLines = Math.max(1, Math.floor((moodH - MOOD_LABEL_H - 8) / MOOD_LINE_H));
+    ctx.font = `400 ${moodFontSize}px "IBM Plex Mono"`;
+    let line = '', count = 0;
+    for (let n = 0; n < moodWords.length; n++) {
+      const test = line + moodWords[n] + ' ';
+      if (ctx.measureText(test).width > moodBodyMaxW && n > 0) { count++; line = moodWords[n] + ' '; }
+      else { line = test; }
+    }
+    if (line.trim()) count++;
+    if (count <= maxMoodLines) break;
+    moodFontSize -= 2;
+  }
+
+  // Count actual lines used for vertical centering
+  ctx.font = `400 ${moodFontSize}px "IBM Plex Mono"`;
   let moodLine = '', moodLineCount = 0;
   for (let n = 0; n < moodWords.length; n++) {
     const test = moodLine + moodWords[n] + ' ';
@@ -905,11 +924,16 @@ async function drawDailySlide1(row) {
     ctx.drawImage(fic, iconsRowX + i * (FIT_ICON_SZ + FIT_ICON_GAP), iconsRowY);
   });
 
-  // Names — centered below icons
+  // Names — centered below icons, auto-scale to fit
   const fitNamesStr = fitRep.join('  ·  ');
   ctx.fillStyle = '#fff';
-  ctx.font = '400 40px "IBM Plex Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  let fitFontSize = 40;
+  ctx.font = `400 ${fitFontSize}px "IBM Plex Mono"`;
+  while (ctx.measureText(fitNamesStr).width > pw - 20 && fitFontSize > 20) {
+    fitFontSize -= 2;
+    ctx.font = `400 ${fitFontSize}px "IBM Plex Mono"`;
+  }
   ctx.fillText(fitNamesStr, px + pw / 2, iconsRowY + FIT_ICON_SZ + 14);
   ctx.textAlign = 'left';
 

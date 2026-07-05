@@ -160,11 +160,12 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers, body: '' };
   }
 
-  // Manual POST from admin — verify password
+  // Manual POST from admin — verify password (skip check for Netlify scheduled cron events)
   if (event.httpMethod === 'POST') {
     try {
       const body = JSON.parse(event.body || '{}');
-      if (body.password !== ADMIN_PW) {
+      const isCron = !!body.next_run; // Netlify cron events include next_run timestamp
+      if (!isCron && body.password !== ADMIN_PW) {
         return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
       }
     } catch {
