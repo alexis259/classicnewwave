@@ -161,10 +161,11 @@ exports.handler = async (event) => {
   }
 
   // Manual POST from admin — verify password (skip check for Netlify scheduled cron events)
+  let isCron = false;
   if (event.httpMethod === 'POST') {
     try {
       const body = JSON.parse(event.body || '{}');
-      const isCron = !!body.next_run; // Netlify cron events include next_run timestamp
+      isCron = !!body.next_run; // Netlify cron events include next_run timestamp
       if (!isCron && body.password !== ADMIN_PW) {
         return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
       }
@@ -213,13 +214,24 @@ exports.handler = async (event) => {
     const nycDay = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long' }).format(new Date());
     const templateType = nycDay === 'Monday' ? 'weekly' : 'daily';
 
-    if (row.ig_posted) {
-      console.log('auto-post-ig: already posted today — skipping');
+    // Cron: skip if already posted (guards against at-least-once delivery duplicates)
+    // Manual admin post: always allow — password already gates access
+    if (isCron && row.ig_posted) {
+      console.log('auto-post-ig: already posted today — skipping (cron)');
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({ skipped: true, reason: 'Already posted today' })
       };
+    }
+
+    // Optimistic lock: claim ig_posted immediately so concurrent cron runs skip out
+    if (isCron) {
+      await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
+        method: 'PATCH',
+        headers: { 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ ig_posted: true })
+      });
     }
 
     // Generate images if not yet created, or if they predate the carousel format
