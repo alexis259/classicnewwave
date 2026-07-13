@@ -1215,9 +1215,33 @@ async function drawWeekly(row) {
   ctx.fillStyle = themeColor; ctx.font = '700 22px "Share Tech Mono"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText("TODAY'S MOOD", cols[0] + panW / 2, panelTop + 16);
-  ctx.fillStyle = '#dddddd'; ctx.font = '400 27px "Share Tech Mono"';
+  // Auto-scale mood text to fit panel height (panH - 40px header = ~210px available)
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  wrapText(ctx, synopsis || '—', cols[0] + panW / 2, panelTop + 40, panW - 16, 34, 5);
+  {
+    const moodBodyMaxW = panW - 16;
+    const moodBodyAvailH = panH - 40;
+    const moodBodyText = synopsis || '—';
+    const moodWords = moodBodyText.split(' ');
+    let moodFontSize = 27;
+    let moodLineH = 34;
+    let moodMaxLines = 5;
+    while (moodFontSize >= 14) {
+      moodLineH = Math.round(moodFontSize * 1.26);
+      moodMaxLines = Math.max(1, Math.floor(moodBodyAvailH / moodLineH));
+      ctx.font = `400 ${moodFontSize}px "Share Tech Mono"`;
+      let line = '', count = 0;
+      for (let n = 0; n < moodWords.length; n++) {
+        const test = line + moodWords[n] + ' ';
+        if (ctx.measureText(test).width > moodBodyMaxW && n > 0) { count++; line = moodWords[n] + ' '; }
+        else { line = test; }
+      }
+      if (line.trim()) count++;
+      if (count <= moodMaxLines) break;
+      moodFontSize -= 2;
+    }
+    ctx.fillStyle = '#dddddd';
+    wrapText(ctx, moodBodyText, cols[0] + panW / 2, panelTop + 40, moodBodyMaxW, moodLineH, moodMaxLines);
+  }
 
   // FIT CHECK — icons + names
   panel(ctx, cols[1], panelTop, panW, panH, '', '#2a2a2a');
