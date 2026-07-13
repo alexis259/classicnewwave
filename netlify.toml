@@ -9,7 +9,7 @@
 
 [functions."auto-post-ig"]
   # 8:00 AM EDT (UTC-4, summer). Change to "0 13 * * *" in winter (EST, UTC-5)
-  # schedule = "0 12 * * *"  # DISABLED — re-enable after QA
+  schedule = "0 12 * * *"
   type = "background"
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
