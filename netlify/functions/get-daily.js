@@ -93,7 +93,7 @@ function isAfterNineAMNYC() {
   const hour = parseInt(new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York', hour: 'numeric', hour12: false
   }).format(new Date()));
-  return hour >= 9;
+  return hour >= 8;
 }
 
 async function fetchExamplesForSynopsis() {

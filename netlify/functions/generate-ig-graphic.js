@@ -2022,6 +2022,10 @@ exports.generateAndUpload = generateAndUpload;
 exports.drawDailySlide1   = drawDailySlide1;
 exports.drawDailySlide2   = drawDailySlide2;
 exports.drawWeekly        = drawWeekly;
+exports.drawAlert         = drawAlert;
+exports.drawHair          = drawHair;
+exports.drawTeaser        = drawTeaser;
+exports.drawDashboard     = drawDashboard;
 
 // ── HTTP HANDLER ──
 
