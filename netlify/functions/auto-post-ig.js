@@ -213,6 +213,12 @@ exports.handler = async (event) => {
     }
     const row = rows[0];
 
+    // If we just generated the synopsis, any cached graphic won't include it — force regeneration
+    if (needsGetDaily) {
+      row.story_image_url = null;
+      row.feed_image_url = null;
+    }
+
     // Determine template type: weekly on Mondays, daily otherwise
     const nycDay = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long' }).format(new Date());
     const templateType = nycDay === 'Monday' ? 'weekly' : 'daily';
