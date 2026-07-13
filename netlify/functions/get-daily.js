@@ -131,17 +131,22 @@ async function autoGenerateSynopsis(weather, score, penalties) {
     }
   } catch(e) { /* non-fatal */ }
 
-  const prompt = `You write short, punchy daily NYC weather updates in a very specific voice.
+  const prompt = `Write exactly 2 sentences about today's NYC weather. Max 20 words total across both sentences. No exceptions.
 
-VOICE RULES:
-- 1-2 sentences MAX. tight.
-- blend of hype and chill. never forced, never corny.
-- lowercase mostly. ALL CAPS only when it really lands.
-- natural NYC energy — like texting a homie who keeps it real
-- weather is info, not drama. matter of fact with personality.
-- no hashtags. one emoji max if it's perfect. no "hey guys".
+SENTENCE 1: one punchy observation about the conditions — temp, clouds, rain, or humidity.
+SENTENCE 2: one vibe or action — what it means for how you move through the city.
 
-${exampleBlock || `EXAMPLES:\n"39 degrees and the city said no today. rain comin — grab that umbrella."\n"65 and sunny out here cousins. this the one."\n"wind making it feel like 28. stay bundled."`}
+RULES:
+- Direct, casual, NYC voice. No corporate weather language.
+- Never use: "basically", "moderate", "pushing", "keeping it from"
+- No compound sentences. No commas connecting two thoughts.
+- Lowercase mostly. ALL CAPS only when it really lands.
+- No hashtags. No emojis.
+
+EXAMPLES:
+"clouds doing work today. solid day to be outside."
+"83 and muggy — humidity's not playing. stay hydrated out there."
+"hot but breezy. if you're gonna be outside, today's the day."
 
 TODAY:
 - Temp: ${Math.round(weather.temp)}°F, high of ${Math.round(weather.high)}°F, feels like ${Math.round(weather.feelsLike)}°F
@@ -150,9 +155,8 @@ TODAY:
 - Humidity: ${weather.humidity}%
 - Wind: ${weather.windSpeed} mph
 - Score: ${score}/10
-- Issues: ${penalties && penalties.length ? penalties.join(', ') : 'none — clean day'}
 
-Write it. Just the text.`;
+Write just the 2 sentences. Nothing else.`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
