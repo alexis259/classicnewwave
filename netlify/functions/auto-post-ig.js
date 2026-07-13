@@ -189,10 +189,13 @@ exports.handler = async (event) => {
 
     let rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
 
-    // No row yet — nobody has hit the site today. Trigger get-daily to create it.
-    if (!rows || rows.length === 0) {
+    // Trigger get-daily if row is missing OR synopsis hasn't been generated yet.
+    // get-daily runs maybeAutoGenerate which writes the synopsis — must run even if
+    // the row exists (e.g. someone visited before 8AM and the row has no synopsis yet).
+    const needsGetDaily = !rows || rows.length === 0 || !rows[0].synopsis_approved;
+    if (needsGetDaily) {
       const siteUrl = process.env.URL || process.env.DEPLOY_URL;
-      console.log(`auto-post-ig: no row for ${dateKey} — triggering get-daily (siteUrl=${siteUrl})`);
+      console.log(`auto-post-ig: calling get-daily (no row or no synopsis) siteUrl=${siteUrl}`);
       if (siteUrl) {
         const gdRes = await fetch(`${siteUrl}/.netlify/functions/get-daily`);
         console.log(`auto-post-ig: get-daily responded ${gdRes.status}`);
@@ -202,7 +205,7 @@ exports.handler = async (event) => {
         console.error('auto-post-ig: URL env var not set — cannot trigger get-daily');
       }
     } else {
-      console.log(`auto-post-ig: found row for ${dateKey}`);
+      console.log(`auto-post-ig: found row with synopsis for ${dateKey}`);
     }
 
     if (!rows || rows.length === 0) {
