@@ -610,5 +610,32 @@ async function init() {
 
 init();
 </script>
+
+<script>
+// ── VISIT TRACKING ──
+(function() {
+  try {
+    let visitorId = localStorage.getItem('cnw_visitor_id');
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      localStorage.setItem('cnw_visitor_id', visitorId);
+    }
+    let sessionId = sessionStorage.getItem('cnw_session_id');
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem('cnw_session_id', sessionId);
+    }
+    fetch('/.netlify/functions/track-visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visitor_id: visitorId,
+        session_id: sessionId,
+        referrer: document.referrer || null
+      })
+    }).catch(() => {});
+  } catch(e) {}
+})();
+</script>
 </body>
 </html>
