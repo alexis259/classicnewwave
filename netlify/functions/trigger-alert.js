@@ -197,8 +197,8 @@ async function drawAlertCard(variant, temp, customCopy) {
 
   // ── BODY — z=2, content block centered vertically ──
 
-  // Advisory lines: custom_copy overrides, "/" splits into two lines
-  const advisoryLines = customCopy
+  // Advisory lines: custom_copy overrides, "/" or newline splits into segments
+  const advisorySegments = customCopy
     ? customCopy.split(/[\n/]/).map(s => s.trim()).filter(Boolean)
     : cfg.advisory;
 
@@ -209,7 +209,26 @@ async function drawAlertCard(variant, temp, customCopy) {
   const tempSz     = fitFontSize(ctx, `${temp}° TODAY.`,   DISPLAY_FAMILY, DISPLAY_TARGET);
 
   const ADV_SZ     = 52;
+  const ADV_MAX_W  = W - PAD * 2; // 984px — text must stay within padding
   const ADV_LINE_H = Math.round(ADV_SZ * 1.5); // 78px
+
+  // Word-wrap each segment so no line bleeds past the canvas edge
+  ctx.font = `400 ${ADV_SZ}px "IBM Plex Mono Bold"`;
+  const advisoryLines = [];
+  for (const seg of advisorySegments) {
+    const words = seg.split(' ');
+    let current = '';
+    for (const word of words) {
+      const test = current ? current + ' ' + word : word;
+      if (ctx.measureText(test).width > ADV_MAX_W && current) {
+        advisoryLines.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    }
+    if (current) advisoryLines.push(current);
+  }
 
   const GAP_2  = 16;
   const GAP_3  = 28;
@@ -231,7 +250,7 @@ async function drawAlertCard(variant, temp, customCopy) {
   ctx.fillText(`${temp}° TODAY.`, W / 2, cY);
   cY += tempSz + GAP_3;
 
-  // Advisory copy — IBM Plex Mono Bold 52px, white, lineH 1.5
+  // Advisory copy — word-wrapped, IBM Plex Mono Bold 52px, white
   ctx.fillStyle = '#ffffff';
   ctx.font      = `400 ${ADV_SZ}px "IBM Plex Mono Bold"`;
   for (const line of advisoryLines) {
