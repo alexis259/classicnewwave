@@ -191,8 +191,9 @@ function scoreWeather(w) {
   else if (t >= 35 && t < 42) { score -= 6; penalties.push("cold af"); }
   else if (t >= 28 && t < 35) { score -= 7; penalties.push("freezing"); }
   else if (t < 28)             { score -= 8; penalties.push("BRUTAL"); }
-  else if (t > 82 && t <= 88) { score -= 2; penalties.push("hot"); }
-  else if (t > 88)             { score -= 4; penalties.push("too hot"); }
+  else if (t > 82 && t < 90)  { score -= 2; penalties.push("hot"); }
+  else if (t >= 90 && t < 95) { score -= 6; penalties.push("extreme heat"); }
+  else if (t >= 95)            { score -= 8; penalties.push("scorching"); }
 
   const chill = w.temp - w.feelsLike;
   if (chill >= 15)     { score -= 3; penalties.push("wind chill nasty"); }
