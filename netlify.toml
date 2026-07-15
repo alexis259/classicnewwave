@@ -7,21 +7,36 @@
   node_bundler = "esbuild"
   external_node_modules = ["@napi-rs/canvas"]
 
+# ── IG PROGRAMMING SCHEDULE (all times NYC / EDT = UTC-4 in summer) ──────────
+# Slot 1 — 7:00 AM  — check-forecast    — scan 5-day forecast, write alert flags
+# Slot 2 — 8:00 AM  — auto-post-ig      — daily rating card (carousel or weekly)
+# Slot 3 — 12:00 PM — auto-post-alert   — weather alert card (only if flagged)
+# Add new slots below as programming expands.
+# Summer (EDT): subtract 4h from NYC time to get UTC  → e.g. noon = "0 16 * * *"
+# Winter (EST): subtract 5h from NYC time to get UTC  → e.g. noon = "0 17 * * *"
+# ─────────────────────────────────────────────────────────────────────────────
+
+[functions."check-forecast"]
+  # Slot 1 — 7:00 AM EDT
+  schedule = "0 11 * * *"
+
 [functions."auto-post-ig"]
-  # 8:00 AM EDT (UTC-4, summer). Change to "0 13 * * *" in winter (EST, UTC-5)
+  # Slot 2 — 8:00 AM EDT. Change to "0 13 * * *" in winter (EST)
   schedule = "0 12 * * *"
   type = "background"
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
+
+[functions."auto-post-alert"]
+  # Slot 3 — 12:00 PM EDT. Change to "0 17 * * *" in winter (EST)
+  schedule = "0 16 * * *"
+  type = "background"
+  included_files = ["netlify/functions/fonts/**"]
 
 [functions."generate-ig-graphic"]
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
 [functions."trigger-alert"]
   included_files = ["netlify/functions/fonts/**"]
-
-[functions."check-forecast"]
-  # 7:00 AM EDT (UTC-4, summer). Change to "0 12 * * *" in winter (EST, UTC-5)
-  schedule = "0 11 * * *"
 
 [[redirects]]
   from = "/api/trigger-alert"
