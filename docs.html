@@ -520,7 +520,7 @@
         <div class="flow-step">
           <div class="flow-num">4</div>
           <div class="flow-text">
-            <strong>After returning the row:</strong> if past 9AM NYC and no <code>synopsis_approved</code> exists, auto-generate synopsis via Claude Haiku and save it
+            <strong>After returning the row:</strong> if past 8AM NYC and no <code>synopsis_approved</code> exists, auto-generate synopsis via Claude Haiku and save it
           </div>
         </div>
         <div class="flow-step">
@@ -644,9 +644,11 @@
 
       <div class="doc-label">Auto-Generation (server-side)</div>
       <div class="rule-list">
-        <div class="rule-item cyan">Triggers inside <code>get-daily.js</code> after returning the row — if past 9AM NYC and no <code>synopsis_approved</code> on today's row</div>
-        <div class="rule-item cyan">Pulls up to 8 writing examples from Supabase: recent approved daily rows take priority, then seeded <code>synopsis_examples</code> table entries fill remaining slots</div>
-        <div class="rule-item cyan">Sends to Claude Haiku with weather data + examples. Prompt requires: 1–2 sentences, NYC energy, lowercase, no hashtags, one emoji max</div>
+        <div class="rule-item cyan">Triggers inside <code>get-daily.js</code> after returning the row — if past 8AM NYC and no <code>synopsis_approved</code> on today's row</div>
+        <div class="rule-item cyan">Pulls up to 8 writing examples from Supabase: curated <code>synopsis_examples</code> anchor first, then recent approved daily rows fill remaining slots</div>
+        <div class="rule-item cyan">Uses system/user prompt split — CNW voice guide in system prompt, weather data + examples in user prompt</div>
+        <div class="rule-item cyan">Voice formula: <strong>[weather overview] — [action or cultural reaction]</strong>. Em dash as hinge. Lowercase-casual, NYC direct, no filler, no hashtags.</div>
+        <div class="rule-item cyan">Hard cap: 140 characters enforced in prompt AND server-side trim at last sentence boundary</div>
         <div class="rule-item cyan">Saves result directly to <code>synopsis_approved</code> + sets <code>approved = true</code> — live immediately</div>
       </div>
 
@@ -775,16 +777,21 @@
     <div class="section-body">
       <div class="doc-p">Hair Forecast uses humidity % and rain chance % to determine risk level and recommend protective styles. An icon is selected from 5 PNGs stored in <code>assets/hair/</code> (web) and <code>netlify/functions/assets/</code> (server).</div>
 
-      <div class="doc-label">Status Levels (humidity / rain thresholds)</div>
+      <div class="doc-label">Status Levels (humidity-first, rain bumps min level)</div>
       <table class="score-table">
-        <thead><tr><th>Condition</th><th>Level</th><th>Icon</th></tr></thead>
+        <thead><tr><th>Humidity</th><th>Level</th><th>Icon</th></tr></thead>
         <tbody>
-          <tr><td>Rain &gt;60% or Humidity ≥ 80%</td><td style="color:#E8C500">SILK PRESS WARNING</td><td>cornrows.png</td></tr>
-          <tr><td>Rain &gt;40% or Humidity ≥ 70%</td><td style="color:#E88000">HIGH HUMIDITY ALERT</td><td>afro-puff.png</td></tr>
-          <tr><td>Rain &gt;25% or Humidity ≥ 55%</td><td style="color:#C8A000">PROCEED WITH CAUTION</td><td>wash-and-go.png</td></tr>
-          <tr><td>Everything else</td><td style="color:#5AAA40">WASH &amp; GO APPROVED</td><td>silk-press.png</td></tr>
+          <tr><td>85%+</td><td style="color:#E8C500">SILK PRESS WARNING</td><td>cornrows.png</td></tr>
+          <tr><td>75–84%</td><td style="color:#E88000">HIGH HUMIDITY ALERT</td><td>afro-puff.png</td></tr>
+          <tr><td>65–74%</td><td style="color:#C8A000">MODERATE RISK</td><td>wash-and-go.png</td></tr>
+          <tr><td>55–64%</td><td style="color:#AA8800">LOW RISK</td><td>wash-and-go.png</td></tr>
+          <tr><td>&lt;55%</td><td style="color:#5AAA40">GOOD HAIR DAY</td><td>silk-press.png</td></tr>
         </tbody>
       </table>
+      <div class="rule-list" style="margin-top:12px">
+        <div class="rule-item yellow"><strong>Rain bumps minimum level:</strong> &gt;25% → MODERATE RISK min · &gt;40% → HIGH HUMIDITY ALERT min · &gt;60% → SILK PRESS WARNING</div>
+        <div class="rule-item cyan">Web app and IG daily graphic use identical thresholds — must stay in sync.</div>
+      </div>
 
       <div class="doc-label" style="margin-top:20px">Icons</div>
       <div class="rule-list">
@@ -844,7 +851,7 @@
   <div class="section">
     <div class="section-header">
       <div class="section-title">IG Automation</div>
-      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">auto-post-ig.js · cron 7:30 AM EDT</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">auto-post-ig.js · cron 8:00 AM EDT</div>
     </div>
     <div class="section-body">
 
@@ -852,7 +859,7 @@
       <div class="flow">
         <div class="flow-step">
           <div class="flow-num">1</div>
-          <div class="flow-text"><strong>Cron fires</strong> — Netlify scheduled function at <code>30 11 * * *</code> UTC = 7:30 AM EDT (summer). Change to <code>30 12 * * *</code> in winter (EST).
+          <div class="flow-text"><strong>Cron fires</strong> — Netlify scheduled function at <code>0 12 * * *</code> UTC = 8:00 AM EDT (summer). Change to <code>0 13 * * *</code> in winter (EST).
             <div class="flow-sub">Also triggerable manually: POST to <code>/.netlify/functions/auto-post-ig</code> with <code>{ "password": "..." }</code></div>
           </div>
         </div>
@@ -952,6 +959,106 @@
     </div>
   </div>
 
+  <!-- IG PROGRAMMING SCHEDULE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">IG Programming Schedule</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">all times NYC · EDT = UTC−4 · EST = UTC−5</div>
+    </div>
+    <div class="section-body">
+      <table class="fn-table">
+        <thead>
+          <tr><th>Time (NYC)</th><th>Function</th><th>What It Does</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="fn-name">7:00 AM</td>
+            <td class="fn-caller">check-forecast</td>
+            <td>Scans OWM 5-day forecast, writes upcoming alert events to <code>forecast_alerts</code> table</td>
+          </tr>
+          <tr>
+            <td class="fn-name">8:00 AM</td>
+            <td class="fn-caller">auto-post-ig</td>
+            <td>Daily rating carousel (Mon = weekly card, Tue–Sun = carousel)</td>
+          </tr>
+          <tr>
+            <td class="fn-name">12:00 PM</td>
+            <td class="fn-caller">auto-post-alert</td>
+            <td>Posts alert card if today's <code>alert_flag</code> is set, else skips silently</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="rule-list" style="margin-top:16px">
+        <div class="rule-item yellow"><strong>Summer UTC offsets (EDT):</strong> 7AM = <code>0 11</code> · 8AM = <code>0 12</code> · Noon = <code>0 16</code></div>
+        <div class="rule-item"><strong>Winter UTC offsets (EST):</strong> 7AM = <code>0 12</code> · 8AM = <code>0 13</code> · Noon = <code>0 17</code> — update in netlify.toml each time change</div>
+        <div class="rule-item cyan">Cron auth: Netlify passes <code>{ next_run }</code> in the body — all cron functions detect this and skip password check. Manual calls from admin require <code>{ "password": "..." }</code>.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEATHER ALERT SYSTEM -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Weather Alert System</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">two-layer detection + automated IG post</div>
+    </div>
+    <div class="section-body">
+
+      <div class="doc-label">Layer 1 — Daily Flag (get-daily.js)</div>
+      <div class="rule-list">
+        <div class="rule-item cyan"><code>detectAlert(weather)</code> runs on every row insert and 3-hour refresh</div>
+        <div class="rule-item cyan">Stores result in <code>alert_flag</code> column of the <code>daily</code> table</div>
+      </div>
+      <table class="score-table" style="margin-top:12px">
+        <thead><tr><th>Type</th><th>Condition</th></tr></thead>
+        <tbody>
+          <tr><td style="color:var(--red)">hot</td><td>Daily high ≥ 95°F or feels like ≥ 100°F</td></tr>
+          <tr><td style="color:var(--cyan)">cold</td><td>Daily high ≤ 28°F or feels like ≤ 20°F</td></tr>
+          <tr><td style="color:var(--yellow)">storm</td><td>Precip ≥ 70% AND (thunderstorm condition OR wind ≥ 25 mph)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-label" style="margin-top:20px">Layer 2 — Forecast Lookahead (check-forecast.js)</div>
+      <div class="rule-list">
+        <div class="rule-item cyan">Runs 7AM daily. Fetches OWM 5-day/3-hour forecast and groups slots by NYC date.</div>
+        <div class="rule-item cyan">Detects single-day extremes: high ≥ 95°F / feelsLike ≥ 100°F, high ≤ 20°F, major storm</div>
+        <div class="rule-item cyan">Detects multi-day patterns: heat wave (3+ consecutive days ≥ 90°F), cold snap (3+ consecutive days ≤ 32°F)</div>
+        <div class="rule-item yellow">Multi-day patterns deduplicate individual alerts covered within the same date range (<code>coveredDates</code> Set)</div>
+        <div class="rule-item">Results stored in <code>forecast_alerts</code> table. Admin panel shows upcoming events with one-click "→ Post Alert" buttons.</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Auto-Post Pipeline (auto-post-alert.js)</div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-text"><strong>Noon cron fires</strong> — fetch today's daily row, check <code>alert_flag</code>. If null, skip.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-text"><strong>Duplicate guard</strong> — if <code>alert_ig_posted = true</code>, skip. Optimistic lock sets it to <code>true</code> before generating to block concurrent runs.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-text"><strong>Generate copy</strong> — two parallel Haiku calls: advisory (2 punchy lines for the card) + caption (2–3 lines + hashtags for IG). Both in CNW voice.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-text"><strong>Render + upload</strong> — <code>drawAlertCard(type, temp, advisory)</code> from <code>trigger-alert.js</code>. PNG uploaded to Supabase storage.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-text"><strong>Post to IG</strong> — Meta Graph API container → poll → publish. Writes <code>alert_ig_post_id</code> + <code>alert_ig_caption</code> back to daily row.</div>
+        </div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">Admin Panel</div>
+      <div class="rule-list">
+        <div class="rule-item green">Red banner at top of admin when today's row has <code>alert_flag</code> set — one-click "→ POST ALERT" pre-fills the trigger form</div>
+        <div class="rule-item">Upcoming Alerts panel (between 5-Day Outlook and Site Analytics) shows <code>forecast_alerts</code> events with per-event "→ Post Alert" buttons</div>
+      </div>
+    </div>
+  </div>
+
   <!-- NETLIFY FUNCTIONS -->
   <div class="section">
     <div class="section-header">
@@ -1004,14 +1111,34 @@
             <td>Adds phone number to <code>subscribers</code> table in Supabase</td>
           </tr>
           <tr>
+            <td class="fn-name">trigger-alert.js</td>
+            <td class="fn-caller">Admin panel + auto-post-alert</td>
+            <td>Renders alert card PNG (1080×1350). Exports <code>drawAlertCard(type, temp, advisory)</code>. Advisory text word-wraps to stay within canvas padding.</td>
+          </tr>
+          <tr>
+            <td class="fn-name">check-forecast.js</td>
+            <td class="fn-caller">Netlify cron (7AM EDT)</td>
+            <td>Scans OWM 5-day/3-hour forecast. Detects upcoming extremes: extreme heat/cold, heat wave (3+ days ≥ 90°F), cold snap (3+ days ≤ 32°F), major storm. Deduplicates and writes to <code>forecast_alerts</code> table.</td>
+          </tr>
+          <tr>
+            <td class="fn-name">get-forecast-alerts.js</td>
+            <td class="fn-caller">Admin panel</td>
+            <td>Returns most recent row from <code>forecast_alerts</code> table (ordered by <code>run_at desc limit 1</code>).</td>
+          </tr>
+          <tr>
+            <td class="fn-name">auto-post-alert.js</td>
+            <td class="fn-caller">Netlify cron (noon EDT) + Admin panel</td>
+            <td>Checks today's <code>alert_flag</code>. If set and not yet posted: generates advisory copy + IG caption via Claude Haiku, renders alert card, uploads to Supabase storage, publishes to Instagram. Optimistic lock prevents duplicate cron posts.</td>
+          </tr>
+          <tr>
             <td class="fn-name">track-visit.js</td>
             <td class="fn-caller">Public page</td>
-            <td>Logs page visit (IP, referrer, timestamp) for analytics</td>
+            <td>Logs page visit (visitor_id, session_id, referrer, date_key) to <code>page_views</code> table using service role key</td>
           </tr>
           <tr>
             <td class="fn-name">get-analytics.js</td>
             <td class="fn-caller">Admin panel</td>
-            <td>Returns visit stats: views today, unique visitors, sessions, 7-day chart, top referrers</td>
+            <td>Returns visit stats: views today, unique visitors, sessions, 7-day chart, top referrers. Uses <code>SUPABASE_SERVICE_KEY</code> to bypass RLS on <code>page_views</code>.</td>
           </tr>
         </tbody>
       </table>
@@ -1032,13 +1159,27 @@
         <div class="rule-item cyan">Synopsis fields: <code>synopsis_draft</code> <code>synopsis_approved</code> <code>approved</code> (bool)</div>
         <div class="rule-item cyan">Image fields: <code>feed_image_url</code> (1080×1350 4:5 PNG) · <code>story_image_url</code> (1080×1920 9:16 PNG). Set by <code>generateAndUpload()</code>, persisted so the cron re-uses them without re-rendering.</div>
         <div class="rule-item cyan">IG fields: <code>ig_posted</code> (bool) · <code>ig_post_id</code> · <code>ig_caption</code> · <code>ig_posted_at</code></div>
+        <div class="rule-item cyan">Alert fields: <code>alert_flag</code> ('hot' | 'cold' | 'storm' | null) · <code>alert_ig_posted</code> (bool) · <code>alert_ig_post_id</code> · <code>alert_ig_caption</code></div>
         <div class="rule-item cyan">Meta: <code>updated_at</code></div>
       </div>
 
       <div class="doc-label" style="margin-top:20px">synopsis_examples</div>
       <div class="rule-list">
-        <div class="rule-item">Manually seeded writing examples used to train Claude's voice. Fields: <code>synopsis</code> <code>temp</code> <code>feels_like</code> <code>condition</code> <code>precip_chance</code> <code>score</code> <code>created_at</code></div>
-        <div class="rule-item yellow">Recent approved daily rows take priority over these as examples. These fill remaining slots up to 8 total.</div>
+        <div class="rule-item">12 curated hand-picked voice anchor examples. Fields: <code>synopsis</code> <code>temp</code> <code>feels_like</code> <code>condition</code> <code>precip_chance</code> <code>score</code> <code>created_at</code></div>
+        <div class="rule-item yellow">These anchor the Claude prompt first — curated examples load before recent daily rows to keep voice locked. Recent approved rows fill remaining slots up to 8 total.</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">forecast_alerts</div>
+      <div class="rule-list">
+        <div class="rule-item">Written daily at 7AM by <code>check-forecast.js</code>. Fields: <code>id</code> <code>run_at</code> <code>alerts</code> (JSONB array of upcoming alert objects)</div>
+        <div class="rule-item cyan">Each alert object: <code>type</code> (extreme_heat / extreme_cold / heat_wave / cold_snap / major_storm) · <code>date</code> or <code>startDate/endDate</code> · <code>maxHigh</code> / <code>minHigh</code> / <code>days</code></div>
+        <div class="rule-item yellow">Multi-day patterns (heat wave, cold snap) deduplicate any single-day alerts covered within the same date range.</div>
+      </div>
+
+      <div class="doc-label" style="margin-top:20px">page_views</div>
+      <div class="rule-list">
+        <div class="rule-item">Written on every page load by <code>track-visit.js</code>. Fields: <code>date_key</code> (NYC YYYY-MM-DD) · <code>visitor_id</code> (localStorage UUID) · <code>session_id</code> (sessionStorage UUID) · <code>referrer</code></div>
+        <div class="rule-item yellow">RLS on this table blocks anon key reads. <code>get-analytics.js</code> uses <code>SUPABASE_SERVICE_KEY</code> to bypass RLS. Writes via <code>track-visit.js</code> also use service key.</div>
       </div>
 
       <div class="doc-label" style="margin-top:20px">subscribers</div>
