@@ -2,7 +2,7 @@
 // Returns 7-day visit metrics from Supabase for the admin dashboard
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 function toNYCDateKey(date) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(date);
