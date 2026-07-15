@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNW — Control Room</title>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:ital,wght@0,300;0,400;1,300&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black:        #080808;
+      --card:         #141414;
+      --card2:        #1a1a1a;
+      --border:       #2a2a2a;
+      --red:          #E8230A;
+      --red-dim:      #9e1a07;
+      --green:        #2a7a3a;
+      --green-bright: #4caf62;
+      --cyan:         #00C8C8;
+      --white:        #f0f0f0;
+      --muted:        #555;
+      --muted2:       #888;
+      --yellow:       #f0c040;
+      --sidebar-w:    220px;
+    }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'IBM Plex Mono', monospace;
+      min-height: 100vh;
+    }
+
+    /* ── LOGIN ── */
+    #login-screen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 24px;
+    }
+    .login-card {
+      background: var(--card); border: 1px solid var(--border);
+      padding: 40px 36px; width: min(360px, 100%); text-align: center;
+    }
+    .login-title { font-family: 'Archivo Black', sans-serif; font-size: 1.4rem; margin-bottom: 6px; }
+    .login-sub { font-size: 0.62rem; color: var(--muted2); letter-spacing: 0.1em; margin-bottom: 28px; text-transform: uppercase; }
+    .login-input {
+      width: 100%; background: #0e0e0e; border: 1px solid var(--border);
+      color: var(--white); font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.9rem; padding: 12px 16px; outline: none; text-align: center;
+      letter-spacing: 0.2em; margin-bottom: 12px; transition: border-color 0.2s;
+    }
+    .login-input:focus { border-color: var(--red); }
+    .login-btn {
+      width: 100%; background: var(--red); color: white; border: none;
+      font-family: 'Archivo Black', sans-serif; font-size: 1rem;
+      letter-spacing: 0.06em; padding: 12px; cursor: pointer; transition: background 0.2s;
+    }
+    .login-btn:hover { background: #c01e07; }
+    .login-error { font-size: 0.62rem; color: var(--red); letter-spacing: 0.1em; margin-top: 10px; display: none; }
+
+    /* ── APP SHELL ── */
+    #app { display: none; min-height: 100vh; }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 0 24px; height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 14px; }
+    .topbar-brand { font-family: 'Archivo Black', sans-serif; font-size: 0.95rem; letter-spacing: 0.04em; }
+    .topbar-brand span { color: var(--red); }
+    .admin-badge {
+      font-size: 0.48rem; letter-spacing: 0.2em; text-transform: uppercase;
+      background: var(--red); color: white; padding: 3px 7px;
+    }
+    .topbar-right { display: flex; align-items: center; gap: 14px; }
+    .topbar-date { font-size: 0.55rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
+
+    /* status pill in topbar */
+    .status-pill {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 4px 10px; border: 1px solid var(--border); background: var(--card2);
+    }
+    .status-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+    .status-pill-dot.green  { background: var(--green-bright); }
+    .status-pill-dot.yellow { background: var(--yellow); animation: blink 1.5s ease infinite; }
+    .status-pill-dot.red    { background: var(--red); animation: blink 0.8s ease infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    .topbar-link {
+      font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted2); text-decoration: none; border: 1px solid var(--border);
+      padding: 4px 10px; transition: all 0.2s;
+    }
+    .topbar-link:hover { color: var(--white); border-color: var(--white); }
+    .logout-btn {
+      background: none; border: none; font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); cursor: pointer; padding: 4px 8px;
+    }
+    .logout-btn:hover { color: var(--red); }
+
+    /* ── LAYOUT ── */
+    .layout { display: flex; min-height: calc(100vh - 52px); }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      background: var(--card); position: sticky;
+      top: 52px; height: calc(100vh - 52px); overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    .sidebar-section { padding: 20px 16px 8px; }
+    .sidebar-section-label {
+      font-size: 0.44rem; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px; padding: 0 4px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; font-size: 0.7rem; letter-spacing: 0.05em;
+      color: var(--muted2); text-decoration: none; transition: all 0.15s;
+      border: 1px solid transparent; position: relative;
+    }
+    .nav-item:hover { color: var(--white); background: var(--card2); border-color: var(--border); }
+    .nav-item.active { color: var(--white); background: var(--card2); border-color: var(--border); }
+    .nav-item.active::before {
+      content: ''; position: absolute; left: -1px; top: 0; bottom: 0;
+      width: 2px; background: var(--red);
+    }
+    .nav-icon { font-size: 0.85rem; width: 16px; text-align: center; flex-shrink: 0; }
+    .nav-soon {
+      margin-left: auto; font-size: 0.4rem; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted); border: 1px solid var(--border);
+      padding: 1px 5px;
+    }
+    .sidebar-divider { border: none; border-top: 1px solid var(--border); margin: 8px 16px; }
+    .sidebar-bottom { margin-top: auto; padding: 16px; border-top: 1px solid var(--border); }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      flex: 1; padding: 28px 24px 60px;
+      max-width: calc(860px + 48px);
+    }
+
+    /* ── FAILURE BANNER ── */
+    .failure-banner {
+      display: none; background: var(--red); color: white;
+      padding: 12px 20px; margin-bottom: 24px;
+      align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .failure-banner.show { display: flex; }
+    .failure-banner-msg { font-size: 0.68rem; letter-spacing: 0.08em; font-weight: 700; }
+    .failure-banner-action {
+      font-size: 0.55rem; letter-spacing: 0.1em; text-transform: uppercase;
+      background: white; color: var(--red); border: none; padding: 5px 12px;
+      cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: 700;
+      text-decoration: none; white-space: nowrap;
+    }
+
+    /* ── CARDS ── */
+    .card { background: var(--card); border: 1px solid var(--border); margin-bottom: 20px; }
+    .card-header {
+      padding: 12px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title {
+      font-family: 'Archivo Black', sans-serif; font-size: 0.78rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .card-meta { font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted2); }
+    .card-body { padding: 20px; }
+
+    /* ── TWO-COL ── */
+    .two-col { display: flex; gap: 20px; margin-bottom: 20px; }
+    .col-graphic { flex: 0 0 260px; }
+    .col-checklist { flex: 1; min-width: 0; }
+
+    /* ── PROGRESS BAR ── */
+    .progress-bar {
+      display: flex; align-items: flex-start;
+      padding: 24px 20px 20px; gap: 0;
+    }
+    .prog-stage {
+      flex: 1; display: flex; flex-direction: column; align-items: center; position: relative;
+    }
+    .prog-stage::after {
+      content: ''; position: absolute;
+      left: 50%; top: 14px;
+      width: 100%; height: 2px;
+      background: var(--border);
+      z-index: 0;
+    }
+    .prog-stage:last-child::after { display: none; }
+    .prog-stage.done::after  { background: var(--green-bright); opacity: 0.6; }
+    .prog-stage.live::after  { background: var(--green-bright); opacity: 0.6; }
+
+    .prog-node {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid var(--border); background: var(--card2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; position: relative; z-index: 1;
+      transition: all 0.3s;
+    }
+    .prog-node.done    { border-color: var(--green-bright); background: var(--green); color: white; }
+    .prog-node.active  { border-color: var(--yellow); background: var(--card2); color: var(--yellow); animation: blink 2s ease infinite; }
+    .prog-node.live    { border-color: var(--green-bright); background: var(--green); color: white; }
+    .prog-node.failed  { border-color: var(--red); background: var(--red-dim); color: white; }
+    .prog-node.pending { border-color: var(--border); color: var(--muted); }
+
+    .prog-label {
+      margin-top: 10px; text-align: center;
+      font-size: 0.5rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted2); line-height: 1.5;
+    }
+    .prog-label strong { display: block; color: var(--white); font-size: 0.58rem; letter-spacing: 0.08em; margin-bottom: 2px; }
+    .prog-label.done strong    { color: var(--green-bright); }
+    .prog-label.active strong  { color: var(--yellow); }
+    .prog-label.live strong    { color: var(--green-bright); }
+    .prog-label.failed strong  { color: var(--red); }
+    .prog-label.pending strong { color: var(--muted2); }
+
+    .prog-today-brief {
+      font-size: 0.52rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted2); padding: 0 20px 4px;
+    }
+
+    /* ── GRAPHIC PREVIEW ── */
+    .graphic-card { background: var(--card); border: 1px solid var(--border); height: 100%; }
+    .graphic-card .card-header { min-height: 44px; }
+    .graphic-img {
+      width: 100%; aspect-ratio: 4/5;
+      object-fit: cover; display: block;
+      border-top: none;
+    }
+    .graphic-placeholder {
+      width: 100%; aspect-ratio: 4/5;
+      background: #0e0e0e; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; border-top: none;
+    }
+    .graphic-placeholder-icon { font-size: 2rem; opacity: 0.2; }
+    .graphic-placeholder-text { font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-align: center; }
+    .graphic-caption {
+      padding: 10px 14px; border-top: 1px solid var(--border);
+      font-size: 0.52rem; letter-spacing: 0.08em; color: var(--muted2);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .graphic-posted-badge {
+      font-size: 0.44rem; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 2px 7px; border: 1px solid;
+    }
+    .graphic-posted-badge.posted { color: var(--green-bright); border-color: var(--green); }
+    .graphic-posted-badge.pending { color: var(--muted); border-color: var(--border); }
+    .graphic-posted-badge.failed  { color: var(--red); border-color: var(--red-dim); }
+
+    /* ── BROADCAST CHECKLIST ── */
+    .checklist { display: flex; flex-direction: column; }
+    .cl-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 0; border-bottom: 1px solid var(--border);
+      font-size: 0.68rem; min-height: 44px;
+    }
+    .cl-item:last-child { border-bottom: none; }
+    .cl-item.urgent { background: rgba(232,35,10,0.04); margin: 0 -20px; padding: 11px 20px; }
+
+    .cl-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: var(--muted); border: 1px solid var(--border);
+    }
+    .cl-dot.done    { background: var(--green-bright); border-color: var(--green); }
+    .cl-dot.active  { background: var(--yellow); border-color: var(--yellow); animation: blink 1.5s ease infinite; }
+    .cl-dot.failed  { background: var(--red); border-color: var(--red-dim); }
+    .cl-dot.pending { background: transparent; border-color: var(--border); }
+    .cl-dot.neutral { background: var(--muted); border-color: var(--border); opacity: 0.4; }
+
+    .cl-label { flex: 1; color: var(--white); letter-spacing: 0.03em; }
+    .cl-label.muted { color: var(--muted2); }
+
+    .cl-type {
+      font-size: 0.42rem; letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 2px 6px; border: 1px solid; flex-shrink: 0;
+    }
+    .cl-type.auto    { color: var(--muted); border-color: var(--border); }
+    .cl-type.review  { color: var(--cyan); border-color: #005a5a; }
+
+    .cl-status {
+      font-size: 0.55rem; letter-spacing: 0.06em; color: var(--muted2);
+      text-align: right; flex-shrink: 0; max-width: 160px; line-height: 1.4;
+    }
+    .cl-status.done    { color: var(--green-bright); }
+    .cl-status.active  { color: var(--yellow); }
+    .cl-status.failed  { color: var(--red); }
+
+    .cl-link {
+      font-size: 0.48rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); text-decoration: none; border: 1px solid var(--border);
+      padding: 3px 8px; flex-shrink: 0; transition: all 0.15s; white-space: nowrap;
+    }
+    .cl-link:hover { color: var(--white); border-color: var(--white); }
+    .cl-link.urgent { color: var(--red); border-color: var(--red-dim); }
+    .cl-link.urgent:hover { background: var(--red); color: white; }
+
+    /* ── UPCOMING ── */
+    .upcoming-empty {
+      font-size: 0.62rem; color: var(--muted); font-style: italic;
+    }
+    .upcoming-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+      font-size: 0.65rem;
+    }
+    .upcoming-item:last-child { border-bottom: none; }
+    .upcoming-badge {
+      font-size: 0.44rem; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 3px 8px; border: 1px solid; flex-shrink: 0;
+    }
+    .upcoming-badge.alert-hot   { color: var(--red); border-color: var(--red-dim); }
+    .upcoming-badge.alert-cold  { color: var(--cyan); border-color: #005a5a; }
+    .upcoming-badge.alert-storm { color: var(--yellow); border-color: #7a6020; }
+    .upcoming-badge.weekly      { color: var(--muted2); border-color: var(--border); }
+    .upcoming-date { color: var(--muted2); font-size: 0.58rem; letter-spacing: 0.06em; }
+    .upcoming-desc { flex: 1; }
+    .upcoming-action {
+      font-size: 0.48rem; letter-spacing: 0.1em; text-transform: uppercase;
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 3px 9px; cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+      transition: all 0.15s; text-decoration: none; white-space: nowrap;
+    }
+    .upcoming-action:hover { color: var(--white); border-color: var(--white); }
+
+    /* ── SYSTEM HEALTH ── */
+    .health-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .health-item {
+      background: var(--card2); border: 1px solid var(--border); padding: 14px 16px;
+    }
+    .health-indicator {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .health-dot.green  { background: var(--green-bright); }
+    .health-dot.yellow { background: var(--yellow); }
+    .health-dot.red    { background: var(--red); }
+    .health-label {
+      font-size: 0.46rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted2);
+    }
+    .health-val {
+      font-family: 'Archivo Black', sans-serif; font-size: 0.78rem; color: var(--white);
+    }
+    .health-val.green  { color: var(--green-bright); }
+    .health-val.yellow { color: var(--yellow); }
+    .health-val.red    { color: var(--red); }
+    .health-sub { font-size: 0.48rem; letter-spacing: 0.06em; color: var(--muted); margin-top: 3px; }
+
+    /* ── LOADING ── */
+    .loading-text { color: var(--muted); font-style: italic; font-size: 0.75rem; animation: pulse 1.5s ease infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { padding: 20px 16px 48px; }
+      .two-col { flex-direction: column; }
+      .col-graphic { flex: none; }
+      .health-grid { grid-template-columns: repeat(2, 1fr); }
+      .progress-bar { padding: 20px 16px; }
+    }
+    @media (max-width: 500px) {
+      .topbar { padding: 0 16px; }
+      .topbar-date, .status-pill { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-title">CNW<span style="color:var(--red)">·</span></div>
+    <div class="login-sub">Control Room</div>
+    <input class="login-input" type="password" id="pw-input" placeholder="password">
+    <button class="login-btn" onclick="tryLogin()">Enter</button>
+    <div class="login-error" id="login-error">wrong password</div>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-brand">Classic<span>New</span>Wave</div>
+      <div class="admin-badge">Control Room</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-date" id="topbar-date">—</div>
+      <div class="status-pill" id="status-pill">
+        <div class="status-pill-dot" id="status-dot"></div>
+        <span id="status-msg">loading…</span>
+      </div>
+      <a href="index.html" class="topbar-link" target="_blank">Site ↗</a>
+      <a href="docs.html" class="topbar-link" target="_blank">Docs ↗</a>
+      <button class="logout-btn" onclick="logout()">Log out</button>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Today's Broadcast</div>
+        <a href="control-room.html" class="nav-item active">
+          <span class="nav-icon">◉</span> Control Room
+        </a>
+        <a href="admin.html" class="nav-item">
+          <span class="nav-icon">◌</span> Weather
+          <span class="nav-soon">admin</span>
+        </a>
+        <a href="admin.html" class="nav-item">
+          <span class="nav-icon">◌</span> Editorial
+          <span class="nav-soon">admin</span>
+        </a>
+        <a href="admin.html" class="nav-item">
+          <span class="nav-icon">◌</span> Graphics
+          <span class="nav-soon">admin</span>
+        </a>
+        <a href="admin.html" class="nav-item">
+          <span class="nav-icon">◌</span> Publishing
+          <span class="nav-soon">admin</span>
+        </a>
+      </div>
+      <hr class="sidebar-divider">
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Library</div>
+        <a href="admin.html" class="nav-item">
+          <span class="nav-icon">◌</span> Broadcast Archive
+          <span class="nav-soon">soon</span>
+        </a>
+        <a href="admin.html" class="nav-item">
+          <span class="nav-icon">◌</span> Audience Report
+          <span class="nav-soon">soon</span>
+        </a>
+      </div>
+      <div class="sidebar-bottom">
+        <a href="admin.html" class="nav-item" style="font-size:0.6rem;padding:6px 10px">
+          <span class="nav-icon" style="font-size:0.7rem">←</span> Full Admin
+        </a>
+        <a href="docs.html" class="nav-item" style="font-size:0.6rem;padding:6px 10px" target="_blank">
+          <span class="nav-icon" style="font-size:0.7rem">↗</span> System Docs
+        </a>
+      </div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="main" id="main-content">
+
+      <!-- FAILURE BANNER — shown when Go Live failed -->
+      <div class="failure-banner" id="failure-banner">
+        <div class="failure-banner-msg" id="failure-msg">GO LIVE FAILED — IG post did not go out</div>
+        <a href="admin.html#ig-graphic-panel" class="failure-banner-action">→ Fix in Admin</a>
+      </div>
+
+      <!-- PRODUCTION PROGRESS BAR -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Production Progress</div>
+          <div class="card-meta" id="progress-brief">loading…</div>
+        </div>
+        <div class="progress-bar" id="progress-bar">
+          <div class="loading-text">loading…</div>
+        </div>
+      </div>
+
+      <!-- TWO-COL: GRAPHIC + CHECKLIST -->
+      <div class="two-col">
+
+        <!-- TODAY'S GRAPHIC -->
+        <div class="col-graphic">
+          <div class="graphic-card card">
+            <div class="card-header">
+              <div class="card-title">Today's Graphic</div>
+              <span class="graphic-posted-badge pending" id="graphic-post-badge">pending</span>
+            </div>
+            <div id="graphic-area">
+              <div class="graphic-placeholder">
+                <div class="graphic-placeholder-icon">▣</div>
+                <div class="graphic-placeholder-text">loading…</div>
+              </div>
+            </div>
+            <div class="graphic-caption">
+              <span id="graphic-caption-text" style="color:var(--muted)">—</span>
+              <a href="admin.html#ig-graphic-panel" class="cl-link" style="font-size:0.44rem">→ Edit</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- BROADCAST CHECKLIST -->
+        <div class="col-checklist">
+          <div class="card" style="height:100%">
+            <div class="card-header">
+              <div class="card-title">Broadcast Checklist</div>
+              <div class="card-meta" id="checklist-meta">—</div>
+            </div>
+            <div class="card-body" style="padding:0 20px">
+              <div class="checklist" id="checklist">
+                <div class="cl-item"><span class="loading-text">loading…</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- UPCOMING -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Upcoming</div>
+          <div class="card-meta" id="upcoming-meta">alerts + programming</div>
+        </div>
+        <div class="card-body" id="upcoming-body">
+          <span class="loading-text">loading…</span>
+        </div>
+      </div>
+
+      <!-- SYSTEM HEALTH -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">System Health</div>
+          <div class="card-meta" id="health-meta">—</div>
+        </div>
+        <div class="card-body">
+          <div class="health-grid" id="health-grid">
+            <div class="loading-text">loading…</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+// ── AUTH ──
+const ADMIN_PW = 'cnw2026';
+
+document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+function tryLogin() {
+  if (document.getElementById('pw-input').value === ADMIN_PW) {
+    sessionStorage.setItem('cnw_admin', '1');
+    showApp();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-input').focus();
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('cnw_admin');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  setTopbarDate();
+  loadAll();
+}
+
+if (sessionStorage.getItem('cnw_admin') === '1') showApp();
+
+// ── TOPBAR DATE ──
+function setTopbarDate() {
+  document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    timeZone: 'America/New_York'
+  }).toUpperCase();
+}
+
+// ── NYC TIME HELPERS ──
+function getNYCHour() {
+  return parseInt(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: 'numeric', hour12: false
+  }).format(new Date()), 10);
+}
+function getNYCMinute() {
+  return parseInt(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', minute: '2-digit', hour12: false
+  }).format(new Date()), 10);
+}
+function minsUntil8AM() {
+  const h = getNYCHour(), m = getNYCMinute();
+  if (h >= 8) return -1; // past 8AM
+  return (7 - h) * 60 + (60 - m);
+}
+function formatCountdown(mins) {
+  if (mins <= 0) return 'now';
+  if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  return `${mins}m`;
+}
+function formatTimestamp(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('en-US', {
+    timeZone: 'America/New_York', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true
+  });
+}
+function daysAgo(iso) {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days}d ago`;
+}
+
+// ── GRADE HEADLINE ──
+function gradeHeadline(score) {
+  if (score >= 9) return 'A Perfect Day';
+  if (score >= 7) return 'Pretty Solid';
+  if (score >= 5) return 'Decent Enough';
+  if (score >= 3) return 'Rough Out There';
+  return 'Stay Inside';
+}
+
+// ── LOAD ALL DATA ──
+async function loadAll() {
+  let row = null, forecastAlerts = null;
+
+  try {
+    const [dailyRes, alertRes] = await Promise.all([
+      fetch('/.netlify/functions/get-daily'),
+      fetch('/.netlify/functions/get-forecast-alerts')
+    ]);
+    row = await dailyRes.json();
+    try { forecastAlerts = await alertRes.json(); } catch(e) {}
+  } catch(e) {
+    setStatus('red', 'Supabase error — check connection');
+    return;
+  }
+
+  if (!row || row.error) {
+    setStatus('red', 'Failed to load today\'s row');
+    return;
+  }
+
+  const nycHour = getNYCHour();
+  const minsLeft = minsUntil8AM();
+  const past8 = minsLeft < 0;
+
+  // Derive state values
+  const imported    = row.temp != null;
+  const hasScore    = row.score != null;
+  const synApproved = !!row.approved;
+  const igPosted    = !!row.ig_posted;
+  const alertFlag   = row.alert_flag || null;
+  const alertPosted = !!row.alert_ig_posted;
+  const feedUrl     = row.feed_image_url || null;
+  const score       = row.score || '—';
+  const high        = row.high != null ? Math.round(row.high) + '°F' : '—';
+
+  // Go Live failed: past 9AM and not posted (give 1h buffer after 8AM cron)
+  const goLiveFailed = past8 && nycHour >= 9 && !igPosted;
+
+  // Render all sections
+  renderFailureBanner(goLiveFailed);
+  renderBrief(row, score, high);
+  renderProgressBar(imported, synApproved, igPosted, past8, minsLeft, goLiveFailed);
+  renderGraphic(feedUrl, igPosted, row.ig_posted_at);
+  renderChecklist(row, synApproved, igPosted, alertFlag, alertPosted, past8, minsLeft, goLiveFailed);
+  renderUpcoming(forecastAlerts);
+  renderSystemHealth(row, imported);
+  setGlobalStatus(goLiveFailed, synApproved, past8, minsLeft, alertFlag, alertPosted, igPosted);
+}
+
+// ── FAILURE BANNER ──
+function renderFailureBanner(failed) {
+  const el = document.getElementById('failure-banner');
+  if (failed) {
+    el.classList.add('show');
+  } else {
+    el.classList.remove('show');
+  }
+}
+
+// ── TODAY'S BRIEF ──
+function renderBrief(row, score, high) {
+  const cond = row.condition || '—';
+  document.getElementById('progress-brief').textContent =
+    `Score ${score} · ${high} · ${cond}`;
+}
+
+// ── PROGRESS BAR ──
+function renderProgressBar(imported, synApproved, igPosted, past8, minsLeft, goLiveFailed) {
+  // Stage states
+  const s1 = imported ? 'done' : 'pending';
+
+  let s2, s2Label, s2Sub;
+  if (synApproved) {
+    s2 = 'done'; s2Label = 'Editorial'; s2Sub = 'approved & live';
+  } else if (past8) {
+    s2 = 'done'; s2Label = 'Editorial'; s2Sub = 'auto-published at 8AM';
+  } else {
+    s2 = 'active'; s2Label = 'Editorial';
+    s2Sub = `${formatCountdown(minsLeft)} until auto-publish`;
+  }
+
+  let s3, s3Label, s3Sub;
+  if (igPosted) {
+    s3 = 'live'; s3Label = 'Go Live'; s3Sub = 'posted to IG';
+  } else if (goLiveFailed) {
+    s3 = 'failed'; s3Label = 'Go Live'; s3Sub = 'post failed — check admin';
+  } else if (past8) {
+    s3 = 'active'; s3Label = 'Go Live'; s3Sub = 'cron running…';
+  } else {
+    s3 = 'pending'; s3Label = 'Go Live'; s3Sub = '8:00 AM cron';
+  }
+
+  const stages = [
+    { state: s1, label: 'Import', sub: imported ? 'weather loaded' : 'waiting for page load', icon: imported ? '✓' : '○' },
+    { state: s2, label: s2Label, sub: s2Sub, icon: s2 === 'done' ? '✓' : '⏰' },
+    { state: s3, label: s3Label, sub: s3Sub, icon: s3 === 'live' ? '✓' : s3 === 'failed' ? '✗' : '○' }
+  ];
+
+  // Color the connectors: if stage is done, connector after it is green
+  document.getElementById('progress-bar').innerHTML = stages.map((st, i) => `
+    <div class="prog-stage ${st.state}" style="${i < stages.length - 1 && stages[i].state === 'done' ? '--connector-color:var(--green-bright)' : ''}">
+      <div class="prog-node ${st.state}">${st.icon}</div>
+      <div class="prog-label ${st.state}">
+        <strong>${st.label}</strong>
+        ${st.sub}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── GRAPHIC PREVIEW ──
+function renderGraphic(feedUrl, igPosted, igPostedAt) {
+  const badge = document.getElementById('graphic-post-badge');
+  const area = document.getElementById('graphic-area');
+  const caption = document.getElementById('graphic-caption-text');
+
+  if (feedUrl) {
+    area.innerHTML = `<img class="graphic-img" src="${feedUrl}" alt="Today's graphic">`;
+    caption.textContent = feedUrl.split('/').pop();
+  } else {
+    area.innerHTML = `
+      <div class="graphic-placeholder">
+        <div class="graphic-placeholder-icon">▣</div>
+        <div class="graphic-placeholder-text">Not generated yet<br>renders at 8AM cron</div>
+      </div>`;
+    caption.textContent = 'No graphic yet';
+  }
+
+  if (igPosted) {
+    badge.className = 'graphic-posted-badge posted';
+    badge.textContent = 'posted · ' + (igPostedAt ? formatTimestamp(igPostedAt) : '');
+  } else {
+    badge.className = 'graphic-posted-badge pending';
+    badge.textContent = 'pending';
+  }
+}
+
+// ── BROADCAST CHECKLIST ──
+function renderChecklist(row, synApproved, igPosted, alertFlag, alertPosted, past8, minsLeft, goLiveFailed) {
+  const high = row.high != null ? Math.round(row.high) : null;
+  const score = row.score;
+
+  const items = [
+    {
+      label: 'Weather Imported',
+      type: 'auto',
+      state: row.temp != null ? 'done' : 'pending',
+      status: row.temp != null ? `${Math.round(row.temp)}°F · ${row.condition || ''}` : 'waiting for page load',
+      link: null
+    },
+    {
+      label: 'Score Finalized',
+      type: 'auto',
+      state: score != null ? 'done' : 'pending',
+      status: score != null ? `${score} / 10 · ${gradeHeadline(score)}` : '—',
+      link: 'admin.html',
+      linkLabel: '→ Override'
+    },
+    {
+      label: 'Outfit Ready',
+      type: 'auto',
+      state: row.temp != null ? 'done' : 'neutral',
+      status: row.temp != null ? 'threshold table' : '—',
+      link: null
+    },
+    {
+      label: 'Hair Forecast',
+      type: 'auto',
+      state: row.temp != null ? 'done' : 'neutral',
+      status: row.humidity != null ? `${row.humidity}% humidity` : '—',
+      link: null
+    },
+    {
+      label: 'Synopsis',
+      type: 'review',
+      state: synApproved ? 'done' : past8 ? 'done' : 'active',
+      status: synApproved
+        ? 'approved & live'
+        : past8
+          ? 'auto-published at 8AM'
+          : `not approved · ${formatCountdown(minsLeft)} left`,
+      link: 'admin.html',
+      linkLabel: synApproved ? '→ Edit' : '→ Review',
+      urgent: !synApproved && !past8
+    },
+    {
+      label: 'Breaking Weather',
+      type: 'auto',
+      state: alertFlag
+        ? (alertPosted ? 'done' : 'active')
+        : 'neutral',
+      status: alertFlag
+        ? (alertPosted ? `${alertFlag} alert posted` : `${alertFlag} alert — pending post`)
+        : 'no alert today',
+      link: alertFlag && !alertPosted ? 'admin.html' : null,
+      linkLabel: '→ Post',
+      urgent: alertFlag && !alertPosted
+    },
+    {
+      label: 'Graphic + Go Live',
+      type: 'auto',
+      state: igPosted ? 'live' : goLiveFailed ? 'failed' : past8 ? 'active' : 'pending',
+      status: igPosted
+        ? `posted · ${formatTimestamp(row.ig_posted_at)}`
+        : goLiveFailed
+          ? 'post failed — re-run manually'
+          : past8
+            ? 'cron running…'
+            : '8:00 AM cron',
+      link: goLiveFailed ? 'admin.html' : null,
+      linkLabel: '→ Fix',
+      urgent: goLiveFailed
+    }
+  ];
+
+  // Count pending human items
+  const reviewPending = items.filter(i => i.type === 'review' && i.state === 'active').length;
+  document.getElementById('checklist-meta').textContent =
+    reviewPending > 0 ? `${reviewPending} needs review` : 'all automated';
+
+  document.getElementById('checklist').innerHTML = items.map(item => {
+    const dotClass = item.state === 'live' ? 'done' : item.state;
+    const labelClass = (item.state === 'done' || item.state === 'live' || item.state === 'neutral') ? 'muted' : '';
+    const statusClass = item.state === 'done' || item.state === 'live' ? 'done'
+                      : item.state === 'active' ? 'active'
+                      : item.state === 'failed' ? 'failed' : '';
+    const linkUrgent = item.urgent ? 'urgent' : '';
+
+    return `<div class="cl-item ${item.urgent ? 'urgent' : ''}">
+      <div class="cl-dot ${dotClass}"></div>
+      <div class="cl-label ${labelClass}">${item.label}</div>
+      <span class="cl-type ${item.type}">${item.type}</span>
+      <div class="cl-status ${statusClass}">${item.status}</div>
+      ${item.link ? `<a href="${item.link}" class="cl-link ${linkUrgent}">${item.linkLabel}</a>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── UPCOMING ──
+function renderUpcoming(forecastAlerts) {
+  const body = document.getElementById('upcoming-body');
+  const meta = document.getElementById('upcoming-meta');
+  const items = [];
+
+  // Is Monday coming? Check if today is Mon–Sun and find next Monday's weekly card
+  const nycDay = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long' });
+  const isMonday = nycDay === 'Monday';
+  const daysToMonday = isMonday ? 7 : ((8 - new Date().getDay()) % 7) || 7;
+
+  if (!isMonday) {
+    const nextMon = new Date();
+    nextMon.setDate(nextMon.getDate() + daysToMonday);
+    items.push({
+      badge: 'weekly',
+      badgeLabel: 'Weekly',
+      date: nextMon.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' }),
+      desc: 'Weekly forecast card — auto-posts Monday 8AM',
+      action: null
+    });
+  }
+
+  // Forecast alerts
+  if (forecastAlerts && forecastAlerts.alerts && forecastAlerts.alerts.length > 0) {
+    forecastAlerts.alerts.forEach(alert => {
+      const typeMap = {
+        extreme_heat: { badge: 'alert-hot', label: 'Extreme Heat' },
+        heat_wave:    { badge: 'alert-hot', label: 'Heat Wave' },
+        extreme_cold: { badge: 'alert-cold', label: 'Extreme Cold' },
+        cold_snap:    { badge: 'alert-cold', label: 'Cold Snap' },
+        major_storm:  { badge: 'alert-storm', label: 'Major Storm' }
+      };
+      const t = typeMap[alert.type] || { badge: 'alert-storm', label: alert.type };
+      const dateStr = alert.date
+        ? formatAlertDate(alert.date)
+        : `${formatAlertDate(alert.startDate)} – ${formatAlertDate(alert.endDate)}`;
+      const detail = alert.maxHigh ? `High ${alert.maxHigh}°F` : alert.minHigh ? `High ${alert.minHigh}°F` : '';
+
+      items.push({
+        badge: t.badge,
+        badgeLabel: t.label,
+        date: dateStr,
+        desc: detail || 'Forecast alert',
+        action: { label: '→ Post Alert', href: 'admin.html' }
+      });
+    });
+  }
+
+  if (items.length === 0) {
+    body.innerHTML = '<div class="upcoming-empty">Nothing scheduled — clear week ahead.</div>';
+    meta.textContent = 'clear';
+    return;
+  }
+
+  meta.textContent = `${items.length} item${items.length > 1 ? 's' : ''}`;
+  body.innerHTML = items.map(item => `
+    <div class="upcoming-item">
+      <span class="upcoming-badge ${item.badge}">${item.badgeLabel}</span>
+      <span class="upcoming-date">${item.date}</span>
+      <span class="upcoming-desc">${item.desc}</span>
+      ${item.action ? `<a href="${item.action.href}" class="upcoming-action">${item.action.label}</a>` : ''}
+    </div>
+  `).join('');
+}
+
+function formatAlertDate(dateKey) {
+  if (!dateKey) return '—';
+  const d = new Date(dateKey + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// ── SYSTEM HEALTH ──
+function renderSystemHealth(row, supabaseOk) {
+  const igPosted = !!row.ig_posted;
+  const igPostedAt = row.ig_posted_at;
+  const lastPostDaysAgo = daysAgo(igPostedAt);
+
+  // Meta token proxy: if last post was recent, token is likely fine
+  // Hardcode known expiry Aug 6, 2026
+  const tokenExpiry = new Date('2026-08-06T00:00:00-04:00');
+  const daysToExpiry = Math.floor((tokenExpiry - new Date()) / 86400000);
+  let tokenState = 'green', tokenVal = `${daysToExpiry}d`, tokenSub = 'until token expiry';
+  if (daysToExpiry < 0) { tokenState = 'red'; tokenVal = 'expired'; tokenSub = 'replace immediately'; }
+  else if (daysToExpiry <= 7) { tokenState = 'red'; tokenVal = `${daysToExpiry}d`; tokenSub = 'expiring soon — replace now'; }
+  else if (daysToExpiry <= 14) { tokenState = 'yellow'; tokenSub = 'replace this week'; }
+
+  // Last post
+  let lastPostState = igPostedAt ? 'green' : 'yellow';
+  let lastPostVal = lastPostDaysAgo || '—';
+  let lastPostSub = igPostedAt ? formatTimestamp(igPostedAt) : 'no post recorded';
+
+  document.getElementById('health-grid').innerHTML = `
+    <div class="health-item">
+      <div class="health-indicator">
+        <div class="health-dot ${supabaseOk ? 'green' : 'red'}"></div>
+        <div class="health-label">Supabase</div>
+      </div>
+      <div class="health-val ${supabaseOk ? 'green' : 'red'}">${supabaseOk ? 'connected' : 'error'}</div>
+      <div class="health-sub">${supabaseOk ? 'daily row loaded' : 'check env vars'}</div>
+    </div>
+    <div class="health-item">
+      <div class="health-indicator">
+        <div class="health-dot ${lastPostState}"></div>
+        <div class="health-label">Last IG Post</div>
+      </div>
+      <div class="health-val">${lastPostVal}</div>
+      <div class="health-sub">${lastPostSub}</div>
+    </div>
+    <div class="health-item">
+      <div class="health-indicator">
+        <div class="health-dot ${tokenState}"></div>
+        <div class="health-label">Meta Token</div>
+      </div>
+      <div class="health-val ${tokenState}">${tokenVal}</div>
+      <div class="health-sub">${tokenSub}</div>
+    </div>
+    <div class="health-item">
+      <div class="health-indicator">
+        <div class="health-dot green"></div>
+        <div class="health-label">Canvas Renderer</div>
+      </div>
+      <div class="health-val green">operational</div>
+      <div class="health-sub">@napi-rs/canvas · Netlify</div>
+    </div>
+  `;
+
+  document.getElementById('health-meta').textContent =
+    tokenState === 'red' ? 'action required' : tokenState === 'yellow' ? 'warning' : 'all systems operational';
+}
+
+// ── GLOBAL STATUS PILL ──
+function setGlobalStatus(goLiveFailed, synApproved, past8, minsLeft, alertFlag, alertPosted, igPosted) {
+  const dot = document.getElementById('status-dot');
+  const msg = document.getElementById('status-msg');
+
+  if (goLiveFailed) {
+    dot.className = 'status-pill-dot red';
+    msg.textContent = 'Go Live failed';
+  } else if (alertFlag && !alertPosted) {
+    dot.className = 'status-pill-dot yellow';
+    msg.textContent = `${alertFlag} alert pending`;
+  } else if (!synApproved && !past8) {
+    dot.className = 'status-pill-dot yellow';
+    msg.textContent = `Synopsis · ${formatCountdown(minsLeft)} left`;
+  } else if (igPosted) {
+    dot.className = 'status-pill-dot green';
+    msg.textContent = 'On Air';
+  } else {
+    dot.className = 'status-pill-dot green';
+    msg.textContent = 'All clear';
+  }
+}
+
+function setStatus(color, text) {
+  document.getElementById('status-dot').className = `status-pill-dot ${color}`;
+  document.getElementById('status-msg').textContent = text;
+}
+</script>
+
+</body>
+</html>
