@@ -823,6 +823,15 @@
 
   <div class="admin-wrap">
 
+    <!-- ALERT BANNER — shown when today's conditions cross alert thresholds -->
+    <div id="today-alert-banner" style="display:none;background:#cc3300;color:#fff;padding:14px 20px;border-radius:2px;margin-bottom:16px;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;letter-spacing:0.1em;font-weight:700">⚠ WEATHER ALERT DETECTED</span>
+        <span id="today-alert-type" style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;margin-left:12px;opacity:0.85"></span>
+      </div>
+      <button onclick="goToAlertForm()" style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.1em;background:#fff;color:#cc3300;border:none;padding:6px 14px;cursor:pointer;border-radius:2px;font-weight:700;white-space:nowrap">→ POST ALERT</button>
+    </div>
+
     <!-- WEATHER + SCORE -->
     <div class="panel">
       <div class="panel-header">
@@ -964,6 +973,17 @@
 
 
     <!-- ANALYTICS -->
+    <!-- UPCOMING ALERTS -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Upcoming Alerts</div>
+        <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em" id="forecast-alerts-source">loading…</div>
+      </div>
+      <div class="panel-body" id="forecast-alerts-body">
+        <span style="color:var(--muted);font-size:0.65rem">checking forecast…</span>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">Site Analytics</div>
@@ -1000,7 +1020,7 @@
     </div>
 
     <!-- IG GRAPHIC GENERATOR -->
-    <div class="panel">
+    <div class="panel" id="ig-graphic-panel">
       <div class="panel-header">
         <div class="panel-title">IG Graphic</div>
         <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">1080 × 1350 · 4:5 feed</div>
@@ -1085,6 +1105,7 @@ function showAdmin() {
   });
   loadAll();
   loadAnalytics();
+  loadForecastAlerts();
   loadExamples();
 }
 
@@ -1171,7 +1192,8 @@ async function fetchWeather() {
       synopsisApproved: row.synopsis_approved,
       synopsisDraft: row.synopsis_draft,
       approved: row.approved,
-      score: row.score, penalties: row.penalties
+      score: row.score, penalties: row.penalties,
+      alertFlag: row.alert_flag || null
     };
     setCachedWeather(data);
     document.getElementById('data-source').textContent = 'live · supabase';
@@ -1426,6 +1448,16 @@ async function loadAll() {
       <span>${Math.round(d.high)}°F</span>
       <span class="f-rain">${d.rain > 0 ? d.rain + '% rain' : 'dry'}</span>
     </div>`).join('');
+
+  // Today's alert flag
+  const alertBanner = document.getElementById('today-alert-banner');
+  if (weather.alertFlag) {
+    const labels = { hot: 'Extreme Heat · Today', cold: 'Extreme Cold · Today', storm: 'Major Storm · Today' };
+    document.getElementById('today-alert-type').textContent = labels[weather.alertFlag] || weather.alertFlag;
+    alertBanner.style.display = 'flex';
+  } else {
+    alertBanner.style.display = 'none';
+  }
 
   // Synopsis — Supabase approved state is the source of truth
   const todayKey = getTodayKey();
@@ -2048,6 +2080,69 @@ async function loadAnalytics() {
   } catch(e) {
     document.getElementById('analytics-source').textContent = 'error';
     document.getElementById('an-chart').innerHTML = '<span class="an-empty">could not load analytics</span>';
+  }
+}
+
+// ── FORECAST ALERTS ──
+
+function formatAlertDate(dateKey) {
+  const d = new Date(dateKey + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function prefillAlert(variant, temp) {
+  document.getElementById('ig-graphic-panel').scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('graphic-type').value = 'alert';
+  document.getElementById('alert-params').style.display = 'block';
+  document.getElementById('alert-variant').value = variant;
+  if (temp) document.getElementById('alert-temp').value = temp;
+}
+
+function goToAlertForm() {
+  const variant = currentWeather?.alertFlag || 'hot';
+  const temp = Math.round(currentWeather?.high || 0);
+  prefillAlert(variant, temp);
+}
+
+async function loadForecastAlerts() {
+  try {
+    const res = await fetch('/.netlify/functions/get-forecast-alerts');
+    const data = await res.json();
+    const alerts = data.alerts || [];
+    const runAt = data.run_at ? new Date(data.run_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
+    document.getElementById('forecast-alerts-source').textContent = runAt ? `last checked ${runAt}` : 'live · owm';
+
+    if (alerts.length === 0) {
+      document.getElementById('forecast-alerts-body').innerHTML = '<span style="color:var(--muted);font-size:0.65rem">no alerts detected in the next 5 days</span>';
+      return;
+    }
+
+    document.getElementById('forecast-alerts-body').innerHTML = alerts.map(a => {
+      let label, variant, temp;
+      if (a.type === 'heatwave') {
+        label = `🌡 Heat Wave · ${formatAlertDate(a.start_date)}–${formatAlertDate(a.end_date)} · ${a.days} days · peak ${a.peak_high}°F`;
+        variant = 'hot'; temp = a.peak_high;
+      } else if (a.type === 'hot') {
+        label = `🌡 Extreme Heat · ${formatAlertDate(a.date)} · ${a.high}°F (feels ${a.feelsLike}°F)`;
+        variant = 'hot'; temp = a.high;
+      } else if (a.type === 'cold_snap') {
+        label = `🧊 Cold Snap · ${formatAlertDate(a.start_date)}–${formatAlertDate(a.end_date)} · ${a.days} days · low ${a.peak_low}°F`;
+        variant = 'cold'; temp = a.peak_low;
+      } else if (a.type === 'cold') {
+        label = `🧊 Extreme Cold · ${formatAlertDate(a.date)} · ${a.high}°F (feels ${a.feelsLike}°F)`;
+        variant = 'cold'; temp = a.high;
+      } else if (a.type === 'storm') {
+        label = `⛈ Major Storm · ${formatAlertDate(a.date)} · ${a.precip}% rain · ${a.wind} mph wind`;
+        variant = 'storm'; temp = null;
+      }
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:12px">
+        <span style="font-size:0.65rem;color:var(--white)">${label}</span>
+        <button onclick="prefillAlert('${variant}', ${temp || 0})" style="font-family:'IBM Plex Mono',monospace;font-size:0.55rem;background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;cursor:pointer;border-radius:2px;white-space:nowrap" onmouseover="this.style.color='var(--white)';this.style.borderColor='var(--white)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">→ Post Alert</button>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('forecast-alerts-source').textContent = 'error';
+    document.getElementById('forecast-alerts-body').innerHTML = '<span style="color:var(--muted);font-size:0.65rem">could not load forecast alerts</span>';
   }
 }
 

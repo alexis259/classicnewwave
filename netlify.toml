@@ -19,6 +19,10 @@
 [functions."trigger-alert"]
   included_files = ["netlify/functions/fonts/**"]
 
+[functions."check-forecast"]
+  # 7:00 AM EDT (UTC-4, summer). Change to "0 12 * * *" in winter (EST, UTC-5)
+  schedule = "0 11 * * *"
+
 [[redirects]]
   from = "/api/trigger-alert"
   to   = "/.netlify/functions/trigger-alert"

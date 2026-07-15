@@ -169,6 +169,14 @@ Write just the 2 sentences. Nothing else.`;
   return text;
 }
 
+function detectAlert(weather) {
+  if (weather.high >= 95 || weather.feelsLike >= 100) return 'hot';
+  if (weather.high <= 28 || weather.feelsLike <= 20) return 'cold';
+  const isThunderstorm = (weather.condition || '').toLowerCase().includes('thunderstorm');
+  if (weather.precipChance >= 70 && (isThunderstorm || weather.windSpeed >= 25)) return 'storm';
+  return null;
+}
+
 function scoreWeather(w) {
   let score = 10;
   const penalties = [];
@@ -264,6 +272,7 @@ exports.handler = async (event) => {
         condition: weather.condition,
         wind_speed: weather.windSpeed,
         forecast: weather.forecast,
+        alert_flag: detectAlert(weather),
         updated_at: new Date().toISOString()
       };
 
@@ -304,6 +313,7 @@ exports.handler = async (event) => {
       forecast: weather.forecast,
       score,
       penalties,
+      alert_flag: detectAlert(weather),
       synopsis_draft: null,
       synopsis_approved: null,
       approved: false,
