@@ -99,6 +99,25 @@ exports.handler = async () => {
     }
     const deduped = alerts.filter(a => !((a.type === 'hot' || a.type === 'cold') && coveredDates.has(a.date)));
 
+    // ── Set alert_flag on today's daily row based on forecast ──
+    const todayKey = toNYCDateKey(new Date());
+    const todayForecast = days[todayKey];
+    if (todayForecast) {
+      let alertFlag = null;
+      if (todayForecast.high >= 91 || todayForecast.feelsLike >= 100) alertFlag = 'hot';
+      else if (todayForecast.high <= 28 || todayForecast.feelsLike <= 20) alertFlag = 'cold';
+      else if (todayForecast.precip >= 70 && (todayForecast.hasThunderstorm || todayForecast.wind >= 25)) alertFlag = 'storm';
+
+      if (alertFlag) {
+        await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(todayKey)}`, {
+          method: 'PATCH',
+          headers: { 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ alert_flag: alertFlag })
+        });
+        console.log(`check-forecast: set alert_flag=${alertFlag} on daily row for ${todayKey}`);
+      }
+    }
+
     // ── Store result in Supabase ──
     await supabaseFetch('/forecast_alerts', {
       method: 'POST',

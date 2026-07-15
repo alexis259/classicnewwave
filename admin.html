@@ -1154,14 +1154,15 @@ async function forceRefresh() {
     const row = await res.json();
     if (!row || row.error) throw new Error('Function error');
     const data = {
-      temp: row.temp, feelsLike: row.feels_like,
+      temp: row.temp, high: row.high, low: row.low, feelsLike: row.feels_like,
       condition: row.condition, humidity: row.humidity,
       precipChance: row.precip_chance, windSpeed: row.wind_speed,
       forecast: row.forecast,
       synopsisApproved: row.synopsis_approved,
       synopsisDraft: row.synopsis_draft,
       approved: row.approved,
-      score: row.score, penalties: row.penalties
+      score: row.score, penalties: row.penalties,
+      alertFlag: row.alert_flag || null
     };
     setCachedWeather(data);
     document.getElementById('data-source').textContent = 'force-refreshed · live';
