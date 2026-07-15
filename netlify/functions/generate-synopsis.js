@@ -120,7 +120,7 @@ The dash is the hinge between the two halves. It's doing double duty as a pause 
 - Short, punchy action tags, not instructive imperatives. "handle ya business" beats "make sure to dress appropriately." "keep warm" beats "we recommend wearing a warm jacket today."
 - Cultural slang is welcome where it fits naturally: "fr," "mf," "yall," "ima," etc. Don't force it — one unforced slang word lands harder than three crammed in.
 - Don't over-polish. Casual contractions and informal phrasing read as authentic voice, not sloppiness.
-- Hard cap: 2 sentences per synopsis. If it's running longer, cut content — don't compress.
+- Hard cap: 140 characters total. Count before you output. If it's over, cut content — don't compress.
 - Never sound like a weather app. If a line could appear in a corporate weather alert, rewrite it.
 
 ## Score Band Calibration
@@ -177,8 +177,15 @@ Write the synopsis.`;
     });
 
     const data = await res.json();
-    const text = data.content?.[0]?.text?.trim();
+    let text = data.content?.[0]?.text?.trim();
     if (!text) throw new Error('No text returned');
+
+    // Hard cap at 140 chars — trim at last sentence boundary if possible
+    if (text.length > 140) {
+      const trimmed = text.slice(0, 140);
+      const lastPeriod = trimmed.lastIndexOf('.');
+      text = lastPeriod > 80 ? trimmed.slice(0, lastPeriod + 1) : trimmed.trimEnd();
+    }
 
     return { statusCode: 200, headers, body: JSON.stringify({ text }) };
 
