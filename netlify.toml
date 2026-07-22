@@ -11,6 +11,7 @@
 # Slot 1 — 7:00 AM  — check-forecast    — scan 5-day forecast, write alert flags
 # Slot 2 — 8:00 AM  — auto-post-ig      — daily rating card (carousel or weekly)
 # Slot 3 — 12:00 PM — auto-post-alert   — weather alert card (only if flagged)
+# Slot 4 — every 30m — check-nws-alerts — poll NWS API, post immediately on critical events
 # Add new slots below as programming expands.
 # Summer (EDT): subtract 4h from NYC time to get UTC  → e.g. noon = "0 16 * * *"
 # Winter (EST): subtract 5h from NYC time to get UTC  → e.g. noon = "0 17 * * *"
@@ -29,6 +30,12 @@
 [functions."auto-post-alert"]
   # Slot 3 — 12:00 PM EDT. Change to "0 17 * * *" in winter (EST)
   schedule = "0 16 * * *"
+  type = "background"
+  included_files = ["netlify/functions/fonts/**"]
+
+[functions."check-nws-alerts"]
+  # Slot 4 — every 30 min — no seasonal offset needed (UTC cron)
+  schedule = "*/30 * * * *"
   type = "background"
   included_files = ["netlify/functions/fonts/**"]
 
