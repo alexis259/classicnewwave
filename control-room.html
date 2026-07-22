@@ -355,6 +355,36 @@
     .health-val.red    { color: var(--red); }
     .health-sub { font-size: 0.48rem; letter-spacing: 0.06em; color: var(--muted); margin-top: 3px; }
 
+    /* ── NWS ALERT BANNER ── */
+    .nws-banner {
+      display: none; margin-bottom: 20px;
+      border: 1px solid; padding: 14px 20px;
+      align-items: flex-start; gap: 16px;
+    }
+    .nws-banner.show { display: flex; }
+    .nws-banner.is-warning { background: rgba(232,35,10,0.08); border-color: var(--red); }
+    .nws-banner.is-watch   { background: rgba(240,192,64,0.08); border-color: var(--yellow); }
+    .nws-banner-label {
+      font-size: 0.44rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 5px;
+    }
+    .nws-banner.is-warning .nws-banner-label { color: var(--red); }
+    .nws-banner.is-watch   .nws-banner-label { color: var(--yellow); }
+    .nws-banner-events {
+      font-family: 'Archivo Black', sans-serif; font-size: 0.92rem;
+      letter-spacing: 0.02em; margin-bottom: 4px;
+    }
+    .nws-banner-expires { font-size: 0.52rem; color: var(--muted2); letter-spacing: 0.06em; }
+    .nws-banner-count {
+      font-size: 0.44rem; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 3px 9px; border: 1px solid; flex-shrink: 0; align-self: center; margin-left: auto;
+    }
+    .nws-banner.is-warning .nws-banner-count { color: var(--red); border-color: var(--red-dim); }
+    .nws-banner.is-watch   .nws-banner-count { color: var(--yellow); border-color: #7a6020; }
+
+    /* ── UPCOMING NWS BADGE ── */
+    .upcoming-badge.alert-nws-warning { color: var(--red); border-color: var(--red-dim); }
+    .upcoming-badge.alert-nws-watch   { color: var(--yellow); border-color: #7a6020; }
+
     /* ── LOADING ── */
     .loading-text { color: var(--muted); font-style: italic; font-size: 0.75rem; animation: pulse 1.5s ease infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
@@ -427,9 +457,8 @@
         <a href="graphics.html" class="nav-item">
           <span class="nav-icon">◎</span> Graphics
         </a>
-        <a href="admin.html" class="nav-item">
-          <span class="nav-icon">◌</span> Publishing
-          <span class="nav-soon">admin</span>
+        <a href="publishing.html" class="nav-item">
+          <span class="nav-icon">◎</span> Publishing
         </a>
       </div>
       <hr class="sidebar-divider">
