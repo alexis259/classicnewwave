@@ -274,6 +274,54 @@
       color: var(--muted); padding: 2px 0;
     }
 
+    /* ── NWS ALERTS ── */
+    .nws-clear {
+      font-size: 0.65rem; color: var(--muted); font-style: italic; padding: 20px;
+    }
+    .nws-alert-row {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+    }
+    .nws-alert-row:last-child { border-bottom: none; }
+    .nws-alert-row.is-extreme { background: rgba(232,35,10,0.04); }
+    .nws-alert-row.is-severe  { background: rgba(240,192,64,0.03); }
+    .nws-severity {
+      font-size: 0.4rem; letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 3px 7px; border: 1px solid; flex-shrink: 0; margin-top: 3px;
+    }
+    .nws-severity.extreme { color: var(--red); border-color: var(--red-dim); }
+    .nws-severity.severe  { color: var(--yellow); border-color: #7a6020; }
+    .nws-severity.moderate { color: var(--cyan); border-color: #005a5a; }
+    .nws-severity.minor   { color: var(--muted2); border-color: var(--border); }
+    .nws-alert-body { flex: 1; min-width: 0; }
+    .nws-event {
+      font-family: 'Archivo Black', sans-serif; font-size: 0.82rem;
+      letter-spacing: 0.02em; margin-bottom: 4px;
+    }
+    .nws-headline {
+      font-size: 0.58rem; color: var(--muted2); letter-spacing: 0.03em;
+      line-height: 1.6; margin-bottom: 5px;
+    }
+    .nws-expires { font-size: 0.46rem; color: var(--muted); letter-spacing: 0.08em; }
+
+    /* ── FORECAST ALERTS ── */
+    .forecast-alert-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 20px; border-bottom: 1px solid var(--border);
+      font-size: 0.68rem;
+    }
+    .forecast-alert-row:last-child { border-bottom: none; }
+    .forecast-alert-badge {
+      font-size: 0.42rem; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 3px 8px; border: 1px solid; flex-shrink: 0;
+    }
+    .forecast-alert-badge.hot   { color: var(--red); border-color: var(--red-dim); }
+    .forecast-alert-badge.cold  { color: var(--cyan); border-color: #005a5a; }
+    .forecast-alert-badge.storm { color: var(--yellow); border-color: #7a6020; }
+    .forecast-alert-date { color: var(--muted2); font-size: 0.58rem; letter-spacing: 0.06em; flex-shrink: 0; }
+    .forecast-alert-desc { flex: 1; }
+    .forecast-alert-empty { font-size: 0.65rem; color: var(--muted); font-style: italic; padding: 20px; }
+
     /* ── LOADING ── */
     .loading-text { color: var(--muted); font-style: italic; font-size: 0.75rem; animation: pulse 1.5s ease infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
@@ -375,6 +423,17 @@
     <!-- MAIN -->
     <main class="main">
 
+      <!-- NWS ACTIVE ALERTS -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">NWS Active Alerts</div>
+          <div class="card-meta" id="nws-meta">live · api.weather.gov</div>
+        </div>
+        <div id="nws-alerts-body">
+          <div style="padding:20px"><span class="loading-text">loading…</span></div>
+        </div>
+      </div>
+
       <!-- TODAY'S CONDITIONS -->
       <div class="card">
         <div class="card-header">
@@ -429,6 +488,17 @@
 
       </div>
 
+      <!-- FORECAST ALERTS -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Forecast Alerts</div>
+          <div class="card-meta" id="forecast-alerts-meta">5-day · owm</div>
+        </div>
+        <div id="forecast-alerts-body">
+          <div style="padding:20px"><span class="loading-text">loading…</span></div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -462,6 +532,15 @@ function showApp() {
     weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York'
   }).toUpperCase();
   loadWeather();
+  loadNWSAlerts().then(nwsAlerts => {
+    // If NWS has critical alerts active, override status pill
+    const critical = nwsAlerts.filter(a => NWS_CRITICAL.has(a.event));
+    if (critical.length > 0) {
+      document.getElementById('status-dot').className = 'status-pill-dot red';
+      document.getElementById('status-msg').textContent = critical[0].event;
+    }
+  });
+  loadForecastAlerts();
 }
 
 if (sessionStorage.getItem('cnw_admin') === '1') showApp();
@@ -486,6 +565,144 @@ function formatUpdatedAt(iso) {
   if (!iso) return '';
   return 'updated ' + new Date(iso).toLocaleString('en-US', {
     timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true
+  });
+}
+
+// ── NWS ──
+const NWS_CRITICAL = new Set([
+  'Tornado Warning','Tornado Watch','Severe Thunderstorm Warning',
+  'Flash Flood Warning','Flash Flood Watch','Winter Storm Warning',
+  'Winter Storm Watch','Blizzard Warning','Blizzard Watch',
+  'Ice Storm Warning','Excessive Heat Warning','High Wind Warning',
+  'Extreme Cold Warning','Extreme Wind Warning'
+]);
+
+async function loadNWSAlerts() {
+  try {
+    const res = await fetch('https://api.weather.gov/alerts/active?point=40.7128,-74.0060', {
+      headers: { 'Accept': 'application/geo+json' }
+    });
+    const data = await res.json();
+    const alerts = (data.features || []).map(f => ({
+      event:    f.properties.event,
+      headline: f.properties.headline,
+      severity: f.properties.severity,
+      urgency:  f.properties.urgency,
+      expires:  f.properties.expires,
+    }));
+    renderNWSAlerts(alerts);
+    return alerts;
+  } catch(e) {
+    document.getElementById('nws-alerts-body').innerHTML =
+      '<div class="nws-clear">Could not reach api.weather.gov</div>';
+    return [];
+  }
+}
+
+function renderNWSAlerts(alerts) {
+  const body = document.getElementById('nws-alerts-body');
+  const meta = document.getElementById('nws-meta');
+
+  if (alerts.length === 0) {
+    body.innerHTML = '<div class="nws-clear">No active NWS alerts for NYC.</div>';
+    meta.textContent = 'clear · api.weather.gov';
+    return;
+  }
+
+  const criticalCount = alerts.filter(a => NWS_CRITICAL.has(a.event)).length;
+  meta.textContent = `${alerts.length} active · ${criticalCount} critical`;
+
+  const severityRank = { Extreme: 0, Severe: 1, Moderate: 2, Minor: 3, Unknown: 4 };
+  const sorted = [...alerts].sort((a, b) =>
+    (severityRank[a.severity] ?? 4) - (severityRank[b.severity] ?? 4)
+  );
+
+  body.innerHTML = sorted.map(a => {
+    const sev = (a.severity || 'unknown').toLowerCase();
+    const rowClass = sev === 'extreme' ? 'is-extreme' : sev === 'severe' ? 'is-severe' : '';
+    const expires = a.expires
+      ? 'expires ' + new Date(a.expires).toLocaleString('en-US', {
+          timeZone: 'America/New_York', weekday: 'short',
+          month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+        })
+      : '';
+    const isCritical = NWS_CRITICAL.has(a.event);
+    return `
+      <div class="nws-alert-row ${rowClass}">
+        <span class="nws-severity ${sev}">${a.severity || 'Unknown'}</span>
+        <div class="nws-alert-body">
+          <div class="nws-event" style="${isCritical ? 'color:var(--red)' : ''}">${a.event}</div>
+          ${a.headline ? `<div class="nws-headline">${a.headline}</div>` : ''}
+          ${expires ? `<div class="nws-expires">${expires}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── FORECAST ALERTS ──
+async function loadForecastAlerts() {
+  try {
+    const res = await fetch('/.netlify/functions/get-forecast-alerts');
+    const data = await res.json();
+    renderForecastAlerts(data.alerts || [], data.run_at);
+  } catch(e) {
+    document.getElementById('forecast-alerts-body').innerHTML =
+      '<div class="forecast-alert-empty">Could not load forecast alerts.</div>';
+  }
+}
+
+function renderForecastAlerts(alerts, runAt) {
+  const body = document.getElementById('forecast-alerts-body');
+  const meta = document.getElementById('forecast-alerts-meta');
+
+  // Filter out NWS rows — those belong in the NWS card above
+  const owmAlerts = alerts.filter(a => a.type !== 'nws');
+
+  if (runAt) {
+    meta.textContent = 'checked ' + new Date(runAt).toLocaleString('en-US', {
+      timeZone: 'America/New_York', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true
+    });
+  }
+
+  if (owmAlerts.length === 0) {
+    body.innerHTML = '<div class="forecast-alert-empty">No forecast alerts in the 5-day window.</div>';
+    return;
+  }
+
+  const typeMap = {
+    hot:        { badge: 'hot',   label: 'Extreme Heat' },
+    cold:       { badge: 'cold',  label: 'Extreme Cold' },
+    storm:      { badge: 'storm', label: 'Major Storm' },
+    heatwave:   { badge: 'hot',   label: 'Heat Wave' },
+    cold_snap:  { badge: 'cold',  label: 'Cold Snap' },
+  };
+
+  body.innerHTML = owmAlerts.map(a => {
+    const t = typeMap[a.type] || { badge: 'storm', label: a.type };
+    const dateStr = a.date
+      ? formatAlertDate(a.date)
+      : a.start_date
+        ? `${formatAlertDate(a.start_date)} – ${formatAlertDate(a.end_date)}`
+        : '—';
+    const detail = a.peak_high  ? `Peak high ${a.peak_high}°F`
+                 : a.peak_low   ? `Low down to ${a.peak_low}°F`
+                 : a.high       ? `High ${Math.round(a.high)}°F`
+                 : a.days       ? `${a.days}-day pattern`
+                 : '';
+    return `
+      <div class="forecast-alert-row">
+        <span class="forecast-alert-badge ${t.badge}">${t.label}</span>
+        <span class="forecast-alert-date">${dateStr}</span>
+        <span class="forecast-alert-desc">${detail || 'Forecast alert'}</span>
+      </div>`;
+  }).join('');
+}
+
+function formatAlertDate(dateKey) {
+  if (!dateKey) return '—';
+  return new Date(dateKey + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric'
   });
 }
 
