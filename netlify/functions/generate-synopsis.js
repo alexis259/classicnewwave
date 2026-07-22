@@ -19,14 +19,17 @@ async function supabaseFetch(path) {
 async function fetchExamples() {
   // Pull from both sources in parallel
   const [seeded, approved] = await Promise.all([
-    supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score&order=created_at.desc&limit=6'),
+    supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score'),
     supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=date_key.desc&limit=6')
   ]);
 
   const examples = [];
 
+  // Shuffle curated examples so the same 6 don't anchor every generation
+  const shuffled = seeded.sort(() => Math.random() - 0.5).slice(0, 6);
+
   // Curated examples anchor the voice first
-  for (const row of seeded) {
+  for (const row of shuffled) {
     examples.push({
       synopsis: row.synopsis,
       temp: row.temp,
@@ -138,6 +141,7 @@ The dash is the hinge between the two halves. It's doing double duty as a pause 
 - Full, correctly-punctuated formal sentences throughout
 - More than 2 sentences
 - Forcing slang into every line
+- Repeating the same action clause from any example (e.g. if examples say "walk somewhere" or "move around the city," find a completely different action for today's second half)
 
 ## Output Format
 
@@ -171,6 +175,7 @@ Write the synopsis.`;
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 150,
+        temperature: 1.0,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }]
       })
