@@ -709,10 +709,22 @@ async function drawDailySlide1(row) {
   const outfit  = outfitItems(high, row.precip_chance);
   const fitRep  = getRepresentativeFitItems(outfit);
 
+  // Night outfit — only when high/low swing ≥ 15°F
+  const low          = row.low != null ? Math.round(row.low) : null;
+  const showNightFit = low != null && (high - low) >= 15;
+  const nightOutfit  = showNightFit ? outfitItems(low, row.precip_chance) : [];
+  const nightFitRep  = showNightFit ? getRepresentativeFitItems(nightOutfit) : [];
+
   let weatherIconImg = null;
   try { weatherIconImg = await loadImage(path.join(__dirname, `assets/${getWeatherIconFile(row.condition)}`)); } catch {}
 
   const fitIconImgs = await Promise.all(fitRep.map(async item => {
+    const file = getFitIconFile(item);
+    if (!file) return null;
+    try { return await loadImage(path.join(__dirname, `assets/${file}`)); } catch { return null; }
+  }));
+
+  const nightFitIconImgs = await Promise.all(nightFitRep.map(async item => {
     const file = getFitIconFile(item);
     if (!file) return null;
     try { return await loadImage(path.join(__dirname, `assets/${file}`)); } catch { return null; }
@@ -892,50 +904,78 @@ async function drawDailySlide1(row) {
   roundRect(px, fitBoxY, pw, FIT_H, SBR);
   ctx.stroke();
 
-  // TODAY'S FIT — label pinned to top (matches TODAY'S MOOD position)
   const FIT_ICON_SZ  = 80, FIT_ICON_GAP = 16;
-  const FIT_LABEL_H  = 36;  // label line height
-  const FIT_NAMES_H  = 48;  // names line height
-  const validFitImgs = fitIconImgs.filter(Boolean);
+  const FIT_LABEL_H  = 36;
+  const FIT_NAMES_H  = 48;
 
-  // Label at top of box
-  ctx.fillStyle = themeColor;
-  ctx.font = '400 26px "IBM Plex Mono"';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S FIT", px + 16, fitBoxY + 14);
+  // Helper: draw one half of the fit box (used for both day-only and day/night split)
+  function drawFitHalf(icons, items, startX, halfW, label, tempLabel) {
+    const validImgs   = icons.filter(Boolean);
+    const ICON_SZ     = showNightFit ? 68 : FIT_ICON_SZ;
+    const ICON_GAP    = showNightFit ? 12 : FIT_ICON_GAP;
+    const LABEL_H     = FIT_LABEL_H;
+    const NAMES_H     = showNightFit ? 36 : FIT_NAMES_H;
 
-  // Icons + names centered in remaining space below the label
-  const fitContentH    = FIT_H - FIT_LABEL_H - 14;
-  const fitContentTopY = fitBoxY + FIT_LABEL_H + 14;
-  const iconsAndNamesH = FIT_ICON_SZ + 14 + FIT_NAMES_H;
-  const iconsRowY      = fitContentTopY + Math.floor((fitContentH - iconsAndNamesH) / 2);
-  const iconsBlockW    = validFitImgs.length * FIT_ICON_SZ + Math.max(0, validFitImgs.length - 1) * FIT_ICON_GAP;
-  const iconsRowX      = px + Math.floor((pw - iconsBlockW) / 2);
-
-  validFitImgs.forEach((img, i) => {
-    const fic = createCanvas(FIT_ICON_SZ, FIT_ICON_SZ);
-    const fictx = fic.getContext('2d');
-    fictx.drawImage(img, 0, 0, FIT_ICON_SZ, FIT_ICON_SZ);
-    const fd = fictx.getImageData(0, 0, FIT_ICON_SZ, FIT_ICON_SZ);
-    for (let pi = 0; pi < fd.data.length; pi += 4) {
-      if (fd.data[pi] > 210 && fd.data[pi + 1] > 210 && fd.data[pi + 2] > 210) fd.data[pi + 3] = 0;
+    // Label row: "TODAY'S FIT" (single) or "DAY" / "NIGHT" (split)
+    ctx.fillStyle = themeColor;
+    ctx.font = `400 ${showNightFit ? 22 : 26}px "IBM Plex Mono"`;
+    ctx.textAlign = showNightFit ? 'center' : 'left';
+    ctx.textBaseline = 'top';
+    if (showNightFit) {
+      ctx.fillText(label, startX + halfW / 2, fitBoxY + 14);
+      if (tempLabel) {
+        ctx.fillStyle = '#666';
+        ctx.font = '400 18px "IBM Plex Mono"';
+        ctx.fillText(tempLabel, startX + halfW / 2, fitBoxY + 14 + 26);
+      }
+    } else {
+      ctx.fillText("TODAY'S FIT", startX + 16, fitBoxY + 14);
     }
-    fictx.putImageData(fd, 0, 0);
-    ctx.drawImage(fic, iconsRowX + i * (FIT_ICON_SZ + FIT_ICON_GAP), iconsRowY);
-  });
 
-  // Names — centered below icons, auto-scale to fit
-  const fitNamesStr = fitRep.join('  ·  ');
-  ctx.fillStyle = '#fff';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  let fitFontSize = 40;
-  ctx.font = `400 ${fitFontSize}px "IBM Plex Mono"`;
-  while (ctx.measureText(fitNamesStr).width > pw - 20 && fitFontSize > 20) {
-    fitFontSize -= 2;
-    ctx.font = `400 ${fitFontSize}px "IBM Plex Mono"`;
+    const labelUsedH  = showNightFit && tempLabel ? LABEL_H + 20 : LABEL_H;
+    const contentH    = FIT_H - labelUsedH - 14;
+    const contentTopY = fitBoxY + labelUsedH + 14;
+    const blockH      = ICON_SZ + 14 + NAMES_H;
+    const iconsRowY   = contentTopY + Math.floor((contentH - blockH) / 2);
+    const blockW      = validImgs.length * ICON_SZ + Math.max(0, validImgs.length - 1) * ICON_GAP;
+    const iconsRowX   = startX + Math.floor((halfW - blockW) / 2);
+
+    validImgs.forEach((img, i) => {
+      const fic = createCanvas(ICON_SZ, ICON_SZ);
+      const fictx = fic.getContext('2d');
+      fictx.drawImage(img, 0, 0, ICON_SZ, ICON_SZ);
+      const fd = fictx.getImageData(0, 0, ICON_SZ, ICON_SZ);
+      for (let pi = 0; pi < fd.data.length; pi += 4) {
+        if (fd.data[pi] > 210 && fd.data[pi + 1] > 210 && fd.data[pi + 2] > 210) fd.data[pi + 3] = 0;
+      }
+      fictx.putImageData(fd, 0, 0);
+      ctx.drawImage(fic, iconsRowX + i * (ICON_SZ + ICON_GAP), iconsRowY);
+    });
+
+    const namesStr = items.join('  ·  ');
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const maxNameW = halfW - 16;
+    let nameFontSize = showNightFit ? 28 : 40;
+    ctx.font = `400 ${nameFontSize}px "IBM Plex Mono"`;
+    while (ctx.measureText(namesStr).width > maxNameW && nameFontSize > 14) {
+      nameFontSize -= 2;
+      ctx.font = `400 ${nameFontSize}px "IBM Plex Mono"`;
+    }
+    ctx.fillText(namesStr, startX + halfW / 2, iconsRowY + ICON_SZ + 14);
+    ctx.textAlign = 'left';
   }
-  ctx.fillText(fitNamesStr, px + pw / 2, iconsRowY + FIT_ICON_SZ + 14);
-  ctx.textAlign = 'left';
+
+  if (showNightFit) {
+    // Split box: vertical divider + DAY left / NIGHT right
+    const halfW = Math.floor(pw / 2);
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px + halfW, fitBoxY + 1); ctx.lineTo(px + halfW, fitBoxY + FIT_H - 1); ctx.stroke();
+    drawFitHalf(fitIconImgs,      fitRep,      px,           halfW,          'DAY',   `HIGH ${high}°F`);
+    drawFitHalf(nightFitIconImgs, nightFitRep, px + halfW,   Math.ceil(pw / 2), 'NIGHT', `LOW ${low}°F`);
+  } else {
+    drawFitHalf(fitIconImgs, fitRep, px, pw, "TODAY'S FIT", null);
+  }
 
   // ── TICKER ──
   ctx.fillStyle = themeColor;

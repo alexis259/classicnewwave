@@ -10,6 +10,7 @@ const path = require('path');
 const mockRow = {
   temp:             89,
   high:             103,
+  low:              66,
   feels_like:       95,
   condition:        'Clear',
   precip_chance:    10,
