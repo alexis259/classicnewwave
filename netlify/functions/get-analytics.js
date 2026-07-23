@@ -15,19 +15,19 @@ exports.handler = async (event) => {
   };
 
   try {
-    // Build the last 7 date keys in NYC time
+    // Build the last 30 date keys in NYC time
     const days = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = 29; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       days.push(toNYCDateKey(d));
     }
     const todayKey = days[days.length - 1];
-    const sevenDaysAgo = days[0];
+    const thirtyDaysAgo = days[0];
 
-    // Fetch all rows in the window
+    // Fetch all rows in the 30-day window, including created_at for peak hour
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/page_views?date_key=gte.${sevenDaysAgo}&select=date_key,visitor_id,session_id,referrer`,
+      `${SUPABASE_URL}/rest/v1/page_views?date_key=gte.${thirtyDaysAgo}&select=date_key,visitor_id,session_id,referrer,created_at`,
       {
         headers: {
           'apikey': SUPABASE_KEY,
@@ -48,7 +48,7 @@ exports.handler = async (event) => {
       byDay[row.date_key].sessions.add(row.session_id);
     });
 
-    // Top referrers (last 7 days, excluding self)
+    // Top referrers (30 days, excluding self)
     const refCounts = {};
     rows.forEach(row => {
       if (!row.referrer) return;
@@ -62,6 +62,39 @@ exports.handler = async (event) => {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([source, count]) => ({ source, count }));
+
+    // Peak hours — aggregate by hour of day (NYC time) using created_at
+    const hourCounts = new Array(24).fill(0);
+    rows.forEach(row => {
+      if (!row.created_at) return;
+      const hour = parseInt(
+        new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/New_York', hour: 'numeric', hour12: false
+        }).format(new Date(row.created_at)),
+        10
+      );
+      if (hour >= 0 && hour < 24) hourCounts[hour]++;
+    });
+    const peakHours = hourCounts.map((count, hour) => ({ hour, count }));
+
+    // Direct vs referred traffic
+    let directCount = 0, referredCount = 0;
+    rows.forEach(row => {
+      if (row.referrer) referredCount++;
+      else directCount++;
+    });
+
+    // Returning vs new visitors (visitor seen on more than one date = returning)
+    const visitorDates = {};
+    rows.forEach(row => {
+      if (!visitorDates[row.visitor_id]) visitorDates[row.visitor_id] = new Set();
+      visitorDates[row.visitor_id].add(row.date_key);
+    });
+    let newVisitors = 0, returningVisitors = 0;
+    Object.values(visitorDates).forEach(dates => {
+      if (dates.size > 1) returningVisitors++;
+      else newVisitors++;
+    });
 
     const daily = days.map(d => ({
       date: d,
@@ -82,7 +115,10 @@ exports.handler = async (event) => {
           sessions: today.sessions.size
         },
         daily,
-        topReferrers
+        topReferrers,
+        peakHours,
+        trafficSplit: { direct: directCount, referred: referredCount },
+        visitorType: { new: newVisitors, returning: returningVisitors }
       })
     };
   } catch (err) {

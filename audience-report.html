@@ -168,17 +168,17 @@
       font-size: 0.48rem; letter-spacing: 0.08em; color: var(--muted2);
     }
 
-    /* ── 7-DAY CHART ── */
+    /* ── CHART (shared) ── */
     .chart-wrap {
       padding: 24px 20px 0;
     }
     .chart-bars {
-      display: flex; align-items: flex-end; gap: 8px;
+      display: flex; align-items: flex-end;
       height: 140px; margin-bottom: 0;
     }
     .chart-col {
       flex: 1; display: flex; flex-direction: column; align-items: center;
-      justify-content: flex-end; gap: 0; height: 100%;
+      justify-content: flex-end; height: 100%;
     }
     .chart-bar-wrap {
       width: 100%; display: flex; flex-direction: column;
@@ -186,38 +186,66 @@
       position: relative;
     }
     .chart-val {
-      font-size: 0.46rem; letter-spacing: 0.06em; color: var(--muted2);
-      margin-bottom: 4px; min-height: 14px;
+      font-size: 0.42rem; letter-spacing: 0.06em; color: var(--muted2);
+      margin-bottom: 3px; min-height: 13px;
     }
     .chart-bar {
       width: 100%; background: var(--cyan); opacity: 0.7;
       min-height: 2px; transition: height 0.4s ease;
       position: relative;
     }
-    .chart-bar.today { opacity: 1; background: var(--cyan); }
-    .chart-bar.zero  { opacity: 0.2; }
+    .chart-bar.today  { opacity: 1; }
+    .chart-bar.zero   { opacity: 0.15; }
+    .chart-bar.peak   { background: var(--yellow); opacity: 1; }
     .chart-visitors-bar {
       width: 100%; background: var(--cyan); opacity: 0.25;
       position: absolute; bottom: 0; left: 0;
     }
     .chart-label-row {
-      display: flex; gap: 8px; margin-top: 10px; padding-bottom: 16px;
+      display: flex; margin-top: 8px; padding-bottom: 14px;
       border-bottom: 1px solid var(--border);
     }
     .chart-day-label {
       flex: 1; text-align: center;
-      font-size: 0.44rem; letter-spacing: 0.1em; text-transform: uppercase;
+      font-size: 0.38rem; letter-spacing: 0.06em; text-transform: uppercase;
       color: var(--muted2);
     }
-    .chart-day-label.today { color: var(--cyan); }
+    .chart-day-label.today  { color: var(--cyan); }
+    .chart-day-label.hidden { visibility: hidden; }
 
     .chart-legend {
       display: flex; align-items: center; gap: 20px;
-      padding: 12px 20px 16px;
+      padding: 12px 20px 16px; flex-wrap: wrap;
     }
     .legend-item { display: flex; align-items: center; gap: 6px; }
     .legend-swatch { width: 10px; height: 10px; }
     .legend-label { font-size: 0.46rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted2); }
+
+    /* ── AUDIENCE INSIGHTS ── */
+    .insight-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+      background: var(--border);
+    }
+    .insight-tile {
+      background: var(--card2); padding: 18px 20px;
+    }
+    .insight-label {
+      font-size: 0.42rem; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .insight-val {
+      font-family: 'Archivo Black', sans-serif; font-size: 1.6rem;
+      color: var(--white); line-height: 1; margin-bottom: 3px;
+    }
+    .insight-val.cyan   { color: var(--cyan); }
+    .insight-val.yellow { color: var(--yellow); }
+    .insight-sub { font-size: 0.46rem; letter-spacing: 0.06em; color: var(--muted2); }
+    .insight-bar {
+      height: 3px; background: var(--border); margin-top: 10px; overflow: hidden;
+    }
+    .insight-bar-fill {
+      height: 100%; transition: width 0.5s ease;
+    }
 
     /* ── TWO-COL BOTTOM ── */
     .two-col { display: flex; gap: 20px; }
@@ -362,13 +390,35 @@
         </div>
       </div>
 
-      <!-- 7-DAY CHART -->
+      <!-- AUDIENCE INSIGHTS -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">7-Day Traffic</div>
+          <div class="card-title">Audience</div>
+          <div class="card-meta">30-day window</div>
+        </div>
+        <div id="insights-body">
+          <div style="padding:20px"><span class="loading-text">loading…</span></div>
+        </div>
+      </div>
+
+      <!-- 30-DAY CHART -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">30-Day Traffic</div>
           <div class="card-meta">page views · unique visitors</div>
         </div>
         <div id="chart-area">
+          <div style="padding:20px"><span class="loading-text">loading…</span></div>
+        </div>
+      </div>
+
+      <!-- PEAK HOURS -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Peak Hours</div>
+          <div class="card-meta" id="peak-hour-meta">when people check the weather</div>
+        </div>
+        <div id="peak-hours-area">
           <div style="padding:20px"><span class="loading-text">loading…</span></div>
         </div>
       </div>
@@ -458,11 +508,13 @@ async function loadAnalytics() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     renderToday(data.today, data.daily);
+    renderInsights(data.trafficSplit, data.visitorType);
     renderChart(data.daily);
+    renderPeakHours(data.peakHours);
     renderReferrers(data.topReferrers);
     renderTable(data.daily);
   } catch(e) {
-    ['today-stats','chart-area','referrers-body','table-body'].forEach(id => {
+    ['today-stats','insights-body','chart-area','peak-hours-area','referrers-body','table-body'].forEach(id => {
       document.getElementById(id).innerHTML =
         `<div style="padding:20px;font-size:0.62rem;color:var(--red)">Error loading analytics: ${e.message}</div>`;
     });
@@ -501,22 +553,66 @@ function renderToday(today, daily) {
   `;
 }
 
-// ── CHART ──
-function renderChart(daily) {
-  const today = todayKey();
-  const maxViews    = Math.max(...daily.map(d => d.views), 1);
-  const maxVisitors = Math.max(...daily.map(d => d.visitors), 1);
-  const CHART_H     = 120; // px, available bar area
+// ── AUDIENCE INSIGHTS ──
+function renderInsights(split, vtype) {
+  if (!split || !vtype) {
+    document.getElementById('insights-body').innerHTML =
+      '<div style="padding:20px"><span style="color:var(--muted);font-style:italic;font-size:0.65rem">No data yet.</span></div>';
+    return;
+  }
 
-  const barsHtml = daily.map(d => {
-    const isToday   = d.date === today;
-    const barH      = Math.max(Math.round((d.views / maxViews) * CHART_H), d.views > 0 ? 2 : 0);
-    const visH      = Math.max(Math.round((d.visitors / maxViews) * CHART_H), d.visitors > 0 ? 2 : 0);
-    const barClass  = isToday ? 'today' : d.views === 0 ? 'zero' : '';
+  const total      = split.direct + split.referred;
+  const vtTotal    = vtype.new + vtype.returning;
+  const directPct  = total > 0 ? Math.round((split.direct / total) * 100) : 0;
+  const refPct     = 100 - directPct;
+  const newPct     = vtTotal > 0 ? Math.round((vtype.new / vtTotal) * 100) : 0;
+  const retPct     = 100 - newPct;
+
+  document.getElementById('insights-body').innerHTML = `
+    <div class="insight-grid">
+      <div class="insight-tile">
+        <div class="insight-label">Direct Traffic</div>
+        <div class="insight-val cyan">${directPct}%</div>
+        <div class="insight-sub">${split.direct.toLocaleString()} visits</div>
+        <div class="insight-bar"><div class="insight-bar-fill" style="width:${directPct}%;background:var(--cyan);opacity:0.7"></div></div>
+      </div>
+      <div class="insight-tile">
+        <div class="insight-label">Referred Traffic</div>
+        <div class="insight-val">${refPct}%</div>
+        <div class="insight-sub">${split.referred.toLocaleString()} visits</div>
+        <div class="insight-bar"><div class="insight-bar-fill" style="width:${refPct}%;background:var(--muted2);opacity:0.6"></div></div>
+      </div>
+      <div class="insight-tile">
+        <div class="insight-label">New Visitors</div>
+        <div class="insight-val">${newPct}%</div>
+        <div class="insight-sub">${vtype.new.toLocaleString()} unique</div>
+        <div class="insight-bar"><div class="insight-bar-fill" style="width:${newPct}%;background:var(--white);opacity:0.3"></div></div>
+      </div>
+      <div class="insight-tile">
+        <div class="insight-label">Returning Visitors</div>
+        <div class="insight-val yellow">${retPct}%</div>
+        <div class="insight-sub">${vtype.returning.toLocaleString()} unique</div>
+        <div class="insight-bar"><div class="insight-bar-fill" style="width:${retPct}%;background:var(--yellow);opacity:0.7"></div></div>
+      </div>
+    </div>
+  `;
+}
+
+// ── 30-DAY CHART ──
+function renderChart(daily) {
+  const today   = todayKey();
+  const maxViews = Math.max(...daily.map(d => d.views), 1);
+  const CHART_H  = 120;
+
+  // For 30 days, only label every 5th bar and today
+  const barsHtml = daily.map((d, i) => {
+    const isToday  = d.date === today;
+    const barH     = Math.max(Math.round((d.views / maxViews) * CHART_H), d.views > 0 ? 2 : 0);
+    const visH     = Math.max(Math.round((d.visitors / maxViews) * CHART_H), d.visitors > 0 ? 2 : 0);
+    const barClass = isToday ? 'today' : d.views === 0 ? 'zero' : '';
     return `
       <div class="chart-col">
         <div class="chart-bar-wrap" style="height:${CHART_H}px">
-          <div class="chart-val">${d.views > 0 ? d.views : ''}</div>
           <div class="chart-bar ${barClass}" style="height:${barH}px">
             <div class="chart-visitors-bar" style="height:${visH}px"></div>
           </div>
@@ -524,15 +620,18 @@ function renderChart(daily) {
       </div>`;
   }).join('');
 
-  const labelsHtml = daily.map(d => {
-    const isToday = d.date === today;
-    return `<div class="chart-day-label ${isToday ? 'today' : ''}">${dayLabel(d.date)}</div>`;
+  const labelsHtml = daily.map((d, i) => {
+    const isToday  = d.date === today;
+    // Show label every 5th bar from the end, plus today
+    const showLabel = isToday || (daily.length - 1 - i) % 5 === 0;
+    const label     = showLabel ? (isToday ? 'today' : new Date(d.date + 'T12:00:00').getDate()) : '';
+    return `<div class="chart-day-label ${isToday ? 'today' : ''}">${label}</div>`;
   }).join('');
 
   document.getElementById('chart-area').innerHTML = `
     <div class="chart-wrap">
-      <div class="chart-bars">${barsHtml}</div>
-      <div class="chart-label-row">${labelsHtml}</div>
+      <div class="chart-bars" style="gap:2px">${barsHtml}</div>
+      <div class="chart-label-row" style="gap:2px">${labelsHtml}</div>
     </div>
     <div class="chart-legend">
       <div class="legend-item">
@@ -542,6 +641,64 @@ function renderChart(daily) {
       <div class="legend-item">
         <div class="legend-swatch" style="background:var(--cyan);opacity:0.25"></div>
         <div class="legend-label">Unique Visitors</div>
+      </div>
+    </div>
+  `;
+}
+
+// ── PEAK HOURS ──
+function renderPeakHours(peakHours) {
+  if (!peakHours || peakHours.every(h => h.count === 0)) {
+    document.getElementById('peak-hours-area').innerHTML =
+      '<div style="padding:20px;font-size:0.65rem;color:var(--muted);font-style:italic">No hourly data yet.</div>';
+    return;
+  }
+
+  const maxCount = Math.max(...peakHours.map(h => h.count), 1);
+  const peakIdx  = peakHours.reduce((best, h, i) => h.count > peakHours[best].count ? i : best, 0);
+  const CHART_H  = 100;
+
+  function fmtHour(h) {
+    if (h === 0)  return '12AM';
+    if (h === 12) return '12PM';
+    return h < 12 ? `${h}AM` : `${h - 12}PM`;
+  }
+
+  const barsHtml = peakHours.map((h, i) => {
+    const barH    = Math.max(Math.round((h.count / maxCount) * CHART_H), h.count > 0 ? 2 : 0);
+    const isPeak  = i === peakIdx;
+    const barClass = isPeak ? 'peak' : h.count === 0 ? 'zero' : '';
+    return `
+      <div class="chart-col">
+        <div class="chart-bar-wrap" style="height:${CHART_H}px">
+          <div class="chart-bar ${barClass}" style="height:${barH}px"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Only label midnight, 6AM, noon, 6PM, and peak
+  const labelsHtml = peakHours.map((h, i) => {
+    const isPeak   = i === peakIdx;
+    const showLabel = h.hour === 0 || h.hour === 6 || h.hour === 12 || h.hour === 18 || isPeak;
+    return `<div class="chart-day-label ${isPeak ? 'today' : ''}">${showLabel ? fmtHour(h.hour) : ''}</div>`;
+  }).join('');
+
+  const peakLabel = fmtHour(peakHours[peakIdx].hour);
+  document.getElementById('peak-hour-meta').textContent = `peak: ${peakLabel} · ${peakHours[peakIdx].count} visits`;
+
+  document.getElementById('peak-hours-area').innerHTML = `
+    <div class="chart-wrap">
+      <div class="chart-bars" style="gap:2px">${barsHtml}</div>
+      <div class="chart-label-row" style="gap:2px">${labelsHtml}</div>
+    </div>
+    <div class="chart-legend">
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:var(--yellow)"></div>
+        <div class="legend-label">Peak Hour</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:var(--cyan);opacity:0.7"></div>
+        <div class="legend-label">Other Hours</div>
       </div>
     </div>
   `;
