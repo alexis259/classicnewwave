@@ -79,7 +79,7 @@ async function fetchFreshWeather() {
   return {
     temp: current.main.temp,
     feelsLike: current.main.feels_like,
-    condition: current.weather[0].main,
+    condition: current.weather[0].description,
     high: dailyHigh,
     low: dailyLow,
     humidity: current.main.humidity,
@@ -207,7 +207,8 @@ function scoreWeather(w) {
   if (w.humidity > 80)      { score -= 2; penalties.push("humid & heavy"); }
   else if (w.humidity > 70) { score -= 1; penalties.push("a lil humid"); }
 
-  if (w.condition.toLowerCase().includes('cloud') && w.precipChance < 20) {
+  const condDesc = (w.condition || '').toLowerCase();
+  if ((condDesc === 'broken clouds' || condDesc === 'overcast clouds') && w.precipChance < 20) {
     score -= 1; penalties.push("overcast");
   }
 
@@ -276,6 +277,13 @@ exports.handler = async (event) => {
         alert_flag: detectAlert(weather),
         updated_at: new Date().toISOString()
       };
+
+      // Re-score on explicit force refresh so scoring band changes take effect immediately
+      if (force) {
+        const rescored = scoreWeather({ ...weather, humidity: row.humidity, precipChance: row.precip_chance });
+        refreshed.score = rescored.score;
+        refreshed.penalties = rescored.penalties;
+      }
 
       // Lock humidity + precip_chance once the graphic has been posted.
       // These drive the hair forecast — changing them after the IG post goes out
