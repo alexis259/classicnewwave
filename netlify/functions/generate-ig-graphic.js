@@ -908,37 +908,28 @@ async function drawDailySlide1(row) {
   const FIT_LABEL_H  = 36;
   const FIT_NAMES_H  = 48;
 
-  // Helper: draw one half of the fit box (used for both day-only and day/night split)
+  // Helper: draw one half of the fit box (split / day-night mode only)
   function drawFitHalf(icons, items, startX, halfW, label, tempLabel) {
-    const validImgs   = icons.filter(Boolean);
-    const ICON_SZ     = showNightFit ? 68 : FIT_ICON_SZ;
-    const ICON_GAP    = showNightFit ? 12 : FIT_ICON_GAP;
-    const LABEL_H     = FIT_LABEL_H;
-    const NAMES_H     = showNightFit ? 36 : FIT_NAMES_H;
+    const validImgs = icons.filter(Boolean);
+    const ICON_SZ   = 68, ICON_GAP = 12, LABEL_H = FIT_LABEL_H, NAMES_H = 36;
 
-    // Label row: "TODAY'S FIT" (single) or "DAY" / "NIGHT" (split)
     ctx.fillStyle = themeColor;
-    ctx.font = `400 ${showNightFit ? 22 : 26}px "IBM Plex Mono"`;
-    ctx.textAlign = showNightFit ? 'center' : 'left';
-    ctx.textBaseline = 'top';
-    if (showNightFit) {
-      ctx.fillText(label, startX + halfW / 2, fitBoxY + 14);
-      if (tempLabel) {
-        ctx.fillStyle = '#666';
-        ctx.font = '400 18px "IBM Plex Mono"';
-        ctx.fillText(tempLabel, startX + halfW / 2, fitBoxY + 14 + 26);
-      }
-    } else {
-      ctx.fillText("TODAY'S FIT", startX + 16, fitBoxY + 14);
+    ctx.font = '400 22px "IBM Plex Mono"';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(label, startX + halfW / 2, fitBoxY + 14);
+    if (tempLabel) {
+      ctx.fillStyle = '#666';
+      ctx.font = '400 18px "IBM Plex Mono"';
+      ctx.fillText(tempLabel, startX + halfW / 2, fitBoxY + 40);
     }
 
-    const labelUsedH  = showNightFit && tempLabel ? LABEL_H + 20 : LABEL_H;
+    const labelUsedH  = tempLabel ? LABEL_H + 20 : LABEL_H;
     const contentH    = FIT_H - labelUsedH - 14;
     const contentTopY = fitBoxY + labelUsedH + 14;
     const blockH      = ICON_SZ + 14 + NAMES_H;
+    const bw          = validImgs.length * ICON_SZ + Math.max(0, validImgs.length - 1) * ICON_GAP;
     const iconsRowY   = contentTopY + Math.floor((contentH - blockH) / 2);
-    const blockW      = validImgs.length * ICON_SZ + Math.max(0, validImgs.length - 1) * ICON_GAP;
-    const iconsRowX   = startX + Math.floor((halfW - blockW) / 2);
+    const iconsRowX   = startX + Math.floor((halfW - bw) / 2);
 
     validImgs.forEach((img, i) => {
       const fic = createCanvas(ICON_SZ, ICON_SZ);
@@ -954,27 +945,75 @@ async function drawDailySlide1(row) {
 
     const namesStr = items.join('  ·  ');
     ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const maxNameW = halfW - 16;
-    let nameFontSize = showNightFit ? 28 : 40;
-    ctx.font = `400 ${nameFontSize}px "IBM Plex Mono"`;
-    while (ctx.measureText(namesStr).width > maxNameW && nameFontSize > 14) {
-      nameFontSize -= 2;
-      ctx.font = `400 ${nameFontSize}px "IBM Plex Mono"`;
-    }
-    ctx.fillText(namesStr, startX + halfW / 2, iconsRowY + ICON_SZ + 14);
-    ctx.textAlign = 'left';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let nf = 28;
+    ctx.font = `400 ${nf}px "IBM Plex Mono"`;
+    while (ctx.measureText(namesStr).width > halfW - 16 && nf > 14) { nf -= 2; ctx.font = `400 ${nf}px "IBM Plex Mono"`; }
+    ctx.fillText(namesStr, startX + halfW / 2, iconsRowY + ICON_SZ + 14 + NAMES_H / 2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   }
 
   if (showNightFit) {
-    // Split box: vertical divider + DAY left / NIGHT right
+    // Day/night split: two halves
     const halfW = Math.floor(pw / 2);
     ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(px + halfW, fitBoxY + 1); ctx.lineTo(px + halfW, fitBoxY + FIT_H - 1); ctx.stroke();
-    drawFitHalf(fitIconImgs,      fitRep,      px,           halfW,          'DAY',   `HIGH ${high}°F`);
+    drawFitHalf(fitIconImgs,      fitRep,      px,           halfW,             'DAY',   `HIGH ${high}°F`);
     drawFitHalf(nightFitIconImgs, nightFitRep, px + halfW,   Math.ceil(pw / 2), 'NIGHT', `LOW ${low}°F`);
   } else {
-    drawFitHalf(fitIconImgs, fitRep, px, pw, "TODAY'S FIT", null);
+    // Single outfit: left column (ICON_W) = item 0, right section = remaining items in equal columns
+    // "TODAY'S FIT" label aligns with "TODAY'S MOOD" at px + ICON_W + 16
+    const n        = fitRep.length;
+    const rightW   = pw - ICON_W;
+    const rCols    = Math.max(1, n - 1);
+    const rColW    = Math.floor(rightW / rCols);
+    const iconSz   = FIT_ICON_SZ;  // 80px — full size
+    const blockH   = iconSz + 12 + FIT_NAMES_H;
+    const iconY    = fitBoxY + FIT_LABEL_H + Math.floor((FIT_H - FIT_LABEL_H - blockH) / 2);
+    const nameY    = iconY + iconSz + 12;
+
+    // Dividers
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px + ICON_W, fitBoxY); ctx.lineTo(px + ICON_W, fitBoxY + FIT_H); ctx.stroke();
+    for (let i = 1; i < rCols; i++) {
+      const dvx = px + ICON_W + i * rColW;
+      ctx.beginPath(); ctx.moveTo(dvx, fitBoxY + 1); ctx.lineTo(dvx, fitBoxY + FIT_H - 1); ctx.stroke();
+    }
+
+    // "TODAY'S FIT" label — same x as "TODAY'S MOOD"
+    ctx.fillStyle = themeColor;
+    ctx.font = '400 26px "IBM Plex Mono"';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText("TODAY'S FIT", px + ICON_W + 16, fitBoxY + 14);
+
+    // Draw each item in its column
+    fitIconImgs.forEach((img, i) => {
+      const colX = i === 0 ? px : px + ICON_W + (i - 1) * rColW;
+      const colW = i === 0 ? ICON_W : rColW;
+      const ix   = colX + Math.floor((colW - iconSz) / 2);
+
+      if (img) {
+        const fic = createCanvas(iconSz, iconSz);
+        const fictx = fic.getContext('2d');
+        fictx.drawImage(img, 0, 0, iconSz, iconSz);
+        const fd = fictx.getImageData(0, 0, iconSz, iconSz);
+        for (let pi = 0; pi < fd.data.length; pi += 4) {
+          if (fd.data[pi] > 210 && fd.data[pi + 1] > 210 && fd.data[pi + 2] > 210) fd.data[pi + 3] = 0;
+        }
+        fictx.putImageData(fd, 0, 0);
+        ctx.drawImage(fic, ix, iconY);
+      }
+
+      const name = fitRep[i] || '';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      let nf = 36;
+      ctx.font = `400 ${nf}px "IBM Plex Mono"`;
+      while (ctx.measureText(name).width > colW - 8 && nf > 14) { nf -= 2; ctx.font = `400 ${nf}px "IBM Plex Mono"`; }
+      ctx.fillText(name, colX + Math.floor(colW / 2), nameY);
+    });
+
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   }
 
   // ── TICKER ──
