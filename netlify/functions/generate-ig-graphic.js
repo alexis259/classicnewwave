@@ -850,12 +850,12 @@ async function drawDailySlide1(row) {
     weatherIcon(ctx, px + ICON_W / 2, moodCy, 160, row.condition);
   }
 
-  // TODAY'S MOOD label pinned top-left
+  // TODAY'S MOOD label — sits in the text column, right of the vertical divider
   const MOOD_LABEL_H = 52;
   ctx.fillStyle = themeColor;
   ctx.font = '400 30px "IBM Plex Mono"';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText("TODAY'S MOOD", px + 16, moodBoxY + 14);
+  ctx.fillText("TODAY'S MOOD", px + ICON_W + 16, moodBoxY + 14);
 
   // Body copy vertically centered in remaining space below label — auto-scale font to fit
   const moodBodyMaxW = pw - ICON_W - 28;
