@@ -182,8 +182,8 @@ function scoreWeather(w) {
   const penalties = [];
   const t = w.high;
 
-  if (t >= 70 && t <= 77) {}
-  else if ((t >= 65 && t < 70) || (t > 77 && t <= 82)) { score -= 1; }
+  if (t >= 70 && t <= 80) {}
+  else if ((t >= 65 && t < 70) || (t > 80 && t <= 82)) { score -= 1; }
   else if (t >= 60 && t < 65) { score -= 2; penalties.push("a bit cool"); }
   else if (t >= 55 && t < 60) { score -= 3; penalties.push("kinda cool"); }
   else if (t >= 50 && t < 55) { score -= 4; penalties.push("chilly"); }
@@ -205,7 +205,7 @@ function scoreWeather(w) {
   else if (w.precipChance > 20) { score -= 1; penalties.push("light rain possible"); }
 
   if (w.humidity > 80)      { score -= 2; penalties.push("humid & heavy"); }
-  else if (w.humidity > 68) { score -= 1; penalties.push("a lil humid"); }
+  else if (w.humidity > 70) { score -= 1; penalties.push("a lil humid"); }
 
   if (w.condition.toLowerCase().includes('cloud') && w.precipChance < 20) {
     score -= 1; penalties.push("overcast");
