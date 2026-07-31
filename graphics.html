@@ -130,6 +130,16 @@
     .alert-params { display: none; flex-direction: column; gap: 8px; }
     .alert-params.show { display: flex; }
 
+    .progress-params { display: none; flex-direction: column; gap: 12px; }
+    .progress-params.show { display: flex; }
+    .update-row { background: var(--card2); border: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+    .update-row-num { font-size: 0.44rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+    .update-row-remove { position: absolute; top: 8px; right: 8px; background: none; border: 1px solid var(--border); color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.5rem; padding: 2px 7px; cursor: pointer; transition: all 0.2s; }
+    .update-row-remove:hover { border-color: var(--red); color: var(--red); }
+    .btn-add-row { background: none; border: 1px dashed var(--border); color: var(--muted2); font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 8px; cursor: pointer; transition: all 0.2s; }
+    .btn-add-row:hover { border-color: var(--white); color: var(--white); }
+    .btn-add-row:disabled { opacity: 0.3; cursor: default; }
+
     .field-label { font-size: 0.46rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     .ctrl-select, .ctrl-input, .ctrl-textarea {
       width: 100%; background: #0e0e0e; border: 1px solid var(--border);
@@ -287,6 +297,7 @@
           <button class="tab-btn" onclick="selectTab('alert')">Alert</button>
           <button class="tab-btn" onclick="selectTab('hair')">Hair</button>
           <button class="tab-btn" onclick="selectTab('teaser')">Teaser</button>
+          <button class="tab-btn" onclick="selectTab('progress')">Progress Update</button>
         </div>
 
         <div class="generator-body">
@@ -332,6 +343,20 @@
               <div>
                 <div class="field-label">IG Caption</div>
                 <textarea class="ctrl-textarea" id="alert-caption" placeholder="Write your caption here…"></textarea>
+              </div>
+            </div>
+
+            <!-- PROGRESS UPDATE PARAMS (shown only for progress tab) -->
+            <div class="progress-params" id="progress-params">
+              <div id="update-rows-container"></div>
+              <button class="btn-add-row" id="btn-add-row" onclick="addUpdateRow()">+ Add Update Row</button>
+              <div>
+                <div class="field-label">Next Up (one per line)</div>
+                <textarea class="ctrl-textarea" id="progress-nextup" placeholder="SMS BETA LAUNCH&#10;SYSTEM USER TOKEN SWAP" style="min-height:48px"></textarea>
+              </div>
+              <div>
+                <div class="field-label">IG Caption</div>
+                <textarea class="ctrl-textarea" id="progress-caption" placeholder="Write your caption here…"></textarea>
               </div>
             </div>
 
@@ -453,6 +478,17 @@ function selectTab(type) {
   // Show/hide alert params
   document.getElementById('alert-params').classList.toggle('show', type === 'alert');
 
+  // Show/hide progress params
+  const ppEl = document.getElementById('progress-params');
+  if (type === 'progress') {
+    ppEl.classList.add('show');
+    if (document.getElementById('update-rows-container').children.length === 0) {
+      addUpdateRow(); addUpdateRow(); // seed with 2 rows
+    }
+  } else {
+    ppEl.classList.remove('show');
+  }
+
   // Show slide labels only for daily (which has 2 slides)
   document.getElementById('slide1-label').style.display = type === 'daily' ? 'block' : 'none';
 
@@ -471,11 +507,92 @@ function resetPreview() {
   document.getElementById('btn-download').classList.remove('show');
   lastGeneratedUrl = null;
   lastAlertImageUrl = null;
+  lastProgressImageUrl = null;
+}
+
+// ── PROGRESS UPDATE ROW MANAGEMENT ──
+const WEATHER_ICONS = [
+  { value: 'sunny.png',        label: 'Sunny' },
+  { value: 'partly-cloudy.png',label: 'Partly Cloudy' },
+  { value: 'cloudy.png',       label: 'Cloudy' },
+  { value: 'light-rain.png',   label: 'Light Rain' },
+  { value: 'thunderstorm.png', label: 'Thunderstorm' },
+  { value: 'snow.png',         label: 'Snow' },
+  { value: 'windy.png',        label: 'Windy' },
+  { value: 'wintry-mix.png',   label: 'Wintry Mix' },
+];
+
+function addUpdateRow() {
+  const container = document.getElementById('update-rows-container');
+  const idx = container.children.length;
+  if (idx >= 4) return;
+
+  const iconOptions = WEATHER_ICONS.map(ic =>
+    `<option value="${ic.value}">${ic.label}</option>`
+  ).join('');
+
+  const row = document.createElement('div');
+  row.className = 'update-row';
+  row.dataset.idx = idx;
+  row.innerHTML = `
+    <div class="update-row-num">Update ${idx + 1}</div>
+    <button class="update-row-remove" onclick="removeUpdateRow(this)" ${idx < 2 ? 'style="display:none"' : ''}>✕</button>
+    <div>
+      <div class="field-label">Icon</div>
+      <select class="ctrl-select update-icon">${iconOptions}</select>
+    </div>
+    <div>
+      <div class="field-label">Title</div>
+      <input class="ctrl-input update-title" type="text" placeholder="e.g. WEATHER SCORING UPDATE" maxlength="60">
+    </div>
+    <div>
+      <div class="field-label">Description</div>
+      <textarea class="ctrl-textarea update-desc" placeholder="Short description of what changed or shipped." style="min-height:52px"></textarea>
+    </div>
+  `;
+  container.appendChild(row);
+  updateRowNumbers();
+  updateAddRowBtn();
+}
+
+function removeUpdateRow(btn) {
+  const row = btn.closest('.update-row');
+  row.remove();
+  updateRowNumbers();
+  updateAddRowBtn();
+}
+
+function updateRowNumbers() {
+  document.querySelectorAll('.update-row').forEach((row, i) => {
+    row.querySelector('.update-row-num').textContent = `Update ${i + 1}`;
+    const rmBtn = row.querySelector('.update-row-remove');
+    rmBtn.style.display = i < 2 ? 'none' : 'block';
+  });
+}
+
+function updateAddRowBtn() {
+  const n = document.getElementById('update-rows-container').children.length;
+  document.getElementById('btn-add-row').disabled = n >= 4;
+}
+
+function collectProgressData() {
+  const updates = [];
+  document.querySelectorAll('.update-row').forEach(row => {
+    updates.push({
+      icon:  row.querySelector('.update-icon').value,
+      title: row.querySelector('.update-title').value.trim(),
+      desc:  row.querySelector('.update-desc').value.trim()
+    });
+  });
+  const nextUp = (document.getElementById('progress-nextup').value || '')
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  return { updates, nextUp };
 }
 
 // ── GENERATE ──
 let lastGeneratedUrl = null;
 let lastAlertImageUrl = null;
+let lastProgressImageUrl = null;
 
 function setGenStatus(state, text) {
   const el = document.getElementById('gen-status');
@@ -509,6 +626,18 @@ async function generateGraphic() {
       if (data.error) throw new Error(data.error);
       feedUrl = data.imageUrl;
       lastAlertImageUrl = feedUrl;
+    } else if (activeTab === 'progress') {
+      const { updates, nextUp } = collectProgressData();
+      if (updates.length === 0) throw new Error('Add at least one update row');
+      const res = await fetch('/.netlify/functions/generate-progress-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ADMIN_PW, updates, nextUp })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      feedUrl = data.feedImageUrl;
+      lastProgressImageUrl = feedUrl;
     } else {
       const res = await fetch('/.netlify/functions/generate-ig-graphic', {
         method: 'POST',
@@ -578,6 +707,20 @@ async function postGraphic() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setGenStatus('posted', '✓ Alert posted to IG');
+      btn.textContent = '✓ Posted';
+      btn.classList.add('posted');
+    } else if (activeTab === 'progress') {
+      if (!lastProgressImageUrl) throw new Error('Generate the progress update first');
+      const { updates, nextUp } = collectProgressData();
+      const caption = document.getElementById('progress-caption').value.trim();
+      const res = await fetch('/.netlify/functions/generate-progress-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ADMIN_PW, post: true, updates, nextUp, caption: caption || undefined })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setGenStatus('posted', `✓ Progress Update #${data.issue} posted to IG`);
       btn.textContent = '✓ Posted';
       btn.classList.add('posted');
     } else {

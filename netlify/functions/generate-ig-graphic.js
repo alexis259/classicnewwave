@@ -2042,6 +2042,223 @@ async function drawDashboard(row) {
   return canvas;
 }
 
+// ── TEMPLATE 7: PROGRESS UPDATE ──
+
+async function drawProgressUpdate(data) {
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+
+  const issue   = data.issue   || 1;
+  const updates = (data.updates || []).slice(0, 4);
+  const nextUp  = data.nextUp  || [];
+  const dateStr = data.date    || getNYCDate();
+
+  // ── BACKGROUND + GRAIN ──
+  ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
+  const grainImg = ctx.getImageData(0, 0, W, H);
+  let rv = 0x5F3759DF;
+  function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
+  for (let i = 0; i < 18000; i++) {
+    const gx = Math.floor(grainRand() * W);
+    const gy = Math.floor(grainRand() * H);
+    const gb = Math.floor(grainRand() * 25);
+    const idx = (gy * W + gx) * 4;
+    grainImg.data[idx]     = Math.min(255, grainImg.data[idx]     + gb);
+    grainImg.data[idx + 1] = Math.min(255, grainImg.data[idx + 1] + gb);
+    grainImg.data[idx + 2] = Math.min(255, grainImg.data[idx + 2] + gb);
+  }
+  ctx.putImageData(grainImg, 0, 0);
+  scanlines(ctx);
+  border(ctx, ACCENT, INSET, 3);
+
+  // ── LAYOUT CONSTANTS ──
+  // Title block: two 140px Bebas lines stacked, each ~100px visible cap height
+  // UPDATES bottom ≈ titleY + 140 + 100 = titleY + 240 → divider at titleY + 260
+  const PAD       = 40;
+  const HDR_Y     = INSET;
+  const HDR_H     = 96;
+  const ISSUE_Y   = HDR_Y + HDR_H;       // 114
+  const ISSUE_H   = 52;
+  const TITLE_Y   = ISSUE_Y + ISSUE_H;   // 166
+  const TITLE_FSZ = 140;                 // Bebas Neue font size
+  const titleX    = INSET + PAD;
+  const titleY    = TITLE_Y + 16;        // 182
+  const DIV_Y     = titleY + TITLE_FSZ + TITLE_FSZ + 20; // 182+140+140+20 = 482
+  const ROWS_Y    = DIV_Y + 14;          // 496
+  const TICK_H    = 65;
+  const NEXT_H    = 90;
+  const NEXT_Y    = H - TICK_H - NEXT_H; // 1195
+  const ROWS_H    = NEXT_Y - ROWS_Y;     // 699
+
+  const n    = Math.max(1, Math.min(4, updates.length));
+  const rowH = Math.floor(ROWS_H / n);
+
+  // ── HEADER ──
+  ctx.fillStyle = '#111';
+  ctx.fillRect(INSET, HDR_Y, W - INSET * 2, HDR_H);
+
+  let logoImg = null;
+  try { logoImg = await loadImage(path.join(__dirname, 'assets/logo.png')); } catch {}
+
+  const LOGO_SZ = 60;
+  const logoX = INSET + PAD;
+  const logoY = HDR_Y + Math.floor((HDR_H - LOGO_SZ) / 2);
+
+  if (logoImg) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(logoX + LOGO_SZ / 2, logoY + LOGO_SZ / 2, LOGO_SZ / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(logoImg, logoX, logoY, LOGO_SZ, LOGO_SZ);
+    ctx.restore();
+    // Single-line brand name
+    const wx = logoX + LOGO_SZ + 14;
+    ctx.fillStyle = '#f0f0f0';
+    ctx.font = '400 22px "Barlow Condensed BK"';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('classicnewweather', wx, HDR_Y + HDR_H / 2);
+  } else {
+    logo(ctx, logoX, HDR_Y + Math.floor((HDR_H - 44) / 2), 1.0);
+  }
+
+  // Tagline right
+  ctx.fillStyle = '#555';
+  ctx.font = '400 13px "Share Tech Mono"';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText("THE CULTURE'S WEATHER CHANNEL", W - INSET - PAD, HDR_Y + HDR_H / 2);
+
+  // Header bottom rule
+  ctx.strokeStyle = '#1e1e1e'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(INSET, ISSUE_Y); ctx.lineTo(W - INSET, ISSUE_Y); ctx.stroke();
+
+  // ── ISSUE BAR ──
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(INSET, ISSUE_Y, W - INSET * 2, ISSUE_H);
+
+  const issueNum = String(issue).padStart(2, '0');
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 18px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(`\u2116${issueNum} \u00B7 PROGRESS UPDATES`, INSET + PAD, ISSUE_Y + ISSUE_H / 2);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '400 14px "Share Tech Mono"';
+  ctx.textAlign = 'right';
+  ctx.fillText(dateStr, W - INSET - PAD, ISSUE_Y + ISSUE_H / 2);
+
+  // ── TITLE BLOCK ──
+  // Two stacked lines: full TITLE_FSZ line-height between tops so they don't overlap
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.font = `400 ${TITLE_FSZ}px "Bebas Neue", "Barlow Condensed BK"`;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('PROGRESS', titleX, titleY);
+
+  ctx.fillStyle = ACCENT;
+  ctx.fillText('UPDATES', titleX, titleY + TITLE_FSZ);
+
+  // ── DIVIDER — drawn AFTER both title words end ──
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(INSET + PAD, DIV_Y);
+  ctx.lineTo(W - INSET - PAD, DIV_Y);
+  ctx.stroke();
+
+  // ── LOAD ICONS ──
+  const iconImgs = await Promise.all(updates.map(async (u) => {
+    if (!u.icon) return null;
+    try { return await loadImage(path.join(__dirname, `assets/${u.icon}`)); } catch { return null; }
+  }));
+
+  // ── UPDATE ROWS ──
+  const ICON_SZ   = 100;
+  const ICON_COL  = INSET + PAD;
+  const TEXT_X    = ICON_COL + ICON_SZ + 32;
+  const TEXT_W    = W - INSET - PAD - TEXT_X;
+  const ROW_TITLE = 52;  // px — Barlow Condensed BK
+  const ROW_DESC  = 24;  // px — Share Tech Mono
+  const ROW_LH    = ROW_DESC + 8;
+
+  for (let i = 0; i < n; i++) {
+    const update = updates[i];
+    const ry = ROWS_Y + i * rowH;
+
+    // Row divider
+    if (i > 0) {
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(INSET + PAD, ry);
+      ctx.lineTo(W - INSET - PAD, ry);
+      ctx.stroke();
+    }
+
+    // Icon — vertically centered
+    const iconImg = iconImgs[i];
+    const iconY = ry + Math.floor((rowH - ICON_SZ) / 2);
+    if (iconImg) {
+      const ic = createCanvas(ICON_SZ, ICON_SZ);
+      const ictx = ic.getContext('2d');
+      ictx.drawImage(iconImg, 0, 0, ICON_SZ, ICON_SZ);
+      const id = ictx.getImageData(0, 0, ICON_SZ, ICON_SZ);
+      for (let pi = 0; pi < id.data.length; pi += 4) {
+        if (id.data[pi] < 30 && id.data[pi + 1] < 30 && id.data[pi + 2] < 30) id.data[pi + 3] = 0;
+      }
+      ictx.putImageData(id, 0, 0);
+      ctx.drawImage(ic, ICON_COL, iconY);
+    } else {
+      ctx.fillStyle = ACCENT;
+      ctx.beginPath();
+      ctx.arc(ICON_COL + ICON_SZ / 2, ry + rowH / 2, 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Text block — vertically centered, sized to content
+    const descText   = update.desc || '';
+    const descLCount = Math.min(3, measureLines(ctx, descText, TEXT_W) || 1);
+    ctx.font = `400 ${ROW_DESC}px "Share Tech Mono"`; // set font before measureLines
+    const descLinesN = Math.min(3, measureLines(ctx, descText, TEXT_W) || 1);
+    const blockH     = ROW_TITLE + 10 + ROW_LH * descLinesN;
+    const textTopY   = ry + Math.floor((rowH - blockH) / 2);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `400 ${ROW_TITLE}px "Barlow Condensed BK"`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText((update.title || '').toUpperCase(), TEXT_X, textTopY);
+
+    ctx.fillStyle = '#999';
+    ctx.font = `400 ${ROW_DESC}px "Share Tech Mono"`;
+    wrapText(ctx, descText, TEXT_X, textTopY + ROW_TITLE + 10, TEXT_W, ROW_LH, 2);
+  }
+
+  // ── NEXT UP BAR ──
+  // Inset fills by border width (3px) on each side so the border rect stays visible
+  const BW          = 3;
+  const NEXT_LABEL_H = 36;
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(INSET + BW, NEXT_Y, W - INSET * 2 - BW * 2, NEXT_LABEL_H);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '400 14px "Share Tech Mono"';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('NEXT UP', INSET + PAD, NEXT_Y + NEXT_LABEL_H / 2);
+
+  ctx.fillStyle = '#0e0e0e';
+  ctx.fillRect(INSET + BW, NEXT_Y + NEXT_LABEL_H, W - INSET * 2 - BW * 2, NEXT_H - NEXT_LABEL_H);
+
+  if (nextUp.length > 0) {
+    ctx.fillStyle = '#d0d0d0';
+    ctx.font = '400 26px "Barlow Condensed BK"';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const items = nextUp.slice(0, 3).map(s => s.toUpperCase()).join('  \u00B7  ');
+    ctx.fillText(items, INSET + PAD, NEXT_Y + NEXT_LABEL_H + (NEXT_H - NEXT_LABEL_H) / 2);
+  }
+
+  // ── TICKER ──
+  ticker(ctx, "THE CULTURE'S WEATHER CHANNEL  \u00B7  CLASSICNEWWEATHER.COM");
+
+  return canvas;
+}
+
 // ── UPLOAD + ORCHESTRATION ──
 
 async function uploadImage(buffer, filename) {
@@ -2121,14 +2338,15 @@ async function generateAndUpload(row, dateKey, type = 'daily') {
   return { feedImageUrl, storyImageUrl, slide2Url };
 }
 
-exports.generateAndUpload = generateAndUpload;
-exports.drawDailySlide1   = drawDailySlide1;
-exports.drawDailySlide2   = drawDailySlide2;
-exports.drawWeekly        = drawWeekly;
-exports.drawAlert         = drawAlert;
-exports.drawHair          = drawHair;
-exports.drawTeaser        = drawTeaser;
-exports.drawDashboard     = drawDashboard;
+exports.generateAndUpload  = generateAndUpload;
+exports.drawDailySlide1    = drawDailySlide1;
+exports.drawDailySlide2    = drawDailySlide2;
+exports.drawWeekly         = drawWeekly;
+exports.drawAlert          = drawAlert;
+exports.drawHair           = drawHair;
+exports.drawTeaser         = drawTeaser;
+exports.drawDashboard      = drawDashboard;
+exports.drawProgressUpdate = drawProgressUpdate;
 
 // ── HTTP HANDLER ──
 
