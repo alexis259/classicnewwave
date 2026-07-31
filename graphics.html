@@ -511,25 +511,10 @@ function resetPreview() {
 }
 
 // ── PROGRESS UPDATE ROW MANAGEMENT ──
-const WEATHER_ICONS = [
-  { value: 'sunny.png',        label: 'Sunny' },
-  { value: 'partly-cloudy.png',label: 'Partly Cloudy' },
-  { value: 'cloudy.png',       label: 'Cloudy' },
-  { value: 'light-rain.png',   label: 'Light Rain' },
-  { value: 'thunderstorm.png', label: 'Thunderstorm' },
-  { value: 'snow.png',         label: 'Snow' },
-  { value: 'windy.png',        label: 'Windy' },
-  { value: 'wintry-mix.png',   label: 'Wintry Mix' },
-];
-
 function addUpdateRow() {
   const container = document.getElementById('update-rows-container');
   const idx = container.children.length;
   if (idx >= 4) return;
-
-  const iconOptions = WEATHER_ICONS.map(ic =>
-    `<option value="${ic.value}">${ic.label}</option>`
-  ).join('');
 
   const row = document.createElement('div');
   row.className = 'update-row';
@@ -537,10 +522,6 @@ function addUpdateRow() {
   row.innerHTML = `
     <div class="update-row-num">Update ${idx + 1}</div>
     <button class="update-row-remove" onclick="removeUpdateRow(this)" ${idx < 2 ? 'style="display:none"' : ''}>✕</button>
-    <div>
-      <div class="field-label">Icon</div>
-      <select class="ctrl-select update-icon">${iconOptions}</select>
-    </div>
     <div>
       <div class="field-label">Title</div>
       <input class="ctrl-input update-title" type="text" placeholder="e.g. WEATHER SCORING UPDATE" maxlength="60">
@@ -579,7 +560,6 @@ function collectProgressData() {
   const updates = [];
   document.querySelectorAll('.update-row').forEach(row => {
     updates.push({
-      icon:  row.querySelector('.update-icon').value,
       title: row.querySelector('.update-title').value.trim(),
       desc:  row.querySelector('.update-desc').value.trim()
     });

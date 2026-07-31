@@ -2053,8 +2053,19 @@ async function drawProgressUpdate(data) {
   const nextUp  = data.nextUp  || [];
   const dateStr = data.date    || getNYCDate();
 
+  // ── COLORWAY ──
+  const COLORWAYS = {
+    classic:   { bg: '#0a0a0a', bar: '#CC3300', border: '#CC3300', title1: '#ffffff', title2: '#CC3300', hdr: '#111111', ticker: '#CC3300' },
+    midnight:  { bg: '#060a14', bar: '#1a3464', border: '#2255aa', title1: '#ffffff', title2: '#4488ee', hdr: '#0a0e18', ticker: '#1a3464' },
+    ember:     { bg: '#0e0804', bar: '#994400', border: '#cc5500', title1: '#ffffff', title2: '#ff6622', hdr: '#150e08', ticker: '#994400' },
+    gold:      { bg: '#0c0a04', bar: '#7a5500', border: '#cc9900', title1: '#ffffff', title2: '#F0B800', hdr: '#121006', ticker: '#7a5500' },
+  };
+  const COLORWAY_ORDER = ['classic', 'midnight', 'ember', 'gold'];
+  const cwKey = data.colorway || COLORWAY_ORDER[(issue - 1) % COLORWAY_ORDER.length];
+  const cw = COLORWAYS[cwKey] || COLORWAYS.classic;
+
   // ── BACKGROUND + GRAIN ──
-  ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = cw.bg; ctx.fillRect(0, 0, W, H);
   const grainImg = ctx.getImageData(0, 0, W, H);
   let rv = 0x5F3759DF;
   function grainRand() { rv ^= rv << 13; rv ^= rv >> 17; rv ^= rv << 5; return (rv >>> 0) / 0xFFFFFFFF; }
@@ -2069,7 +2080,7 @@ async function drawProgressUpdate(data) {
   }
   ctx.putImageData(grainImg, 0, 0);
   scanlines(ctx);
-  border(ctx, ACCENT, INSET, 3);
+  border(ctx, cw.border, INSET, 3);
 
   // ── LAYOUT CONSTANTS ──
   // Title block: two 140px Bebas lines stacked, each ~100px visible cap height
@@ -2094,7 +2105,7 @@ async function drawProgressUpdate(data) {
   const rowH = Math.floor(ROWS_H / n);
 
   // ── HEADER ──
-  ctx.fillStyle = '#111';
+  ctx.fillStyle = cw.hdr;
   ctx.fillRect(INSET, HDR_Y, W - INSET * 2, HDR_H);
 
   let logoImg = null;
@@ -2132,7 +2143,7 @@ async function drawProgressUpdate(data) {
   ctx.beginPath(); ctx.moveTo(INSET, ISSUE_Y); ctx.lineTo(W - INSET, ISSUE_Y); ctx.stroke();
 
   // ── ISSUE BAR ──
-  ctx.fillStyle = ACCENT;
+  ctx.fillStyle = cw.bar;
   ctx.fillRect(INSET, ISSUE_Y, W - INSET * 2, ISSUE_H);
 
   const issueNum = String(issue).padStart(2, '0');
@@ -2151,23 +2162,24 @@ async function drawProgressUpdate(data) {
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.font = `400 ${TITLE_FSZ}px "Bebas Neue", "Barlow Condensed BK"`;
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = cw.title1;
   ctx.fillText('PROGRESS', titleX, titleY);
 
-  ctx.fillStyle = ACCENT;
+  ctx.fillStyle = cw.title2;
   ctx.fillText('UPDATES', titleX, titleY + TITLE_FSZ);
 
   // ── DIVIDER — drawn AFTER both title words end ──
-  ctx.strokeStyle = ACCENT; ctx.lineWidth = 2;
+  ctx.strokeStyle = cw.border; ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(INSET + PAD, DIV_Y);
   ctx.lineTo(W - INSET - PAD, DIV_Y);
   ctx.stroke();
 
-  // ── LOAD ICONS ──
-  const iconImgs = await Promise.all(updates.map(async (u) => {
-    if (!u.icon) return null;
-    try { return await loadImage(path.join(__dirname, `assets/${u.icon}`)); } catch { return null; }
+  // ── LOAD ICONS — rotate through pool based on issue number ──
+  const PROGRESS_ICONS = ['skyline.png', 'thermostat.png', 'droplet.png', 'caution.png', 'megaphone.png', 'alert.png'];
+  const iconImgs = await Promise.all(updates.map(async (_, i) => {
+    const file = PROGRESS_ICONS[((issue - 1) + i) % PROGRESS_ICONS.length];
+    try { return await loadImage(path.join(__dirname, `assets/${file}`)); } catch { return null; }
   }));
 
   // ── UPDATE ROWS ──
@@ -2234,7 +2246,7 @@ async function drawProgressUpdate(data) {
   // Inset fills by border width (3px) on each side so the border rect stays visible
   const BW          = 3;
   const NEXT_LABEL_H = 36;
-  ctx.fillStyle = ACCENT;
+  ctx.fillStyle = cw.bar;
   ctx.fillRect(INSET + BW, NEXT_Y, W - INSET * 2 - BW * 2, NEXT_LABEL_H);
 
   ctx.fillStyle = '#fff';
@@ -2254,7 +2266,7 @@ async function drawProgressUpdate(data) {
   }
 
   // ── TICKER ──
-  ticker(ctx, "THE CULTURE'S WEATHER CHANNEL  \u00B7  CLASSICNEWWEATHER.COM");
+  ticker(ctx, "THE CULTURE'S WEATHER CHANNEL  \u00B7  CLASSICNEWWEATHER.COM", cw.ticker);
 
   return canvas;
 }

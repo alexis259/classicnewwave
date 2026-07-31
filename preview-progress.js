@@ -7,35 +7,27 @@ const path = require('path');
 
 const mockData = {
   issue: 3,
-  date: 'JULY 30, 2026',
+  date: 'JULY 31, 2026',
   updates: [
-    {
-      icon:  'sunny.png',
-      title: 'WEATHER SCORING UPDATE',
-      desc:  'Perfect band expanded to 70–80°F. Humidity threshold raised to 70%. Overcast penalty tightened.'
-    },
-    {
-      icon:  'partly-cloudy.png',
-      title: 'BROADCAST ARCHIVE',
-      desc:  'Browse the last 90 days of daily broadcasts — score, conditions, synopsis, and IG graphic.'
-    },
-    {
-      icon:  'light-rain.png',
-      title: 'WEATHER ALERT SYSTEM',
-      desc:  'Two-layer automated system now live. Proactive forecast detection at 7AM daily.'
-    },
+    { title: 'WEATHER SCORING UPDATE', desc: 'Perfect band expanded to 70–80°F. Overcast penalty tightened.' },
+    { title: 'BROADCAST ARCHIVE',      desc: 'Browse the last 90 days of daily broadcasts.' },
+    { title: 'WEATHER ALERT SYSTEM',   desc: 'Two-layer automated system now live at 7AM.' },
   ],
   nextUp: ['SMS BETA LAUNCH', 'SYSTEM USER TOKEN', 'MOBILE QA']
 };
 
 async function main() {
-  console.log('Generating progress update graphic…');
-  const canvas = await drawProgressUpdate(mockData);
-  const out    = path.join(__dirname, 'preview-progress.png');
-  fs.writeFileSync(out, canvas.toBuffer('image/png'));
-  console.log(`Saved: ${out}`);
   const { execSync } = require('child_process');
-  try { execSync(`open "${out}"`); } catch {}
+  const files = [];
+  for (let issue = 1; issue <= 4; issue++) {
+    console.log(`Generating issue ${issue}…`);
+    const canvas = await drawProgressUpdate({ ...mockData, issue });
+    const out    = path.join(__dirname, `preview-progress-issue${issue}.png`);
+    fs.writeFileSync(out, canvas.toBuffer('image/png'));
+    console.log(`Saved: ${out}`);
+    files.push(out);
+  }
+  try { execSync(`open ${files.map(f => `"${f}"`).join(' ')}`); } catch {}
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
