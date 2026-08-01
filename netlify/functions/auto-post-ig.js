@@ -187,37 +187,29 @@ exports.handler = async (event) => {
   try {
     const dateKey = toNYCDateKey(new Date());
 
-    let rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
-
-    // Trigger get-daily if row is missing OR synopsis hasn't been generated yet.
-    // get-daily runs maybeAutoGenerate which writes the synopsis — must run even if
-    // the row exists (e.g. someone visited before 8AM and the row has no synopsis yet).
-    const needsGetDaily = !rows || rows.length === 0 || !rows[0].synopsis_approved;
-    if (needsGetDaily) {
-      const siteUrl = process.env.URL || process.env.DEPLOY_URL;
-      console.log(`auto-post-ig: calling get-daily (no row or no synopsis) siteUrl=${siteUrl}`);
-      if (siteUrl) {
-        const gdRes = await fetch(`${siteUrl}/.netlify/functions/get-daily`);
-        console.log(`auto-post-ig: get-daily responded ${gdRes.status}`);
-        rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
-        console.log(`auto-post-ig: re-fetch found ${rows?.length ?? 0} row(s)`);
-      } else {
-        console.error('auto-post-ig: URL env var not set — cannot trigger get-daily');
-      }
+    // Always force-refresh before posting so the score reflects the latest OWM forecast.
+    // Handles row creation, synopsis generation, and re-scoring in one call —
+    // avoids stale scores from early-morning row creation when the forecast was different.
+    const siteUrl = process.env.URL || process.env.DEPLOY_URL;
+    if (siteUrl) {
+      console.log(`auto-post-ig: force-refreshing weather score before posting siteUrl=${siteUrl}`);
+      const gdRes = await fetch(`${siteUrl}/.netlify/functions/get-daily?force=true`);
+      console.log(`auto-post-ig: get-daily?force=true responded ${gdRes.status}`);
     } else {
-      console.log(`auto-post-ig: found row with synopsis for ${dateKey}`);
+      console.error('auto-post-ig: URL env var not set — cannot force-refresh score');
     }
+
+    const rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
+    console.log(`auto-post-ig: fetched ${rows?.length ?? 0} row(s) for ${dateKey}`);
 
     if (!rows || rows.length === 0) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'No weather data for today' }) };
     }
     const row = rows[0];
 
-    // If we just generated the synopsis, any cached graphic won't include it — force regeneration
-    if (needsGetDaily) {
-      row.story_image_url = null;
-      row.feed_image_url = null;
-    }
+    // Clear cached images — score may have changed, so always regenerate the graphic
+    row.story_image_url = null;
+    row.feed_image_url = null;
 
     // Determine template type: weekly on Mondays, daily otherwise
     const nycDay = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long' }).format(new Date());
