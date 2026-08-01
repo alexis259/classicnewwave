@@ -709,6 +709,11 @@ async function postGraphic() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: ADMIN_PW })
       });
+      if (res.status === 401) throw new Error('Unauthorized — wrong password');
+      if (res.status >= 500) throw new Error(`Server error ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+      if (data.error) throw new Error(data.error);
+      if (data.skipped) throw new Error(`Skipped: ${data.reason}`);
       setGenStatus('posted', res.status === 202 ? '⏳ Queued — check IG in ~1 minute' : '✓ Posted · feed + story live');
       btn.textContent = res.status === 202 ? '⏳ Queued' : '✓ Posted';
       btn.classList.add('posted');
