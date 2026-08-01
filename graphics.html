@@ -704,7 +704,7 @@ async function postGraphic() {
       btn.textContent = '✓ Posted';
       btn.classList.add('posted');
     } else {
-      const res = await fetch('/.netlify/functions/auto-post-ig', {
+      const res = await fetch('/.netlify/functions/manual-post-ig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: ADMIN_PW })

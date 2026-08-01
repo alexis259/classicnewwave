@@ -39,6 +39,12 @@
   type = "background"
   included_files = ["netlify/functions/fonts/**"]
 
+[functions."manual-post-ig"]
+  # HTTP-callable background function for manual reposts from the control room.
+  # No schedule — unscheduled background functions accept HTTP POST (scheduled ones are locked to cron-only).
+  type = "background"
+  included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
+
 [functions."generate-ig-graphic"]
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 

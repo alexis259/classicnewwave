@@ -627,7 +627,7 @@ async function repostDaily() {
   fb.textContent = '';
 
   try {
-    const res = await fetch('/.netlify/functions/auto-post-ig', {
+    const res = await fetch('/.netlify/functions/manual-post-ig', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: ADMIN_PW })
