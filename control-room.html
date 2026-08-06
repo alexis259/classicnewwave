@@ -974,8 +974,8 @@ function renderSystemHealth(row, supabaseOk) {
   const lastPostDaysAgo = daysAgo(igPostedAt);
 
   // Meta token proxy: if last post was recent, token is likely fine
-  // Hardcode known expiry Aug 6, 2026
-  const tokenExpiry = new Date('2026-08-06T00:00:00-04:00');
+  // Hardcode known expiry Oct 6, 2026
+  const tokenExpiry = new Date('2026-10-06T00:00:00-04:00');
   const daysToExpiry = Math.floor((tokenExpiry - new Date()) / 86400000);
   let tokenState = 'green', tokenVal = `${daysToExpiry}d`, tokenSub = 'until token expiry';
   if (daysToExpiry < 0) { tokenState = 'red'; tokenVal = 'expired'; tokenSub = 'replace immediately'; }

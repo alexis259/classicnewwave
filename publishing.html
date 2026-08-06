@@ -776,7 +776,7 @@ async function repostAlert() {
 
 // ── META TOKEN ──
 function renderToken() {
-  const expiry      = new Date('2026-08-06T00:00:00-04:00');
+  const expiry      = new Date('2026-10-06T00:00:00-04:00');
   const daysLeft    = Math.floor((expiry - new Date()) / 86400000);
   const isExpired   = daysLeft < 0;
   const isCritical  = daysLeft <= 7;
@@ -809,7 +809,7 @@ function renderToken() {
       </div>
       <div class="token-tile">
         <div class="token-tile-label">Expires</div>
-        <div class="token-tile-val" style="font-size:0.85rem;color:var(--white)">Aug 6, 2026</div>
+        <div class="token-tile-val" style="font-size:0.85rem;color:var(--white)">Oct 6, 2026</div>
         <div class="token-tile-sub">America/New_York</div>
       </div>
       <div class="token-tile">
