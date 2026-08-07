@@ -696,7 +696,7 @@ async function loadAll() {
   const synApproved = !!row.approved;
   const igPosted    = !!row.ig_posted;
   const alertFlag   = row.alert_flag || null;
-  const alertPosted = !!row.alert_ig_posted;
+  const alertPosted = (row.alerts_posted || []).includes(alertFlag) || !!row.alert_ig_posted;
   const feedUrl     = row.feed_image_url || null;
   const score       = row.score || '—';
   const high        = row.high != null ? Math.round(row.high) + '°F' : '—';
@@ -1055,7 +1055,7 @@ function setGlobalStatus(goLiveFailed, synApproved, past8, minsLeft, alertFlag, 
   if (goLiveFailed) {
     dot.className = 'status-pill-dot red';
     msg.textContent = 'Go Live failed';
-  } else if (alertFlag && !alertPosted) {
+  } else if (alertFlag && !alertPosted && !goLiveFailed) {
     dot.className = 'status-pill-dot yellow';
     msg.textContent = `${alertFlag} alert pending`;
   } else if (!synApproved && !past8) {
