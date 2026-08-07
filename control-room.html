@@ -656,6 +656,15 @@ function gradeHeadline(score) {
   return 'Stay Inside';
 }
 
+const NWS_CRITICAL = new Set([
+  'Tornado Warning','Tornado Watch','Severe Thunderstorm Warning',
+  'Flash Flood Warning','Flash Flood Watch','Winter Storm Warning',
+  'Winter Storm Watch','Blizzard Warning','Blizzard Watch',
+  'Ice Storm Warning','Excessive Heat Warning','High Wind Warning',
+  'Extreme Cold Warning','Extreme Wind Warning',
+  'Heat Advisory','Heat Watch',
+]);
+
 // ── LOAD ALL DATA ──
 async function loadAll() {
   let row = null, forecastAlerts = null;
@@ -704,6 +713,18 @@ async function loadAll() {
   renderUpcoming(forecastAlerts);
   renderSystemHealth(row, imported);
   setGlobalStatus(goLiveFailed, synApproved, past8, minsLeft, alertFlag, alertPosted, igPosted);
+
+  // Override topbar with active NWS critical alert if present
+  fetch('https://api.weather.gov/alerts/active?point=40.7128,-74.0060', {
+    headers: { 'User-Agent': 'classicnewweather/1.0', 'Accept': 'application/geo+json' }
+  }).then(r => r.json()).then(data => {
+    const critical = (data.features || [])
+      .map(f => f.properties.event)
+      .filter(e => NWS_CRITICAL.has(e));
+    if (critical.length > 0) {
+      setStatus('red', critical[0]);
+    }
+  }).catch(() => {});
 }
 
 // ── FAILURE BANNER ──
