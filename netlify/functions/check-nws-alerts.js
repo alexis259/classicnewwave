@@ -187,11 +187,11 @@ exports.handler = async (event) => {
 
   const dateKey = toNYCDateKey(new Date());
 
-  // No posts after 8PM NYC — alerts after this hour aren't actionable
+  // Only post between 6AM–8PM NYC
   const nycHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(new Date()));
-  if (nycHour >= 20) {
-    console.log(`check-nws-alerts: past 8PM NYC (${nycHour}:xx) — skipping post`);
-    return { statusCode: 200, body: JSON.stringify({ ok: true, skipped: 'past cutoff' }) };
+  if (nycHour < 6 || nycHour >= 20) {
+    console.log(`check-nws-alerts: outside posting window (${nycHour}:xx NYC) — skipping post`);
+    return { statusCode: 200, body: JSON.stringify({ ok: true, skipped: 'outside posting window' }) };
   }
 
   try {
