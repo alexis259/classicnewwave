@@ -215,7 +215,7 @@ exports.handler = async (event) => {
     const topNWS = critical[0] || null;
 
     // ── 4. Load today's daily row ──
-    const rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=alert_flag,alert_ig_posted,high,feels_like`);
+    const rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=alert_flag,alert_ig_posted,alerts_posted,high,feels_like`);
     const row = rows?.[0];
 
     if (!row) {
@@ -224,8 +224,6 @@ exports.handler = async (event) => {
     }
 
     // ── 5. Determine what to post: NWS takes priority over OWM ──
-    // NWS: critical event detected
-    // OWM: daily row has alert_flag set (from get-daily.js scoring)
     const hasNWS = !!topNWS;
     const hasOWM = !!row.alert_flag && !hasNWS;
 
@@ -234,20 +232,22 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: JSON.stringify({ ok: true, nws: allAlerts.length, critical: 0 }) };
     }
 
-    // ── 6. Skip IG post if already posted today ──
-    if (row.alert_ig_posted) {
-      console.log(`check-nws-alerts: alert already posted for ${dateKey} — skipping IG`);
-      return { statusCode: 200, body: JSON.stringify({ ok: true, skipped: 'already posted' }) };
+    // ── 6. Resolve alert type early (needed for per-type duplicate check) ──
+    const alertType = hasNWS ? mapNWSType(topNWS.event) : row.alert_flag;
+
+    // ── 7. Skip if this specific alert type already posted today ──
+    const alertsPosted = row.alerts_posted || [];
+    if (alertsPosted.includes(alertType)) {
+      console.log(`check-nws-alerts: ${alertType} alert already posted for ${dateKey} — skipping`);
+      return { statusCode: 200, body: JSON.stringify({ ok: true, skipped: `already posted: ${alertType}` }) };
     }
 
-    // ── 7. Resolve alert type and copy context ──
-    let alertType, copyContext, filename;
+    // ── 8. Resolve copy context and filename ──
+    let copyContext, filename;
     if (hasNWS) {
-      alertType   = mapNWSType(topNWS.event);
-      copyContext  = `${topNWS.event.toUpperCase()} — NWS issued for NYC`;
-      filename    = `alert-nws-${alertType}-${dateKey}.png`;
+      copyContext = `${topNWS.event.toUpperCase()} — NWS issued for NYC`;
+      filename   = `alert-nws-${alertType}-${dateKey}-${Date.now()}.png`;
       console.log(`check-nws-alerts: posting NWS alert → "${topNWS.event}" (${topNWS.severity})`);
-      // Set alert_flag if not already set
       if (!row.alert_flag) {
         await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
           method: 'PATCH',
@@ -256,7 +256,6 @@ exports.handler = async (event) => {
         });
       }
     } else {
-      alertType   = row.alert_flag;
       const temp  = Math.round(row.high);
       const feels = Math.round(row.feels_like);
       const OWM_CONTEXT = {
@@ -264,19 +263,20 @@ exports.handler = async (event) => {
         cold:  `extreme cold — ${temp}°F, feels like ${feels}°F`,
         storm: `major storm — heavy rain and dangerous wind`
       };
-      copyContext  = OWM_CONTEXT[alertType] || alertType;
-      filename    = `alert-owm-${alertType}-${dateKey}.png`;
+      copyContext = OWM_CONTEXT[alertType] || alertType;
+      filename   = `alert-owm-${alertType}-${dateKey}-${Date.now()}.png`;
       console.log(`check-nws-alerts: posting OWM alert → ${alertType} (${temp}°F / feels ${feels}°F)`);
     }
 
-    // ── 8. Optimistic lock ──
+    // ── 9. Optimistic lock — append alertType to alerts_posted ──
+    const updatedAlertsPosted = [...alertsPosted, alertType];
     await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
       method: 'PATCH',
       headers: { 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ alert_ig_posted: true })
+      body: JSON.stringify({ alerts_posted: updatedAlertsPosted, alert_ig_posted: true })
     });
 
-    // ── 9. Generate copy, render card, upload, post ──
+    // ── 10. Generate copy, render card, upload, post ──
     const { advisory, caption } = await generateAlertCopy(copyContext);
     console.log('check-nws-alerts: advisory =>', advisory);
     console.log('check-nws-alerts: caption  =>', caption);
@@ -288,11 +288,11 @@ exports.handler = async (event) => {
     const postId   = await postToIG(imageUrl, caption);
     console.log(`check-nws-alerts: posted → ${postId}`);
 
-    // ── 10. Write final state ──
+    // ── 11. Write final state ──
     await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
       method: 'PATCH',
       headers: { 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ alert_ig_posted: true, alert_ig_post_id: postId, alert_ig_caption: caption })
+      body: JSON.stringify({ alerts_posted: updatedAlertsPosted, alert_ig_posted: true, alert_ig_post_id: postId, alert_ig_caption: caption })
     });
 
     return {
