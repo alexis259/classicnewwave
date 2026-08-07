@@ -110,6 +110,7 @@ Write the 2 lines. Nothing else.`;
 Rules:
 - 2-3 lines, casual and cool, lowercase mostly
 - NYC energy — name the specific alert, tell people what to do right now
+- Do NOT mention specific times, expiry windows, or durations — you don't have accurate data
 - End with 4-5 hashtags on their own line — always include #NYC and #NewYork
 - No corporate language. Direct and real.
 
@@ -185,6 +186,13 @@ exports.handler = async (event) => {
   } catch {}
 
   const dateKey = toNYCDateKey(new Date());
+
+  // No posts after 8PM NYC — alerts after this hour aren't actionable
+  const nycHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(new Date()));
+  if (nycHour >= 20) {
+    console.log(`check-nws-alerts: past 8PM NYC (${nycHour}:xx) — skipping post`);
+    return { statusCode: 200, body: JSON.stringify({ ok: true, skipped: 'past cutoff' }) };
+  }
 
   try {
     // ── 1. Fetch NWS active alerts ──
