@@ -10,6 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="CNW" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -21,8 +23,16 @@
       --label-bg: #111;
       --border: #252525;
       --text: #f0f0f0;
-      --muted: #555;
+      --text-secondary: #cccccc;
+      --muted: #767676;   /* min 4.5:1 on --bg */
       --dim: #888;
+      --rain-blue: #5599dd;
+      --error: #cc2200;
+      --hair-warn:  #cc2200;
+      --hair-alert: #cc6600;
+      --hair-mod:   #aa8800;
+      --hair-low:   #88aa44;
+      --hair-good:  #22aa44;
     }
 
     html, body {
@@ -122,7 +132,7 @@
 
     .score-num {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 120px;
+      font-size: clamp(80px, 25vw, 120px);
       line-height: 0.85;
       color: var(--accent);
     }
@@ -150,7 +160,6 @@
       letter-spacing: 0.1em;
       padding-top: 14px;
       border-top: 1px solid var(--border);
-      white-space: nowrap;
     }
 
     /* ── PANEL BASE ── */
@@ -186,7 +195,7 @@
     .mood-text {
       font-size: 14px;
       line-height: 1.65;
-      color: #ccc;
+      color: var(--text-secondary);
       white-space: pre-wrap;
       flex: 1;
     }
@@ -283,7 +292,7 @@
 
     .fc-rain {
       font-size: 10px;
-      color: #5599dd;
+      color: var(--rain-blue);
       margin-top: 3px;
     }
 
@@ -325,12 +334,15 @@
     }
 
     @keyframes blink { 50% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .loading-state { animation: none; opacity: 1; }
+    }
 
     .error-state {
       padding: 48px 16px;
       text-align: center;
       font-size: 12px;
-      color: #cc2200;
+      color: var(--error);
       letter-spacing: 0.1em;
     }
 
@@ -341,18 +353,18 @@
       margin-top: 20px;
       font-size: 9px;
       letter-spacing: 0.15em;
-      color: #2a2a2a;
+      color: #3a3a3a;
       text-align: center;
     }
   </style>
 </head>
 <body>
-<div class="page">
+<main class="page">
 
   <!-- SITE HEADER -->
   <header class="site-header">
-    <div class="site-name">classicnewweather</div>
-    <div class="tagline">DAILY WEATHER &nbsp;—&nbsp; DON'T GET CAUGHT SLIPPIN</div>
+    <h1 class="site-name">classicnewweather</h1>
+    <p class="tagline">DAILY WEATHER &nbsp;—&nbsp; DON'T GET CAUGHT SLIPPIN</p>
   </header>
 
   <!-- WEATHER CARD -->
@@ -360,7 +372,7 @@
     <div id="loading" class="loading-state">LOADING FORECAST...</div>
     <div id="error" class="error-state hidden">FORECAST UNAVAILABLE</div>
 
-    <div id="weather" class="hidden">
+    <div id="weather" class="hidden" aria-live="polite" aria-atomic="true">
 
       <!-- Date bar -->
       <div class="date-bar">
@@ -432,7 +444,7 @@
 
   <div class="copyright">&copy; 2026 CLASSIC NEWWEATHER</div>
 
-</div><!-- /.page -->
+</main><!-- /.page -->
 
 <script>
 // ── HELPERS ──
@@ -483,18 +495,21 @@ function getForecastEmoji(rain) {
 }
 
 function getHairIconFile(humidity, rain) {
-  if (rain > 60 || humidity >= 85) return 'cornrows.png';    // SILK PRESS WARNING → go protective
-  if (rain > 40 || humidity >= 75) return 'afro-puff.png';   // HIGH HUMIDITY ALERT → protective
-  if (rain > 25 || humidity >= 65) return 'silk-press.png';  // MODERATE RISK → silk press at risk
-  return 'wash-and-go.png';                                   // LOW RISK / GOOD HAIR DAY
+  if (rain >= 70 || humidity >= 85) return 'cornrows.png';    // SILK PRESS WARNING → go protective
+  if (rain >= 40 || humidity >= 75) return 'afro-puff.png';   // HIGH HUMIDITY ALERT → protective
+  if (rain >= 25 || humidity >= 65) return 'silk-press.png';  // MODERATE RISK → silk press at risk
+  return 'wash-and-go.png';                                    // LOW RISK / GOOD HAIR DAY
 }
 
+// Hair level colors mirror --hair-* tokens in :root
+const HAIR_COLORS = { warn: '#cc2200', alert: '#cc6600', mod: '#aa8800', low: '#88aa44', good: '#22aa44' };
+
 function getHairStatus(humidity, rain) {
-  if (rain >= 70 || humidity >= 85) return { level: 'SILK PRESS WARNING.',  humidity: `Humidity: ${humidity}%`, sub: 'Proceed at your own risk.',      color: '#cc2200' };
-  if (humidity >= 75 || rain >= 40) return { level: 'HIGH HUMIDITY ALERT.', humidity: `Humidity: ${humidity}%`, sub: 'High risk across all textures.',  color: '#cc6600' };
-  if (humidity >= 65 || rain >= 25) return { level: 'MODERATE RISK.',       humidity: `Humidity: ${humidity}%`, sub: 'Proceed with caution.',           color: '#aa8800' };
-  if (humidity >= 55)               return { level: 'LOW RISK.',             humidity: `Humidity: ${humidity}%`, sub: 'Frizz possible.',                 color: '#88aa44' };
-  return                                    { level: 'GOOD HAIR DAY.',       humidity: `Humidity: ${humidity}%`, sub: 'Hair looking good today.',        color: '#22aa44' };
+  if (rain >= 70 || humidity >= 85) return { level: 'SILK PRESS WARNING.',  humidity: `Humidity: ${humidity}%`, sub: 'Proceed at your own risk.',      color: HAIR_COLORS.warn };
+  if (humidity >= 75 || rain >= 40) return { level: 'HIGH HUMIDITY ALERT.', humidity: `Humidity: ${humidity}%`, sub: 'High risk across all textures.',  color: HAIR_COLORS.alert };
+  if (humidity >= 65 || rain >= 25) return { level: 'MODERATE RISK.',       humidity: `Humidity: ${humidity}%`, sub: 'Proceed with caution.',           color: HAIR_COLORS.mod };
+  if (humidity >= 55)               return { level: 'LOW RISK.',             humidity: `Humidity: ${humidity}%`, sub: 'Frizz possible.',                 color: HAIR_COLORS.low };
+  return                                    { level: 'GOOD HAIR DAY.',       humidity: `Humidity: ${humidity}%`, sub: 'Hair looking good today.',        color: HAIR_COLORS.good };
 }
 
 
@@ -552,13 +567,17 @@ function render(data) {
   document.getElementById('date-left').textContent = formatNYCDate();
 
   // Hero
-  document.getElementById('score-num').textContent = score;
+  const scoreEl = document.getElementById('score-num');
+  scoreEl.textContent = score;
+  scoreEl.setAttribute('aria-label', `Weather score: ${score} out of 10`);
   document.getElementById('vibe-text').textContent  = getScoreVibe(score);
   document.getElementById('high-feels').textContent =
     `High ${high}°F · Feels ${Math.round(data.feels_like ?? data.temp)}°F`;
 
   // Mood
-  document.getElementById('mood-icon').textContent  = getWeatherEmoji(data.condition);
+  const moodIconEl = document.getElementById('mood-icon');
+  moodIconEl.textContent = getWeatherEmoji(data.condition);
+  moodIconEl.setAttribute('aria-label', data.condition || 'weather icon');
   document.getElementById('synopsis').textContent   =
     data.synopsis_approved || `${data.condition || ''} · ${precip}% rain`;
 
@@ -571,7 +590,9 @@ function render(data) {
 
   // Hair
   const hair = getHairStatus(data.humidity ?? 50, precip);
-  document.getElementById('hair-icon').src = `/assets/hair/${getHairIconFile(data.humidity ?? 50, precip)}`;
+  const hairIconEl = document.getElementById('hair-icon');
+  hairIconEl.src = `/assets/hair/${getHairIconFile(data.humidity ?? 50, precip)}`;
+  hairIconEl.alt = hair.level;
   document.getElementById('hair-level').textContent    = hair.level;
   document.getElementById('hair-level').style.color    = hair.color;
   document.getElementById('hair-humidity').textContent = hair.humidity;
