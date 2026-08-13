@@ -24,25 +24,25 @@
 [functions."auto-post-ig"]
   # Slot 2 — 8:00 AM EDT. Change to "0 13 * * *" in winter (EST)
   schedule = "0 12 * * *"
-  type = "background"
+  background = true
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
 [functions."auto-post-alert"]
   # Slot 3 — 12:00 PM EDT. Change to "0 17 * * *" in winter (EST)
   schedule = "0 16 * * *"
-  type = "background"
+  background = true
   included_files = ["netlify/functions/fonts/**"]
 
 [functions."check-nws-alerts"]
   # Slot 4 — every 30 min — no seasonal offset needed (UTC cron)
   schedule = "*/30 * * * *"
-  type = "background"
+  background = true
   included_files = ["netlify/functions/fonts/**"]
 
 [functions."manual-post-ig"]
   # HTTP-callable background function for manual reposts from the control room.
   # No schedule — unscheduled background functions accept HTTP POST (scheduled ones are locked to cron-only).
-  type = "background"
+  background = true
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
 [functions."generate-ig-graphic"]
