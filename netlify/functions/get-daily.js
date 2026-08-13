@@ -36,9 +36,6 @@ async function fetchFreshWeather() {
 
   if (current.cod !== 200) throw new Error('OWM fetch failed');
 
-  const nearSlots = forecastData.list.slice(0, 3);
-  const precipChance = Math.round(Math.max(...nearSlots.map(s => (s.pop || 0) * 100)));
-
   // Group forecast slots by NYC date, picking the slot closest to noon NYC time
   const days = {};
   const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -69,11 +66,16 @@ async function fetchFreshWeather() {
   const dailyLow = todaySlots.length > 0
     ? Math.min(...todaySlots.map(s => s.main.temp))
     : current.main.temp_min;
+  // Max rain probability across today's daytime slots — same slot set as dailyHigh,
+  // so the topline precipChance (score/synopsis/hair) can't disagree with the forecast strip.
+  const precipChance = slotsForHigh.length > 0
+    ? Math.round(Math.max(...slotsForHigh.map(s => (s.pop || 0) * 100)))
+    : 0;
 
   const forecast = Object.entries(days).slice(0, 5).map(([key, { slot }]) => ({
     day: dayNames[new Date(slot.dt * 1000).getDay()],
     high: key === todayKey ? dailyHigh : slot.main.temp_max,
-    rain: Math.round((slot.pop || 0) * 100)
+    rain: key === todayKey ? precipChance : Math.round((slot.pop || 0) * 100)
   }));
 
   return {
@@ -278,19 +280,22 @@ exports.handler = async (event) => {
         updated_at: new Date().toISOString()
       };
 
-      // Re-score on explicit force refresh so scoring band changes take effect immediately
-      if (force) {
-        const rescored = scoreWeather({ ...weather, humidity: row.humidity, precipChance: row.precip_chance });
-        refreshed.score = rescored.score;
-        refreshed.penalties = rescored.penalties;
-      }
-
-      // Lock humidity + precip_chance once the graphic has been posted.
-      // These drive the hair forecast — changing them after the IG post goes out
-      // would contradict the advisory that was already published.
-      if (!row.ig_posted) {
+      // Lock humidity + precip_chance once the graphic has been posted, EXCEPT on an
+      // explicit force refresh — force is a deliberate manual admin action (the
+      // "force refresh" button in admin.html), not a background cron tick, so it's
+      // allowed to correct an advisory that already went out.
+      // These drive the hair forecast — changing them on a normal background refresh
+      // would silently contradict the advisory that was already published.
+      if (!row.ig_posted || force) {
         refreshed.humidity = weather.humidity;
         refreshed.precip_chance = weather.precipChance;
+      }
+
+      // Re-score on explicit force refresh so scoring band changes take effect immediately
+      if (force) {
+        const rescored = scoreWeather({ ...weather, humidity: refreshed.humidity, precipChance: refreshed.precip_chance });
+        refreshed.score = rescored.score;
+        refreshed.penalties = rescored.penalties;
       }
 
       await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
