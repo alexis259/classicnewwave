@@ -5,7 +5,6 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const OWM_KEY = process.env.OWM_KEY;
-const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
 async function supabaseFetch(path, options = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
@@ -91,84 +90,41 @@ async function fetchFreshWeather() {
   };
 }
 
-function isAfterNineAMNYC() {
+// Named/thresholded to match auto-post-ig's 8:00 AM EDT cron — that job calls
+// get-daily?force=true right before posting, so the synopsis must already be
+// generatable by 8am or the IG caption goes out with no "today's vibe" line.
+function isAfterEightAMNYC() {
   const hour = parseInt(new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York', hour: 'numeric', hour12: false
   }).format(new Date()));
   return hour >= 8;
 }
 
-async function fetchExamplesForSynopsis() {
-  const [seeded, approved] = await Promise.all([
-    supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score&order=created_at.desc&limit=6'),
-    supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=date_key.desc&limit=6')
-  ]);
-  const examples = [];
-  for (const row of (approved || [])) {
-    if (row.synopsis_approved) examples.push({ synopsis: row.synopsis_approved, temp: row.temp, feelsLike: row.feels_like, condition: row.condition, precipChance: row.precip_chance, score: row.score });
-  }
-  for (const row of (seeded || [])) {
-    if (examples.length >= 8) break;
-    examples.push({ synopsis: row.synopsis, temp: row.temp, feelsLike: row.feels_like, condition: row.condition, precipChance: row.precip_chance, score: row.score });
-  }
-  return examples;
-}
-
+// Delegates to generate-synopsis.js so the auto-fallback uses the exact same
+// voice/anti-repetition rules as the admin-drafted path — one implementation,
+// not two that can drift apart.
 async function autoGenerateSynopsis(weather, score, penalties) {
-  let exampleBlock = '';
-  try {
-    const examples = await fetchExamplesForSynopsis();
-    if (examples.length > 0) {
-      exampleBlock = `EXAMPLES FROM MY ACTUAL WRITING — match this voice exactly:\n` +
-        examples.map(ex => {
-          const parts = [];
-          if (ex.temp) parts.push(`${Math.round(ex.temp)}°F`);
-          if (ex.feelsLike && ex.feelsLike !== ex.temp) parts.push(`feels ${Math.round(ex.feelsLike)}°F`);
-          if (ex.condition) parts.push(ex.condition);
-          if (ex.precipChance) parts.push(`${ex.precipChance}% rain`);
-          if (ex.score) parts.push(`score ${ex.score}/10`);
-          const conditions = parts.length ? `[${parts.join(', ')}]` : '';
-          return `${conditions}\n"${ex.synopsis}"`;
-        }).join('\n\n');
-    }
-  } catch(e) { /* non-fatal */ }
+  const siteUrl = process.env.URL || process.env.DEPLOY_URL;
+  if (!siteUrl) throw new Error('No site URL available to call generate-synopsis');
 
-  const prompt = `Write exactly 2 sentences about today's NYC weather. Max 20 words total across both sentences. No exceptions.
-
-SENTENCE 1: one punchy observation about the conditions — temp, clouds, rain, or humidity.
-SENTENCE 2: one vibe or action — what it means for how you move through the city.
-
-RULES:
-- Direct, casual, NYC voice. No corporate weather language.
-- Never use: "basically", "moderate", "pushing", "keeping it from"
-- No compound sentences. No commas connecting two thoughts.
-- Lowercase mostly. ALL CAPS only when it really lands.
-- No hashtags. No emojis.
-
-EXAMPLES:
-"clouds doing work today. solid day to be outside."
-"83 and muggy — humidity's not playing. stay hydrated out there."
-"hot but breezy. if you're gonna be outside, today's the day."
-
-TODAY:
-- Temp: ${Math.round(weather.temp)}°F, high of ${Math.round(weather.high)}°F, feels like ${Math.round(weather.feelsLike)}°F
-- Condition: ${weather.condition}
-- Rain: ${weather.precipChance}%
-- Humidity: ${weather.humidity}%
-- Wind: ${weather.windSpeed} mph
-- Score: ${score}/10
-
-Write just the 2 sentences. Nothing else.`;
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(`${siteUrl}/.netlify/functions/generate-synopsis`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 150, messages: [{ role: 'user', content: prompt }] })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      temp: weather.temp,
+      high: weather.high,
+      feelsLike: weather.feelsLike,
+      condition: weather.condition,
+      precipChance: weather.precipChance,
+      humidity: weather.humidity,
+      windSpeed: weather.windSpeed,
+      score,
+      penalties
+    })
   });
   const data = await res.json();
-  const text = data.content?.[0]?.text?.trim();
-  if (!text) throw new Error('No text from Claude');
-  return text;
+  if (!data.text) throw new Error('No text from generate-synopsis');
+  return data.text;
 }
 
 function detectAlert(weather) {
@@ -217,9 +173,9 @@ function scoreWeather(w) {
   return { score: Math.max(1, Math.min(10, score)), penalties };
 }
 
-// If past 9AM and no synopsis yet, generate one server-side and save it
+// If past 8AM and no synopsis yet, generate one server-side and save it
 async function maybeAutoGenerate(row, dateKey) {
-  if (row.synopsis_approved || !isAfterNineAMNYC()) return row;
+  if (row.synopsis_approved || !isAfterEightAMNYC()) return row;
 
   try {
     const weather = {

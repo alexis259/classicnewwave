@@ -144,6 +144,8 @@ Notice: these use ellipses, em-dashes, periods, and ALL CAPS selectively. They t
 - Never use "sticky" as the default word for humidity — find a different way every time.
 - Never start with "seventy-[spelled out number] and..."
 - Never use the same action clause two days in a row (check examples closely)
+- Ban the entire "[adjective] day to [verb]" shape — "perfect day to walk," "good day to be outside," "great day to move around," any variant. Not once. Find a completely different way to land the vibe.
+- The EXAMPLES above show voice and range, not phrases to borrow. If the same phrase or clause shows up in more than one example, that phrase is now overused — do not use it again, no matter how well it fits.
 - No corporate weather copy: "temperatures will reach," "conditions will be," "we recommend"
 - No forced positivity on bad days — don't soften a 2/10 day
 
