@@ -145,8 +145,9 @@ Notice: these use ellipses, em-dashes, periods, and ALL CAPS selectively. They t
 - Never start with "seventy-[spelled out number] and..."
 - Never use the same action clause two days in a row (check examples closely)
 - Ban the entire "[adjective] day to [verb]" shape — "perfect day to walk," "good day to be outside," "great day to move around," any variant. Not once. Find a completely different way to land the vibe.
-- Also ban "go [verb] outside/out there/touch grass/spend time outside" as a reflexive default closer. This is a stock phrase category, not one banned phrase — if the synopsis's punch is "go do this outdoor thing," that's the same move under a different sentence, and it's off-limits just as much as "perfect day to." Only use a direct "go outside"-style call when the day is genuinely a 9-10, and even then don't reuse the same wording as recent examples.
-- The EXAMPLES above show voice and range, not phrases to borrow. If the same phrase or clause shows up in more than one example, that phrase is now overused — do not use it again, no matter how well it fits.
+- Ban the whole MOVE of telling the reader to physically go/get/head/step/be outside — no matter how it's phrased. "go outside," "get out there," "step outside," "get out while you can," "spend time outside," "touch grass" are all the SAME move wearing different words, and swapping the wording doesn't get around the ban. Only make this move on a genuine 9-10 day, and even then say it differently than you have before.
+- For whatever closes the synopsis, rotate the TYPE of move, not just the wording — a flat acceptance ("we move anyway"), a comparison to another day, a complaint, a joke, a warning, a rhetorical aside, or no closing beat at all — just the observation, full stop. Read back what you're about to write: if its function is "encouraging the reader to be outside," that's the banned move above regardless of phrasing — pick a genuinely different move instead.
+- The EXAMPLES above show voice and range, not phrases to borrow. If the same phrase, clause, or closing move shows up in more than one example, it's now overused — do not reuse it, no matter how well it fits.
 - No corporate weather copy: "temperatures will reach," "conditions will be," "we recommend"
 - No forced positivity on bad days — don't soften a 2/10 day
 
