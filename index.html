@@ -162,6 +162,24 @@
       border-top: 1px solid var(--border);
     }
 
+    .hero-now {
+      font-size: 12px;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+      padding-top: 6px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+    .hero-now.visible { display: flex; }
+    .hero-now .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
     /* ── PANEL BASE ── */
     .panel { border-bottom: 1px solid var(--border); }
 
@@ -392,6 +410,7 @@
           </div>
         </div>
         <div class="hero-temp" id="high-feels"></div>
+        <div class="hero-now" id="hero-now"><span class="live-dot"></span><span id="hero-now-text"></span></div>
       </div>
 
       <!-- TODAY'S MOOD -->
@@ -573,6 +592,19 @@ function render(data) {
   document.getElementById('vibe-text').textContent  = getScoreVibe(score);
   document.getElementById('high-feels').textContent =
     `High ${high}°F · Feels ${Math.round(data.feels_like ?? data.temp)}°F`;
+
+  // "Right now" — the score/badge above is today's whole-day worst case (e.g. a
+  // 100% rain chance can be a single evening slot); this shows the live reading
+  // so a sunny morning doesn't look contradicted by a "heavy rain" headline.
+  const heroNowEl = document.getElementById('hero-now');
+  if (data.condition != null && data.temp != null) {
+    let nowText = `Right now: ${Math.round(data.temp)}°F, ${data.condition}`;
+    if (data.rain_timing && data.rain_timing !== 'now') nowText += ` · rain moves in ${data.rain_timing}`;
+    document.getElementById('hero-now-text').textContent = nowText;
+    heroNowEl.classList.add('visible');
+  } else {
+    heroNowEl.classList.remove('visible');
+  }
 
   // Mood
   const moodIconEl = document.getElementById('mood-icon');

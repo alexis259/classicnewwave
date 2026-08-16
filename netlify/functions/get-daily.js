@@ -71,7 +71,25 @@ async function fetchFreshWeather() {
     ? Math.round(Math.max(...slotsForHigh.map(s => (s.pop || 0) * 100)))
     : 0;
 
+  // precipChance is a whole-day worst case — it can be 100% off a single evening
+  // slot while it's dry and sunny right now. rainTiming carries WHEN that risk
+  // actually peaks, so the synopsis can say "clear now, storms tonight" instead
+  // of a flat "rain today" that misrepresents current conditions.
+  let rainTiming = null;
+  if (precipChance > 20 && slotsForHigh.length > 0) {
+    const peakSlot = slotsForHigh.reduce((best, s) => (s.pop || 0) > (best.pop || 0) ? s : best, slotsForHigh[0]);
+    const peakHourNYC = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(new Date(peakSlot.dt * 1000)));
+    const currentHourNYC = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(new Date()));
+    if (peakHourNYC - currentHourNYC <= 1) rainTiming = 'now';
+    else if (peakHourNYC < 11) rainTiming = 'this morning';
+    else if (peakHourNYC < 15) rainTiming = 'around midday';
+    else if (peakHourNYC < 18) rainTiming = 'this afternoon';
+    else if (peakHourNYC < 21) rainTiming = 'this evening';
+    else rainTiming = 'overnight';
+  }
+
   const forecast = Object.entries(days).slice(0, 5).map(([key, { slot }]) => ({
+    dateKey: key,
     day: dayNames[new Date(slot.dt * 1000).getDay()],
     high: key === todayKey ? dailyHigh : slot.main.temp_max,
     rain: key === todayKey ? precipChance : Math.round((slot.pop || 0) * 100)
@@ -85,6 +103,7 @@ async function fetchFreshWeather() {
     low: dailyLow,
     humidity: current.main.humidity,
     precipChance,
+    rainTiming,
     windSpeed: Math.round(current.wind.speed),
     forecast
   };
@@ -116,6 +135,7 @@ async function autoGenerateSynopsis(weather, score, penalties) {
       feelsLike: weather.feelsLike,
       condition: weather.condition,
       precipChance: weather.precipChance,
+      rainTiming: weather.rainTiming,
       humidity: weather.humidity,
       windSpeed: weather.windSpeed,
       score,
@@ -245,6 +265,13 @@ exports.handler = async (event) => {
       if (!row.ig_posted || force) {
         refreshed.humidity = weather.humidity;
         refreshed.precip_chance = weather.precipChance;
+      } else {
+        // Locked: precip_chance stays frozen at row.precip_chance, but
+        // refreshed.forecast (always overwritten above) has today's entry
+        // freshly computed from THIS fetch — pin it back to the frozen
+        // value so the forecast strip can't disagree with the locked headline.
+        const todayForecast = refreshed.forecast.find(f => f.dateKey === dateKey);
+        if (todayForecast) todayForecast.rain = row.precip_chance;
       }
 
       // Re-score on explicit force refresh so scoring band changes take effect immediately
@@ -262,7 +289,9 @@ exports.handler = async (event) => {
 
       const mergedRow = { ...row, ...refreshed };
       const finalRow = await maybeAutoGenerate(mergedRow, dateKey);
-      return { statusCode: 200, headers, body: JSON.stringify(finalRow) };
+      // rain_timing is ephemeral — computed from this fetch only, never persisted
+      // (no matching Supabase column), so it's attached here, after the PATCH.
+      return { statusCode: 200, headers, body: JSON.stringify({ ...finalRow, rain_timing: weather.rainTiming }) };
     }
 
     // No data yet — fetch fresh from OWM
@@ -300,7 +329,7 @@ exports.handler = async (event) => {
 
     const insertedRow = Array.isArray(inserted) ? inserted[0] : row;
     const finalRow = await maybeAutoGenerate(insertedRow, dateKey);
-    return { statusCode: 200, headers, body: JSON.stringify(finalRow) };
+    return { statusCode: 200, headers, body: JSON.stringify({ ...finalRow, rain_timing: weather.rainTiming }) };
 
   } catch (err) {
     console.error('get-daily error:', err);

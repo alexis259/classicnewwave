@@ -80,7 +80,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
   try {
-    const { temp, high, feelsLike, condition, precipChance, humidity, windSpeed, score, penalties } = JSON.parse(event.body);
+    const { temp, high, feelsLike, condition, precipChance, rainTiming, humidity, windSpeed, score, penalties } = JSON.parse(event.body);
 
     // Fetch examples (falls back gracefully if Supabase is unavailable)
     let exampleBlock = '';
@@ -150,6 +150,7 @@ Notice: these use ellipses, em-dashes, periods, and ALL CAPS selectively. They t
 - The EXAMPLES above show voice and range, not phrases to borrow. If the same phrase, clause, or closing move shows up in more than one example, it's now overused — do not reuse it, no matter how well it fits.
 - No corporate weather copy: "temperatures will reach," "conditions will be," "we recommend"
 - No forced positivity on bad days — don't soften a 2/10 day
+- The rain % is a whole-day worst case, not necessarily what's happening right now. If TODAY includes a rain timing window (e.g. "this evening," "overnight"), the rain isn't happening yet — say so plainly ("clear now, rain moves in tonight") instead of writing as if it's raining currently. If no timing is given, or it says "now," it's fine to treat the rain as current.
 
 ## Output Format
 
@@ -164,8 +165,8 @@ ${exampleBlock || fallbackExamples}
 
 TODAY:
 - Temp: ${Math.round(temp)}°F${high != null ? `, high of ${Math.round(high)}°F` : ''}, feels like ${Math.round(feelsLike)}°F
-- Condition: ${condition}
-- Rain: ${precipChance}%
+- Condition right now: ${condition}
+- Rain: ${precipChance}% chance at some point today${rainTiming && rainTiming !== 'now' ? ` — peaks ${rainTiming}, not happening yet` : rainTiming === 'now' ? ' — happening now' : ''}
 - Humidity: ${humidity}%
 - Wind: ${windSpeed} mph
 - Score: ${score}/10
