@@ -194,11 +194,26 @@ Write the synopsis.`;
     let text = data.content?.[0]?.text?.trim();
     if (!text) throw new Error('No text returned');
 
-    // Hard cap at 140 chars — trim at last sentence boundary if possible
+    // Hard cap at 140 chars — trim at last sentence boundary if possible, else
+    // last word boundary. Never a raw slice: an ellipsis ("heavy...") has
+    // '.' characters that aren't real sentence ends, and used to trip the old
+    // boundary check without being one, falling through to a blind 140-char
+    // cut that severed a word mid-way (e.g. "...before it even starts r").
     if (text.length > 140) {
       const trimmed = text.slice(0, 140);
-      const lastPeriod = trimmed.lastIndexOf('.');
-      text = lastPeriod > 80 ? trimmed.slice(0, lastPeriod + 1) : trimmed.trimEnd();
+      let lastSentenceEnd = -1;
+      for (let i = 0; i < trimmed.length; i++) {
+        const c = trimmed[i];
+        if ((c === '.' || c === '!' || c === '?') && trimmed[i - 1] !== '.' && trimmed[i + 1] !== '.') {
+          lastSentenceEnd = i;
+        }
+      }
+      if (lastSentenceEnd > 80) {
+        text = trimmed.slice(0, lastSentenceEnd + 1);
+      } else {
+        const lastSpace = trimmed.lastIndexOf(' ');
+        text = (lastSpace > 0 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd();
+      }
     }
 
     return { statusCode: 200, headers, body: JSON.stringify({ text }) };

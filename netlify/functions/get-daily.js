@@ -193,15 +193,19 @@ function scoreWeather(w) {
   return { score: Math.max(1, Math.min(10, score)), penalties };
 }
 
-// If past 8AM and no synopsis yet, generate one server-side and save it
-async function maybeAutoGenerate(row, dateKey) {
+// If past 8AM and no synopsis yet, generate one server-side and save it.
+// rainTiming is ephemeral (never persisted — see fetchFreshWeather), so it can
+// only be passed in directly from a caller that just did a fresh OWM fetch;
+// it's null on the "not stale, served from cache" path, which is correct since
+// there's no fresh timing data to give it there.
+async function maybeAutoGenerate(row, dateKey, rainTiming = null) {
   if (row.synopsis_approved || !isAfterEightAMNYC()) return row;
 
   try {
     const weather = {
       temp: row.temp, high: row.high, low: row.low, feelsLike: row.feels_like,
       condition: row.condition, humidity: row.humidity, precipChance: row.precip_chance,
-      windSpeed: row.wind_speed
+      windSpeed: row.wind_speed, rainTiming
     };
     const text = await autoGenerateSynopsis(weather, row.score, row.penalties);
     const update = { synopsis_approved: text, approved: true, updated_at: new Date().toISOString() };
@@ -288,7 +292,7 @@ exports.handler = async (event) => {
       });
 
       const mergedRow = { ...row, ...refreshed };
-      const finalRow = await maybeAutoGenerate(mergedRow, dateKey);
+      const finalRow = await maybeAutoGenerate(mergedRow, dateKey, weather.rainTiming);
       // rain_timing is ephemeral — computed from this fetch only, never persisted
       // (no matching Supabase column), so it's attached here, after the PATCH.
       return { statusCode: 200, headers, body: JSON.stringify({ ...finalRow, rain_timing: weather.rainTiming }) };
@@ -328,7 +332,7 @@ exports.handler = async (event) => {
     }
 
     const insertedRow = Array.isArray(inserted) ? inserted[0] : row;
-    const finalRow = await maybeAutoGenerate(insertedRow, dateKey);
+    const finalRow = await maybeAutoGenerate(insertedRow, dateKey, weather.rainTiming);
     return { statusCode: 200, headers, body: JSON.stringify({ ...finalRow, rain_timing: weather.rainTiming }) };
 
   } catch (err) {
