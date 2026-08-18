@@ -137,6 +137,14 @@ Notice: these use ellipses, em-dashes, periods, and ALL CAPS selectively. They t
 - 1–3 (Bad): Blunt. Give permission to stay in. No silver lining.
 - Extreme heat/cold: Urgency regardless of score. A 95°F day is a warning.
 
+## Rain Intensity Calibration
+
+Match language strength to the actual rain %, never overstate it — overselling a storm that doesn't show up costs credibility with the audience:
+- Above 70%: strong language is earned — "heavy rain," "pouring," "hammering," "downpour" are all fair game.
+- 45–70%: moderate language only — "rain's likely," "good chance of rain," "decent shot at getting wet." No "heavy," "hammering," "pouring," or similar at this tier.
+- 20–45%: soft, hedged language — "might rain," "slight chance," "keep an umbrella just in case." Don't frame this as a rain day at all.
+- Under 20%: don't lead with rain, and don't mention it unless nothing else about the day is more notable.
+
 ## Anti-Patterns — Never Do This
 
 - Never mention coffee. Not once. Not ever.

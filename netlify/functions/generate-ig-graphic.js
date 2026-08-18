@@ -147,15 +147,26 @@ function measureLines(ctx, text, maxW) {
 function wrapText(ctx, text, x, y, maxW, lineH, maxLines = Infinity) {
   const words = text.split(' ');
   let line = '', lines = [];
+  let truncated = false;
   for (let n = 0; n < words.length; n++) {
     const test = line + words[n] + ' ';
     if (ctx.measureText(test).width > maxW && n > 0) {
       lines.push(line.trim());
       line = words[n] + ' ';
-      if (lines.length >= maxLines) break;
+      if (lines.length >= maxLines) { truncated = true; break; }
     } else { line = test; }
   }
-  if (lines.length < maxLines) lines.push(line.trim());
+  if (!truncated) {
+    lines.push(line.trim());
+  } else {
+    // Words remain beyond what fits — mark it instead of silently dropping
+    // them. Shrink the last line word-by-word until "…" actually fits.
+    let last = lines[lines.length - 1];
+    while (last.includes(' ') && ctx.measureText(last + '…').width > maxW) {
+      last = last.slice(0, last.lastIndexOf(' '));
+    }
+    lines[lines.length - 1] = last + '…';
+  }
   lines.forEach((l, i) => ctx.fillText(l, x, y + i * lineH));
   return lines.length;
 }
@@ -879,6 +890,16 @@ async function drawDailySlide1(row) {
     if (line.trim()) count++;
     if (count <= maxMoodLines) break;
     moodFontSize -= 2;
+  }
+  // If the loop exhausted itself without ever satisfying count <= maxMoodLines,
+  // moodFontSize ends up below the intended 24px floor while MOOD_LINE_H/
+  // maxMoodLines are still the stale values from the last passing check —
+  // clamp back to the floor so the size, line height, and line cap agree.
+  // wrapText's ellipsis (below) covers whatever still doesn't fit.
+  if (moodFontSize < 24) {
+    moodFontSize = 24;
+    MOOD_LINE_H = Math.round(moodFontSize * 1.28);
+    maxMoodLines = Math.max(1, Math.floor((moodH - MOOD_LABEL_H - 8) / MOOD_LINE_H));
   }
 
   // Count actual lines used for vertical centering

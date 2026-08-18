@@ -3,10 +3,10 @@
 // Triggered by Netlify scheduled cron at 7:30 AM ET, or manually from admin panel
 
 const { generateAndUpload } = require('./generate-ig-graphic');
+const { generateCaption } = require('./ig-caption');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const META_IG_USER_ID = process.env.META_IG_USER_ID;
 const META_PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 const ADMIN_PW = process.env.ADMIN_PW;
@@ -30,46 +30,6 @@ async function supabaseFetch(path, options = {}) {
 
 function toNYCDateKey(date) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(date);
-}
-
-async function generateCaption(row) {
-  const prompt = `You write short Instagram captions for @classicnewweather — an NYC daily weather account with a specific voice.
-
-VOICE:
-- 2-3 lines max, casual and cool
-- lowercase mostly, NYC energy
-- give the score, tease the vibe, tell people to check the link in bio
-- end with 4-5 hashtags on their own line — always include #NYC and #NewYork
-
-TODAY:
-- Temp: ${Math.round(row.temp)}°F, high of ${Math.round(row.high)}°F, feels like ${Math.round(row.feels_like)}°F
-- Condition: ${row.condition}
-- Rain: ${row.precip_chance}%
-- Score: ${row.score}/10
-- Today's vibe: ${row.synopsis_approved || ''}
-
-Write just the caption text.`;
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 250,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  const data = await res.json();
-  const text = data.content?.[0]?.text?.trim();
-  if (!text) {
-    console.warn('auto-post-ig: caption generation failed — using fallback');
-    return `${Math.round(row.high)}° in NYC today. score: ${row.score}/10. check the link in bio.\n\n#NYC #NewYork #NewYorkCity #NYCWeather #classicnewweather`;
-  }
-  return text;
 }
 
 async function createIGContainer(imageUrl, caption, isStory) {
@@ -191,10 +151,15 @@ exports.handler = async (event) => {
     // Handles row creation, synopsis generation, and re-scoring in one call —
     // avoids stale scores from early-morning row creation when the forecast was different.
     const siteUrl = process.env.URL || process.env.DEPLOY_URL;
+    let rainTiming = null;
     if (siteUrl) {
       console.log(`auto-post-ig: force-refreshing weather score before posting siteUrl=${siteUrl}`);
       const gdRes = await fetch(`${siteUrl}/.netlify/functions/get-daily?force=true`);
       console.log(`auto-post-ig: get-daily?force=true responded ${gdRes.status}`);
+      try {
+        const gdBody = await gdRes.json();
+        rainTiming = gdBody.rain_timing ?? null;
+      } catch (e) { /* non-fatal — caption just won't have timing context */ }
     } else {
       console.error('auto-post-ig: URL env var not set — cannot force-refresh score');
     }
@@ -250,7 +215,7 @@ exports.handler = async (event) => {
     }
 
     const feedImageUrl = row.feed_image_url || row.story_image_url;
-    const caption = await generateCaption(row);
+    const caption = await generateCaption(row, rainTiming);
 
     let feedPostId;
 
