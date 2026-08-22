@@ -55,6 +55,8 @@ Rules:
 - 5-8 words per line max
 - Lowercase-casual by default. ALL CAPS only when it really lands.
 - NYC voice — direct, no corporate language, cultural slang welcome if natural
+- Be specific about the actual threat
+- Do NOT mention specific times, expiry windows, or durations — this is a forecast-based prediction, not a confirmed timed event, and you don't have accurate timing data
 - No quotes, no labels, no hashtags
 
 Alert: ${type.toUpperCase()} — ${context}
@@ -65,7 +67,8 @@ Write the 2 lines. Nothing else.`;
 
 Rules:
 - 2-3 lines, casual and cool, lowercase mostly
-- NYC energy — mention the alert, give the temp, tell people what to do
+- NYC energy — name the specific alert, give the temp, tell people what to do right now
+- Do NOT mention specific times, expiry windows, or durations — this is a forecast-based prediction, not a confirmed timed event, and you don't have accurate timing data
 - End with 4-5 hashtags on their own line — always include #NYC and #NewYork
 - No corporate language. Direct and real.
 
