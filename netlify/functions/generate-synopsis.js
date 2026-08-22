@@ -17,10 +17,16 @@ async function supabaseFetch(path) {
 }
 
 async function fetchExamples() {
-  // Pull from both sources in parallel
+  // Pull from both sources in parallel.
+  // Sort by created_at, NOT date_key — date_key is text, and any row with a
+  // malformed date_key (e.g. "Sat Mar 07 2026" from Date.toDateString()
+  // instead of the ISO "2026-03-07" toNYCDateKey() produces) sorts ahead of
+  // every correctly-formatted date lexicographically, permanently poisoning
+  // "most recent" regardless of the actual date. created_at is a real
+  // timestamp and immune to this regardless of what's in date_key.
   const [seeded, approved] = await Promise.all([
     supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score'),
-    supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=date_key.desc&limit=6')
+    supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=created_at.desc&limit=6')
   ]);
 
   const examples = [];

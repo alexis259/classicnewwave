@@ -29,7 +29,11 @@ exports.handler = async (event) => {
     if (date) {
       url = `${SUPABASE_URL}/rest/v1/daily?date_key=eq.${encodeURIComponent(date)}&select=${fields}`;
     } else {
-      url = `${SUPABASE_URL}/rest/v1/daily?select=${fields}&order=date_key.desc&limit=${limit}`;
+      // created_at, not date_key — date_key is text, and a malformed value
+      // (e.g. "Sat Mar 07 2026" from Date.toDateString() instead of the ISO
+      // "2026-03-07" toNYCDateKey() produces) sorts ahead of every correctly
+      // formatted date lexicographically. created_at is a real timestamp.
+      url = `${SUPABASE_URL}/rest/v1/daily?select=${fields}&order=created_at.desc&limit=${limit}`;
     }
 
     const res = await fetch(url, {
