@@ -65,10 +65,18 @@ async function fetchFreshWeather() {
   const dailyLow = todaySlots.length > 0
     ? Math.min(...todaySlots.map(s => s.main.temp))
     : current.main.temp_min;
-  // Max rain probability across today's daytime slots — same slot set as dailyHigh,
-  // so the topline precipChance (score/synopsis/hair) can't disagree with the forecast strip.
-  const precipChance = slotsForHigh.length > 0
-    ? Math.round(Math.max(...slotsForHigh.map(s => (s.pop || 0) * 100)))
+  // Max rain probability across today's REMAINING daytime slots — a slot whose
+  // 3-hour window has already fully elapsed shouldn't count toward "today's
+  // risk" anymore (its rain, if any, already happened and is done). OWM's
+  // forecast list can include a bucket that started before "now" depending on
+  // exactly when it last rolled, so this isn't just a late-night edge case —
+  // without this filter, rain that already came and cleared can keep reading
+  // as still-pending for the rest of the day.
+  const now = Date.now();
+  const remainingSlots = slotsForHigh.filter(s => (s.dt * 1000 + 3 * 60 * 60 * 1000) > now);
+  const slotsForPrecip = remainingSlots.length > 0 ? remainingSlots : slotsForHigh;
+  const precipChance = slotsForPrecip.length > 0
+    ? Math.round(Math.max(...slotsForPrecip.map(s => (s.pop || 0) * 100)))
     : 0;
 
   // precipChance is a whole-day worst case — it can be 100% off a single evening
@@ -76,8 +84,8 @@ async function fetchFreshWeather() {
   // actually peaks, so the synopsis can say "clear now, storms tonight" instead
   // of a flat "rain today" that misrepresents current conditions.
   let rainTiming = null;
-  if (precipChance > 20 && slotsForHigh.length > 0) {
-    const peakSlot = slotsForHigh.reduce((best, s) => (s.pop || 0) > (best.pop || 0) ? s : best, slotsForHigh[0]);
+  if (precipChance > 20 && slotsForPrecip.length > 0) {
+    const peakSlot = slotsForPrecip.reduce((best, s) => (s.pop || 0) > (best.pop || 0) ? s : best, slotsForPrecip[0]);
     const peakHourNYC = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(new Date(peakSlot.dt * 1000)));
     const currentHourNYC = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(new Date()));
     if (peakHourNYC - currentHourNYC <= 1) rainTiming = 'now';
