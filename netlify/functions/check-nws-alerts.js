@@ -7,10 +7,10 @@
 // Duplicate guard: optimistic alert_ig_posted lock (same as auto-post-alert)
 
 const { drawAlertCard } = require('./trigger-alert');
+const { generateAlertCopy } = require('./alert-copy');
 
 const SUPABASE_URL         = process.env.SUPABASE_URL;
 const SUPABASE_KEY         = process.env.SUPABASE_SERVICE_KEY;
-const ANTHROPIC_KEY        = process.env.ANTHROPIC_KEY;
 const META_IG_USER_ID      = process.env.META_IG_USER_ID;
 const META_PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 const ADMIN_PW             = process.env.ADMIN_PW;
@@ -100,55 +100,6 @@ async function fetchNWSAlerts() {
     urgency:  f.properties.urgency,
     expires:  f.properties.expires,
   }));
-}
-
-async function generateAlertCopy(context) {
-  const advisoryPrompt = `You write weather advisory copy for Classic NewWeather (CNW) — an NYC weather lifestyle brand.
-This copy appears large on a graphic card. Keep it SHORT and punchy.
-
-Rules:
-- Exactly 2 lines, separated by a newline
-- 5-8 words per line max
-- Lowercase-casual. ALL CAPS only when it really lands.
-- NYC voice — direct, no corporate language, cultural slang welcome if natural
-- Be specific about the actual threat
-- No quotes, no labels, no hashtags
-
-Alert: ${context}
-
-Write the 2 lines. Nothing else.`;
-
-  const captionPrompt = `You write Instagram captions for @classicnewweather — an NYC daily weather account with a specific voice.
-
-Rules:
-- 2-3 lines, casual and cool, lowercase mostly
-- NYC energy — name the specific alert, tell people what to do right now
-- Do NOT mention specific times, expiry windows, or durations — you don't have accurate data
-- End with 4-5 hashtags on their own line — always include #NYC and #NewYork
-- No corporate language. Direct and real.
-
-Alert: ${context}
-
-Write just the caption text.`;
-
-  const [advisoryRes, captionRes] = await Promise.all([
-    fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 80, messages: [{ role: 'user', content: advisoryPrompt }] })
-    }),
-    fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, messages: [{ role: 'user', content: captionPrompt }] })
-    })
-  ]);
-
-  const [advisoryData, captionData] = await Promise.all([advisoryRes.json(), captionRes.json()]);
-  return {
-    advisory: advisoryData.content?.[0]?.text?.trim() || null,
-    caption:  captionData.content?.[0]?.text?.trim()  || null
-  };
 }
 
 async function uploadAlertImage(buffer, filename) {

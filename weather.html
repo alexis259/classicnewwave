@@ -490,7 +490,7 @@
       <!-- FORECAST ALERTS -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Forecast Alerts</div>
+          <div class="card-title">5-Day Forecast Alerts (OWM)</div>
           <div class="card-meta" id="forecast-alerts-meta">5-day · owm</div>
         </div>
         <div id="forecast-alerts-body">
@@ -568,12 +568,24 @@ function formatUpdatedAt(iso) {
 }
 
 // ── NWS ──
+// Kept in sync with CRITICAL_EVENTS in netlify/functions/check-nws-alerts.js —
+// that list decides what actually auto-posts; this one only decides what
+// gets highlighted red here, but a mismatch means this page can show an
+// alert as "not critical" that the backend is about to post about.
 const NWS_CRITICAL = new Set([
-  'Tornado Warning','Tornado Watch','Severe Thunderstorm Warning',
-  'Flash Flood Warning','Flash Flood Watch','Winter Storm Warning',
-  'Winter Storm Watch','Blizzard Warning','Blizzard Watch',
-  'Ice Storm Warning','Excessive Heat Warning','High Wind Warning',
-  'Extreme Cold Warning','Extreme Wind Warning'
+  'Tornado Warning','Tornado Watch',
+  'Severe Thunderstorm Warning','Severe Thunderstorm Watch',
+  'Flash Flood Warning','Flash Flood Watch',
+  'Flood Warning','Flood Watch',
+  'Coastal Flood Warning','Coastal Flood Watch',
+  'Winter Storm Warning','Winter Storm Watch',
+  'Blizzard Warning','Blizzard Watch',
+  'Ice Storm Warning',
+  'Heat Advisory','Excessive Heat Warning','Heat Watch',
+  'High Wind Warning','Extreme Cold Warning','Extreme Wind Warning',
+  'Hurricane Warning','Hurricane Watch',
+  'Tropical Storm Warning','Tropical Storm Watch',
+  'Storm Surge Warning','Storm Surge Watch'
 ]);
 
 async function loadNWSAlerts() {
@@ -658,14 +670,14 @@ function renderForecastAlerts(alerts, runAt) {
   const owmAlerts = alerts.filter(a => a.type !== 'nws');
 
   if (runAt) {
-    meta.textContent = 'checked ' + new Date(runAt).toLocaleString('en-US', {
+    meta.textContent = '5-day · owm · checked ' + new Date(runAt).toLocaleString('en-US', {
       timeZone: 'America/New_York', month: 'short', day: 'numeric',
       hour: 'numeric', minute: '2-digit', hour12: true
     });
   }
 
   if (owmAlerts.length === 0) {
-    body.innerHTML = '<div class="forecast-alert-empty">No forecast alerts in the 5-day window.</div>';
+    body.innerHTML = '<div class="forecast-alert-empty">No OWM forecast alerts in the next 5 days. Live NWS alerts (if any) are shown above.</div>';
     return;
   }
 
