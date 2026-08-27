@@ -19,13 +19,20 @@ const META_API             = 'https://graph.facebook.com/v21.0';
 // NYC lat/lon for NWS point query
 const NWS_POINT = '40.7128,-74.0060';
 
-// Events that warrant an immediate IG post
+// Events that warrant an immediate IG post.
+// NWS event names must match exactly — "Flood Watch" and "Flash Flood Watch"
+// are different official products, so having one doesn't cover the other.
 const CRITICAL_EVENTS = new Set([
   'Tornado Warning',
   'Tornado Watch',
   'Severe Thunderstorm Warning',
+  'Severe Thunderstorm Watch',
   'Flash Flood Warning',
   'Flash Flood Watch',
+  'Flood Warning',
+  'Flood Watch',
+  'Coastal Flood Warning',
+  'Coastal Flood Watch',
   'Winter Storm Warning',
   'Winter Storm Watch',
   'Blizzard Warning',
@@ -37,6 +44,12 @@ const CRITICAL_EVENTS = new Set([
   'High Wind Warning',
   'Extreme Cold Warning',
   'Extreme Wind Warning',
+  'Hurricane Warning',
+  'Hurricane Watch',
+  'Tropical Storm Warning',
+  'Tropical Storm Watch',
+  'Storm Surge Warning',
+  'Storm Surge Watch',
 ]);
 
 // NWS severity for sorting — pick the highest-severity critical alert first
