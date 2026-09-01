@@ -4,12 +4,13 @@
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-async function supabaseFetch(path) {
+async function supabaseFetch(path, key = SUPABASE_KEY) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`
+      'apikey': key,
+      'Authorization': `Bearer ${key}`
     }
   });
   const text = await res.text();
@@ -18,6 +19,12 @@ async function supabaseFetch(path) {
 
 async function fetchExamples() {
   // Pull from both sources in parallel.
+  // synopsis_examples needs the service key specifically — its RLS SELECT
+  // policy blocks both the anon key AND the plain SUPABASE_KEY used
+  // everywhere else in this app, returning an empty array with no error.
+  // That silently made every curated example invisible to this function
+  // (and to editorial.html's admin UI) since the table was first seeded.
+  //
   // Sort by created_at, NOT date_key — date_key is text, and any row with a
   // malformed date_key (e.g. "Sat Mar 07 2026" from Date.toDateString()
   // instead of the ISO "2026-03-07" toNYCDateKey() produces) sorts ahead of
@@ -25,7 +32,7 @@ async function fetchExamples() {
   // "most recent" regardless of the actual date. created_at is a real
   // timestamp and immune to this regardless of what's in date_key.
   const [seeded, approved] = await Promise.all([
-    supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score'),
+    supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score', SUPABASE_SERVICE_KEY),
     supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=created_at.desc&limit=6')
   ]);
 
