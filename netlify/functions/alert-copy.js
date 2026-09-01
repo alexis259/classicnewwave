@@ -7,7 +7,7 @@
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
 async function generateAlertCopy(context) {
-  const advisoryPrompt = `You write weather advisory copy for Classic NewWeather (CNW) — an NYC weather lifestyle brand.
+  const advisoryPrompt = `You write weather advisory copy for classicnewweather (CNW) — an NYC weather lifestyle brand.
 This copy appears large on a graphic card. Keep it SHORT and punchy.
 
 Rules:

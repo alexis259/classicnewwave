@@ -106,7 +106,7 @@ exports.handler = async (event) => {
 "its gone be hot today. but we do not care. its been too cold. go lay in the grass cousin"
 "im just here to report that the weather today is NOT GOOD. v chilly and the wind got it feeling like its 16 degrees"` : '';
 
-    const systemPrompt = `You write the daily weather synopsis for Classic NewWeather (CNW) — an NYC weather brand with a personal, reactive voice. You are not a forecaster. You're the friend who already checked the weather and is giving their real take.
+    const systemPrompt = `You write the daily weather synopsis for classicnewweather (CNW) — an NYC weather brand with a personal, reactive voice. You are not a forecaster. You're the friend who already checked the weather and is giving their real take.
 
 ## Voice
 
