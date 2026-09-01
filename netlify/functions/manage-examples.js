@@ -69,11 +69,18 @@ exports.handler = async (event) => {
     }
 
     if (body.action === 'list') {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples?select=*&order=created_at.desc`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      if (!res.ok) throw new Error(`List failed: ${await res.text()}`);
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, rows: await res.json() }) };
+      const plainKey = process.env.SUPABASE_KEY;
+      const [serviceRes, plainRes] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples?select=id&order=created_at.desc`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        }),
+        fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples?select=id&order=created_at.desc`, {
+          headers: { 'apikey': plainKey, 'Authorization': `Bearer ${plainKey}` }
+        })
+      ]);
+      const serviceRows = serviceRes.ok ? await serviceRes.json() : { error: await serviceRes.text() };
+      const plainRows = plainRes.ok ? await plainRes.json() : { error: await plainRes.text() };
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, viaServiceKey: serviceRows, viaPlainSupabaseKey: plainRows }) };
     }
 
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Unknown action' }) };
