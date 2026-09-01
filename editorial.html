@@ -686,6 +686,8 @@ async function addExample() {
   btn.textContent = 'saving…';
 
   const payload = {
+    action: 'add',
+    password: ADMIN_PW,
     synopsis,
     temp: parseInt(document.getElementById('ex-temp').value) || null,
     feels_like: parseInt(document.getElementById('ex-feels').value) || null,
@@ -695,17 +697,15 @@ async function addExample() {
   };
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples`, {
+    const res = await fetch('/.netlify/functions/manage-examples', {
       method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (!res.ok) throw new Error('Insert failed');
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Insert failed');
+    }
     ['ex-temp','ex-feels','ex-condition','ex-rain','ex-score','ex-synopsis'].forEach(id => {
       document.getElementById(id).value = '';
     });
@@ -714,6 +714,7 @@ async function addExample() {
     await loadExamples();
   } catch(e) {
     status.textContent = 'error — try again';
+    console.error('addExample failed:', e);
   }
 
   btn.disabled = false;
@@ -722,15 +723,23 @@ async function addExample() {
 
 async function deleteExample(id) {
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples?id=eq.${id}`, {
-      method: 'DELETE',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    const res = await fetch('/.netlify/functions/manage-examples', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', password: ADMIN_PW, id })
     });
+    if (!res.ok) throw new Error('Delete failed');
+    // Only update the UI once the delete is confirmed — removing it
+    // optimistically before that meant a silently-failed delete (e.g. an
+    // RLS rejection) still looked like it worked.
     document.getElementById(`ex-item-${id}`)?.remove();
     const remaining = document.querySelectorAll('[id^="ex-item-"]').length;
     document.getElementById('examples-count').textContent = `${remaining} curated`;
     if (!remaining) document.getElementById('example-list').innerHTML = '<span class="example-empty">no examples yet — add your first one above</span>';
-  } catch(e) {}
+  } catch(e) {
+    console.error('deleteExample failed:', e);
+    alert('Could not delete this example — try again.');
+  }
 }
 </script>
 
