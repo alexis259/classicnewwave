@@ -1367,9 +1367,22 @@ async function drawWeekly(row) {
       fictx.putImageData(fd, 0, 0);
       ctx.drawImage(fic, icnX0 + i * (FW_ICN + FW_GAP), icnY0);
     });
-    ctx.fillStyle = '#dddddd'; ctx.font = '400 20px "Share Tech Mono"';
+    // Shrink to fit — "TEE · SHORTS · WATERPROOF BOOTS" (long items like
+    // "WATERPROOF BOOTS" only show up on rainy days) can be wider than the
+    // column at 20px, and fillText doesn't wrap or clip, so an unmeasured
+    // draw bleeds symmetrically past both column edges — the left overflow
+    // lands directly in the Mood column's text next to it.
+    const fitLabel = fitRep.join('  ·  ');
+    const fitLabelMaxW = panW - 12;
+    let fitFontSize = 20;
+    ctx.font = `400 ${fitFontSize}px "Share Tech Mono"`;
+    while (fitFontSize > 12 && ctx.measureText(fitLabel).width > fitLabelMaxW) {
+      fitFontSize -= 1;
+      ctx.font = `400 ${fitFontSize}px "Share Tech Mono"`;
+    }
+    ctx.fillStyle = '#dddddd';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(fitRep.join('  ·  '), cols[1] + panW / 2, icnY0 + FW_ICN + 12);
+    ctx.fillText(fitLabel, cols[1] + panW / 2, icnY0 + FW_ICN + 12);
   }
 
   // HAIR REPORT
