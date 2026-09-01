@@ -68,6 +68,14 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
 
+    if (body.action === 'list') {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/synopsis_examples?select=*&order=created_at.desc`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if (!res.ok) throw new Error(`List failed: ${await res.text()}`);
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, rows: await res.json() }) };
+    }
+
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Unknown action' }) };
   } catch (err) {
     console.error('manage-examples error:', err);
