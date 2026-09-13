@@ -217,12 +217,30 @@ async function maybeAutoGenerate(row, dateKey, rainTiming = null) {
     };
     const text = await autoGenerateSynopsis(weather, row.score, row.penalties);
     const update = { synopsis_approved: text, approved: true, updated_at: new Date().toISOString() };
-    await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}`, {
-      method: 'PATCH',
-      headers: { 'Prefer': 'return=minimal' },
-      body: JSON.stringify(update)
-    });
-    return { ...row, ...update };
+
+    // Guard the write with synopsis_approved=is.null at the DATABASE level,
+    // not just a re-check in JS. The LLM call above can take several
+    // seconds — long enough for an admin's own approval to land in that
+    // window. A re-check-then-write still has a race between the check and
+    // the write; a conditional UPDATE is atomic — if someone approved their
+    // own version in the meantime, this PATCH matches zero rows and their
+    // text is left untouched instead of getting overwritten a moment later.
+    const result = await supabaseFetch(
+      `/daily?date_key=eq.${encodeURIComponent(dateKey)}&synopsis_approved=is.null`,
+      {
+        method: 'PATCH',
+        headers: { 'Prefer': 'return=representation' },
+        body: JSON.stringify(update)
+      }
+    );
+
+    if (Array.isArray(result) && result.length > 0) {
+      return { ...row, ...update };
+    }
+    // Zero rows matched — someone else's approval won the race. Return the
+    // row as it now actually stands, not the text we just discarded.
+    const fresh = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=*`);
+    return fresh?.[0] || row;
   } catch(e) {
     console.error('auto-gen synopsis error:', e);
     return row; // non-fatal — return row without synopsis
