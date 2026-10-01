@@ -33,42 +33,32 @@ async function fetchExamples() {
   // timestamp and immune to this regardless of what's in date_key.
   const [seeded, approved] = await Promise.all([
     supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score', SUPABASE_SERVICE_KEY),
-    supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=created_at.desc&limit=6')
+    supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=created_at.desc&limit=4')
   ]);
 
-  const examples = [];
+  // Curated examples are the ONLY voice anchor ("match this"). Recent approved
+  // days used to also be shown as voice examples, which created a
+  // self-reinforcing loop: if the last couple of days happened to share a
+  // structure, the model would imitate it, producing a new approved day with
+  // the same structure, which then anchored the day after — a repetitive
+  // run that would eventually break and start a new one, just with
+  // different words each time ("perfect day to X", then "go/get outside",
+  // then "but [temp] is still [slang]—layers..."). Recent days are now kept
+  // separate and shown only as a list of shapes to explicitly avoid.
+  const voiceExamples = seeded.sort(() => Math.random() - 0.5).slice(0, 6).map(row => ({
+    synopsis: row.synopsis,
+    temp: row.temp,
+    feelsLike: row.feels_like,
+    condition: row.condition,
+    precipChance: row.precip_chance,
+    score: row.score
+  }));
 
-  // Shuffle curated examples so the same 6 don't anchor every generation
-  const shuffled = seeded.sort(() => Math.random() - 0.5).slice(0, 6);
+  const recentDays = approved
+    .filter(row => row.synopsis_approved)
+    .map(row => row.synopsis_approved);
 
-  // Curated examples anchor the voice first
-  for (const row of shuffled) {
-    examples.push({
-      synopsis: row.synopsis,
-      temp: row.temp,
-      feelsLike: row.feels_like,
-      condition: row.condition,
-      precipChance: row.precip_chance,
-      score: row.score
-    });
-  }
-
-  // Recent approved synopses fill remaining slots
-  for (const row of approved) {
-    if (examples.length >= 8) break;
-    if (row.synopsis_approved) {
-      examples.push({
-        synopsis: row.synopsis_approved,
-        temp: row.temp,
-        feelsLike: row.feels_like,
-        condition: row.condition,
-        precipChance: row.precip_chance,
-        score: row.score
-      });
-    }
-  }
-
-  return examples;
+  return { voiceExamples, recentDays };
 }
 
 function formatExample(ex) {
@@ -97,10 +87,14 @@ exports.handler = async (event) => {
 
     // Fetch examples (falls back gracefully if Supabase is unavailable)
     let exampleBlock = '';
+    let recentBlock = '';
     try {
-      const examples = await fetchExamples();
-      if (examples.length > 0) {
-        exampleBlock = `EXAMPLES FROM MY ACTUAL WRITING — match this voice exactly:\n${examples.map(formatExample).join('\n\n')}`;
+      const { voiceExamples, recentDays } = await fetchExamples();
+      if (voiceExamples.length > 0) {
+        exampleBlock = `EXAMPLES FROM MY ACTUAL WRITING — match this voice exactly:\n${voiceExamples.map(formatExample).join('\n\n')}`;
+      }
+      if (recentDays.length > 0) {
+        recentBlock = `RECENT DAYS — these already ran. Do not reuse their opening move, sentence structure, or closing move today, even with different words:\n${recentDays.map(s => `"${s}"`).join('\n')}`;
       }
     } catch(e) {
       // Non-fatal — generate without examples
@@ -169,6 +163,7 @@ Match language strength to the actual rain %, never overstate it — overselling
 - Ban the whole MOVE of telling the reader to physically go/get/head/step/be outside — no matter how it's phrased. "go outside," "get out there," "step outside," "get out while you can," "spend time outside," "touch grass" are all the SAME move wearing different words, and swapping the wording doesn't get around the ban. Only make this move on a genuine 9-10 day, and even then say it differently than you have before.
 - For whatever closes the synopsis, rotate the TYPE of move, not just the wording — a flat acceptance ("we move anyway"), a comparison to another day, a complaint, a joke, a warning, a rhetorical aside, or no closing beat at all — just the observation, full stop. Read back what you're about to write: if its function is "encouraging the reader to be outside," that's the banned move above regardless of phrasing — pick a genuinely different move instead.
 - The EXAMPLES above show voice and range, not phrases to borrow. If the same phrase, clause, or closing move shows up in more than one example, it's now overused — do not reuse it, no matter how well it fits.
+- Before finalizing, compare your draft against the RECENT DAYS list. If it opens the same way, leans on the same "[complaint] but [condition]" concession shape, or closes the same way as ANY of them, that's a repeat even if the words differ — rewrite with a genuinely different structure. Recent days are there to show you what to avoid, not what to echo.
 - No corporate weather copy: "temperatures will reach," "conditions will be," "we recommend"
 - No forced positivity on bad days — don't soften a 2/10 day
 - The rain % is a whole-day worst case, not necessarily what's happening right now. If TODAY includes a rain timing window (e.g. "this evening," "overnight"), the rain isn't happening yet — say so plainly ("clear now, rain moves in tonight") instead of writing as if it's raining currently. If no timing is given, or it says "now," it's fine to treat the rain as current.
@@ -183,6 +178,8 @@ Return only the synopsis text — no preamble, no explanation, no quotation mark
     const userPrompt = `SCORE TIER: ${scoreTier}${extremeHeat ? ' — EXTREME HEAT OVERRIDE: urgency regardless of score' : ''}
 
 ${exampleBlock || fallbackExamples}
+
+${recentBlock}
 
 TODAY:
 - Temp: ${Math.round(temp)}°F${high != null ? `, high of ${Math.round(high)}°F` : ''}, feels like ${Math.round(feelsLike)}°F
