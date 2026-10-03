@@ -4,16 +4,24 @@
 // two can't drift into different voices or rules. They used to each carry
 // their own near-identical copy of this function.
 
+const { getSlang } = require('./slang');
+
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
 async function generateCaption(row, rainTiming = null) {
+  // Same slang dictionary the synopsis writer reads (managed in editorial.html).
+  // Empty strings if the table is missing/empty.
+  const { block: slangBlock, rule: slangRule } = await getSlang();
+
   const prompt = `You write short Instagram captions for @classicnewweather — an NYC daily weather account with a specific voice.
 
 VOICE:
 - 2-3 lines max, casual and cool
 - lowercase mostly, NYC energy
 - give the score, tease the vibe, tell people to check the link in bio
-- end with 4-5 hashtags on their own line — always include #NYC and #NewYork
+- end with 4-5 hashtags on their own line — always include #NYC and #NewYork${slangRule ? `\n- ${slangRule}` : ''}
+
+${slangBlock}
 
 RAIN LANGUAGE — calibrate intensity to the actual percentage, never oversell it:
 - Only use strong/heavy language ("pouring," "hammering," "heavy rain," "downpour") when Rain is above 70%.

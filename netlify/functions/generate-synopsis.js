@@ -1,6 +1,8 @@
 // netlify/functions/generate-synopsis.js
 // Calls Claude API server-side, pulling examples from Supabase to match writing style
 
+const { getSlang } = require('./slang');
+
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
@@ -100,6 +102,10 @@ exports.handler = async (event) => {
       // Non-fatal — generate without examples
     }
 
+    // Slang dictionary (managed in editorial.html). Empty strings if the
+    // table is missing/empty, in which case the built-in guidance applies.
+    const { block: slangBlock, rule: slangRule } = await getSlang();
+
     const fallbackExamples = !exampleBlock ? `EXAMPLES:
 "WE MADE IT. CALL OFF WORK. GO OUTSIDE."
 "different day. same weather. just wear clothes at this point"
@@ -131,7 +137,7 @@ Notice: these use ellipses, em-dashes, periods, and ALL CAPS selectively. They t
 
 - Lowercase by default. ALL CAPS only for real emphasis — not every other word.
 - Ellipses (...) for trail-offs and hesitation. Em-dash (—) for pivots. Mix them up.
-- Slang where it fits: "fr," "mf," "cousin," "family," "yall." Never forced.
+- ${slangRule || 'Slang where it fits: "fr," "mf," "cousin," "family," "yall." Never forced.'}
 - A short beat lands harder than an instruction — but vary what that beat IS. Sometimes it's an action, sometimes a reaction, sometimes a comparison, sometimes a complaint, sometimes nothing at all. Don't default to telling the reader to go do something outside.
 - Hard cap: 140 characters. Count before output. Cut content, don't compress.
 - 1–2 sentences max. One sentence is often stronger.
@@ -186,6 +192,8 @@ Return only the synopsis text — no preamble, no explanation, no quotation mark
 ${exampleBlock || fallbackExamples}
 
 ${recentBlock}
+
+${slangBlock}
 
 TODAY:
 - Temp: ${Math.round(temp)}°F${high != null ? `, high of ${Math.round(high)}°F` : ''}, feels like ${Math.round(feelsLike)}°F

@@ -157,6 +157,17 @@
     .btn-delete:hover { color: var(--red); }
     .example-empty { font-size: 0.65rem; color: var(--muted); font-style: italic; }
 
+    /* ── SLANG DICTIONARY ── */
+    .slang-form-note { font-size: 0.6rem; line-height: 1.6; color: var(--muted2); margin-bottom: 14px; }
+    .slang-badge { display: inline-block; font-size: 0.48rem; letter-spacing: 0.14em; text-transform: uppercase; padding: 2px 7px; border: 1px solid; margin-right: 8px; vertical-align: 1px; }
+    .slang-badge.use { color: var(--green-bright); border-color: var(--green); }
+    .slang-badge.avoid { color: var(--red); border-color: var(--red-dim); }
+    .slang-term { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--white); }
+    .slang-meaning { font-family: 'Space Grotesk', sans-serif; font-size: 0.82rem; line-height: 1.5; color: var(--white); margin-top: 6px; }
+    .slang-usage { font-family: 'Space Grotesk', sans-serif; font-size: 0.78rem; line-height: 1.5; color: var(--muted2); margin-top: 4px; }
+    .slang-setup { border: 1px solid var(--border); background: #0e0e0e; padding: 14px 16px; font-size: 0.65rem; line-height: 1.7; color: var(--muted2); }
+    .slang-setup code { display: block; white-space: pre; overflow-x: auto; margin-top: 10px; color: var(--white); }
+
     /* ── LOADING ── */
     .loading-text { color: var(--muted); font-style: italic; font-size: 0.75rem; animation: pulse 1.5s ease infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
@@ -332,6 +343,40 @@
         </div>
       </div>
 
+      <!-- SLANG DICTIONARY -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Slang Dictionary</div>
+          <div class="card-meta" id="slang-count">loading…</div>
+        </div>
+        <div class="card-body">
+          <p class="slang-form-note">
+            The synopsis and the IG caption can only use slang listed here as <b>use</b>, exactly the way you
+            describe it, and never anything marked <b>avoid</b>. Terms are scoped by region, so another
+            city gets its own set.
+          </p>
+          <div class="voice-form">
+            <input class="ex-input" type="text" id="slang-term" placeholder='Term (e.g. "a dub")'>
+            <select class="ex-input" id="slang-status">
+              <option value="use">Use it</option>
+              <option value="avoid">Avoid it</option>
+            </select>
+            <textarea class="ex-textarea voice-form-full" id="slang-meaning" placeholder="What it means where you're from…"></textarea>
+            <input class="ex-input voice-form-full" type="text" id="slang-usage" placeholder="How to use it, or when not to (optional)">
+            <input class="ex-input" type="text" id="slang-region" value="nyc" placeholder="Region">
+            <div></div>
+            <div class="voice-form-actions voice-form-full">
+              <button class="btn-add" id="slang-add-btn" onclick="addSlang()">+ Add Term</button>
+              <span class="add-status" id="slang-status-msg"></span>
+            </div>
+          </div>
+          <hr class="voice-divider">
+          <div class="example-list" id="slang-list">
+            <span class="loading-text">loading…</span>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -432,6 +477,7 @@ async function loadAll() {
     document.getElementById('status-msg').textContent = 'load error';
   }
   loadExamples();
+  loadSlang();
 }
 
 // ── STATUS PILL ──
@@ -746,6 +792,119 @@ async function deleteExample(id) {
   } catch(e) {
     console.error('deleteExample failed:', e);
     alert('Could not delete this example — try again.');
+  }
+}
+
+// ── SLANG DICTIONARY ──
+// slang_terms is readable/writable only through manage-slang (service key),
+// same as the Voice Library — the public anon key is locked out by design.
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function slangRequest(payload) {
+  const res = await fetch('/.netlify/functions/manage-slang', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: ADMIN_PW, ...payload })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+async function loadSlang() {
+  const list = document.getElementById('slang-list');
+  const count = document.getElementById('slang-count');
+  try {
+    const data = await slangRequest({ action: 'list' });
+    if (data.tableMissing) {
+      count.textContent = 'not set up yet';
+      list.innerHTML = `<div class="slang-setup">The slang_terms table doesn't exist yet. Run this once in Supabase → SQL Editor, then reload:
+<code>create table slang_terms (
+  id bigint generated always as identity primary key,
+  term text not null,
+  meaning text not null,
+  usage_note text,
+  status text not null default 'use',
+  region text not null default 'nyc',
+  created_at timestamptz default now()
+);
+alter table slang_terms enable row level security;</code></div>`;
+      return;
+    }
+    const rows = data.rows || [];
+    count.textContent = `${rows.length} term${rows.length === 1 ? '' : 's'}`;
+    renderSlang(rows);
+  } catch (e) {
+    console.error('loadSlang failed:', e);
+    count.textContent = 'error';
+    list.innerHTML = '<span class="example-empty">could not load the slang dictionary</span>';
+  }
+}
+
+function renderSlang(rows) {
+  const list = document.getElementById('slang-list');
+  if (!rows.length) {
+    list.innerHTML = '<span class="example-empty">no terms yet — until you add some, the writers fall back to their built-in slang guidance</span>';
+    return;
+  }
+  list.innerHTML = rows.map(r => `
+    <div class="example-item" id="slang-item-${r.id}">
+      <div class="example-body">
+        <div class="example-conditions">${escHtml(r.region)}</div>
+        <div><span class="slang-badge ${r.status === 'avoid' ? 'avoid' : 'use'}">${r.status === 'avoid' ? 'avoid' : 'use'}</span><span class="slang-term">${escHtml(r.term)}</span></div>
+        <div class="slang-meaning">${escHtml(r.meaning)}</div>
+        ${r.usage_note ? `<div class="slang-usage">${escHtml(r.usage_note)}</div>` : ''}
+      </div>
+      <button class="btn-delete" onclick="deleteSlang(${r.id})" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+async function addSlang() {
+  const term = document.getElementById('slang-term').value.trim();
+  const meaning = document.getElementById('slang-meaning').value.trim();
+  const status = document.getElementById('slang-status-msg');
+  if (!term || !meaning) {
+    status.textContent = 'a term and its meaning are both required';
+    return;
+  }
+
+  const btn = document.getElementById('slang-add-btn');
+  btn.disabled = true;
+  btn.textContent = 'saving…';
+  try {
+    await slangRequest({
+      action: 'add',
+      term,
+      meaning,
+      usage_note: document.getElementById('slang-usage').value.trim(),
+      status: document.getElementById('slang-status').value,
+      region: document.getElementById('slang-region').value.trim() || 'nyc'
+    });
+    ['slang-term', 'slang-meaning', 'slang-usage'].forEach(id => { document.getElementById(id).value = ''; });
+    status.textContent = 'saved ✓';
+    setTimeout(() => { status.textContent = ''; }, 2500);
+    await loadSlang();
+  } catch (e) {
+    console.error('addSlang failed:', e);
+    status.textContent = 'error — try again';
+  }
+  btn.disabled = false;
+  btn.textContent = '+ Add Term';
+}
+
+async function deleteSlang(id) {
+  try {
+    await slangRequest({ action: 'delete', id });
+    // Only touch the screen once the delete is confirmed.
+    document.getElementById(`slang-item-${id}`)?.remove();
+    const remaining = document.querySelectorAll('[id^="slang-item-"]').length;
+    document.getElementById('slang-count').textContent = `${remaining} term${remaining === 1 ? '' : 's'}`;
+    if (!remaining) renderSlang([]);
+  } catch (e) {
+    console.error('deleteSlang failed:', e);
+    alert('Could not delete this term — try again.');
   }
 }
 </script>
