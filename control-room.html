@@ -714,6 +714,7 @@ async function loadAll() {
   renderChecklist(row, synApproved, igPosted, alertFlag, alertPosted, past8, minsLeft, goLiveFailed);
   renderUpcoming(forecastAlerts);
   renderSystemHealth(row, imported);
+  loadMetaHealth();
   setGlobalStatus(goLiveFailed, synApproved, past8, minsLeft, alertFlag, alertPosted, igPosted);
 
   // Override topbar with active NWS critical alert if present
@@ -991,19 +992,43 @@ function formatAlertDate(dateKey) {
 }
 
 // ── SYSTEM HEALTH ──
+// Meta token status comes live from check-meta, which reads the token Netlify
+// actually holds. This replaced a hardcoded expiry date that went stale the
+// moment the token was rotated, so it kept showing "expired" on a working token.
+let metaHealth = { state: 'yellow', headline: 'checking…', detail: 'asking Meta' };
+let lastHealthArgs = null;
+
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function loadMetaHealth() {
+  try {
+    const res = await fetch('/.netlify/functions/check-meta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: ADMIN_PW })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.summary) throw new Error(data.error || `status ${res.status}`);
+    metaHealth = data.summary;
+  } catch (e) {
+    console.error('check-meta failed:', e);
+    // Never show green when the check itself failed.
+    metaHealth = { state: 'yellow', headline: 'unknown', detail: 'status check failed — reload to retry' };
+  }
+  if (lastHealthArgs) renderSystemHealth(...lastHealthArgs);
+}
+
 function renderSystemHealth(row, supabaseOk) {
+  lastHealthArgs = [row, supabaseOk];
   const igPosted = !!row.ig_posted;
   const igPostedAt = row.ig_posted_at;
   const lastPostDaysAgo = daysAgo(igPostedAt);
 
-  // Meta token proxy: if last post was recent, token is likely fine
-  // Hardcode known expiry Oct 6, 2026
-  const tokenExpiry = new Date('2026-10-06T00:00:00-04:00');
-  const daysToExpiry = Math.floor((tokenExpiry - new Date()) / 86400000);
-  let tokenState = 'green', tokenVal = `${daysToExpiry}d`, tokenSub = 'until token expiry';
-  if (daysToExpiry < 0) { tokenState = 'red'; tokenVal = 'expired'; tokenSub = 'replace immediately'; }
-  else if (daysToExpiry <= 7) { tokenState = 'red'; tokenVal = `${daysToExpiry}d`; tokenSub = 'expiring soon — replace now'; }
-  else if (daysToExpiry <= 14) { tokenState = 'yellow'; tokenSub = 'replace this week'; }
+  const tokenState = metaHealth.state;
+  const tokenVal = escHtml(metaHealth.headline);
+  const tokenSub = escHtml(metaHealth.detail);
 
   // Last post
   let lastPostState = igPostedAt ? 'green' : 'yellow';

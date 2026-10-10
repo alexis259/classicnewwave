@@ -33,6 +33,57 @@ function iso(unixSeconds) {
   return unixSeconds ? new Date(unixSeconds * 1000).toISOString() : null;
 }
 
+// One place decides what the result means, so the dashboards only display it
+// (they used to each do their own date math against a hardcoded expiry, and
+// both went stale the moment the token was rotated).
+//   state: 'green' | 'yellow' | 'red'
+function summarize(result, now = Date.now()) {
+  const DAY = 86400000;
+  const t = result.tokenInfo;
+  const ig = result.instagramAccount;
+
+  if (!result.envPresent.META_PAGE_ACCESS_TOKEN || !result.envPresent.META_IG_USER_ID) {
+    return { state: 'red', headline: 'not set up', detail: 'a required environment variable is missing', daysLeft: null };
+  }
+  if (ig && ig.error) {
+    return { state: 'red', headline: 'no access', detail: ig.error.message || 'cannot reach the Instagram account', daysLeft: null };
+  }
+  if (!t || t.error) {
+    // Account reachable but expiry unreadable: worth a look, not an alarm.
+    return { state: 'yellow', headline: 'unverified', detail: 'account reachable, but token expiry could not be read', daysLeft: null };
+  }
+  if (t.isValid === false) {
+    return { state: 'red', headline: 'invalid', detail: 'token is no longer valid — replace it', daysLeft: null };
+  }
+
+  let out;
+  let daysLeft = null;
+  if (t.expiresAt === 'never') {
+    out = { state: 'green', headline: 'no expiry', detail: ig && ig.username ? `valid · @${ig.username}` : 'valid' };
+  } else {
+    daysLeft = Math.floor((Date.parse(t.expiresAt) - now) / DAY);
+    if (daysLeft < 0) out = { state: 'red', headline: 'expired', detail: 'replace immediately' };
+    else if (daysLeft <= 7) out = { state: 'red', headline: `${daysLeft}d`, detail: 'expiring soon — replace now' };
+    else if (daysLeft <= 14) out = { state: 'yellow', headline: `${daysLeft}d`, detail: 'replace this week' };
+    else out = { state: 'green', headline: `${daysLeft}d`, detail: 'until token expiry' };
+  }
+
+  // A token that never expires still has Meta's separate ~90-day data-access
+  // window. Surface it before it matters; escalate if it has lapsed.
+  if (t.dataAccessExpiresAt) {
+    const dataDays = Math.floor((Date.parse(t.dataAccessExpiresAt) - now) / DAY);
+    if (dataDays < 0) {
+      out = { state: 'red', headline: 'data access expired', detail: 're-authorize the app to restore posting' };
+    } else if (dataDays <= 14 && out.state === 'green') {
+      out = { ...out, state: 'yellow', detail: `data access renews in ${dataDays}d — re-authorize the app` };
+    }
+  }
+
+  return { ...out, daysLeft };
+}
+
+exports.summarize = summarize;
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return respond(200, '');
   if (event.httpMethod !== 'POST') return respond(405, { error: 'Method not allowed' });
@@ -49,7 +100,7 @@ exports.handler = async (event) => {
   };
 
   if (!TOKEN || !META_IG_USER_ID) {
-    return respond(200, { ok: false, reason: 'A required environment variable is missing', ...result });
+    return respond(200, { ok: false, reason: 'A required environment variable is missing', summary: summarize(result), ...result });
   }
 
   try {
@@ -84,7 +135,7 @@ exports.handler = async (event) => {
 
     const tokenOk = result.tokenInfo && result.tokenInfo.isValid === true;
     const igOk = result.instagramAccount && !result.instagramAccount.error;
-    return respond(200, { ok: !!(tokenOk && igOk), ...result });
+    return respond(200, { ok: !!(tokenOk && igOk), summary: summarize(result), ...result });
   } catch (err) {
     console.error('check-meta error:', err.message);
     return respond(500, { ok: false, error: err.message, ...result });

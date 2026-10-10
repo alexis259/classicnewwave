@@ -777,58 +777,76 @@ async function repostAlert() {
 }
 
 // ── META TOKEN ──
-function renderToken() {
-  const expiry      = new Date('2026-10-06T00:00:00-04:00');
-  const daysLeft    = Math.floor((expiry - new Date()) / 86400000);
-  const isExpired   = daysLeft < 0;
-  const isCritical  = daysLeft <= 7;
-  const isWarning   = daysLeft <= 14 && !isCritical;
+// Live from check-meta, which reads the token Netlify actually holds and
+// decides the status itself. Replaced a hardcoded expiry date that went stale
+// the moment the token was rotated (it showed "expired" on a working token).
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' });
+}
 
-  const stateColor  = isExpired || isCritical ? 'red' : isWarning ? 'yellow' : 'green';
-  const stateLabel  = isExpired ? 'expired' : `${daysLeft}d left`;
-  const meta        = document.getElementById('token-meta');
-  meta.textContent  = isExpired ? 'expired — action required'
-                    : isCritical ? 'expiring soon — replace now'
-                    : isWarning  ? 'replace this week'
-                    : 'ok';
+async function renderToken() {
+  const meta = document.getElementById('token-meta');
+  const body = document.getElementById('token-body');
 
-  const warnHtml = (isExpired || isCritical || isWarning) ? `
-    <div class="token-warn ${isExpired || isCritical ? 'red' : 'yellow'}">
-      ${isExpired
-        ? 'Token expired. IG posts are failing silently. Replace immediately via Meta Business Suite → System Users.'
-        : isCritical
-          ? `Token expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. Replace before it expires to avoid a posting gap.`
-          : `Token expires in ${daysLeft} days. Schedule time this week to rotate it.`
-      }
-    </div>` : '';
+  let data;
+  try {
+    const res = await fetch('/.netlify/functions/check-meta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: ADMIN_PW })
+    });
+    data = await res.json();
+    if (!res.ok || !data.summary) throw new Error(data.error || `status ${res.status}`);
+  } catch (e) {
+    console.error('check-meta failed:', e);
+    // Never show green when the check itself failed.
+    meta.textContent = 'status unknown';
+    body.innerHTML = `<div style="padding:20px"><div class="token-warn yellow">Could not check the Meta connection. Reload to retry.</div></div>`;
+    return;
+  }
 
-  document.getElementById('token-body').innerHTML = `
+  const s = data.summary;
+  const t = data.tokenInfo || {};
+  const ig = data.instagramAccount || {};
+  const stateColor = s.state;
+
+  meta.textContent = s.state === 'green' ? 'ok' : s.detail;
+
+  const warnHtml = s.state === 'green' ? '' : `
+    <div class="token-warn ${s.state === 'red' ? 'red' : 'yellow'}">${escHtml(s.headline)} — ${escHtml(s.detail)}</div>`;
+
+  const expires = t.expiresAt === 'never' ? 'Never' : fmtDate(t.expiresAt);
+  const account = ig.username ? `@${escHtml(ig.username)}` : '—';
+  const accountSub = ig.mediaCount != null ? `${ig.mediaCount} posts` : 'instagram account';
+
+  body.innerHTML = `
     <div class="token-grid">
       <div class="token-tile">
-        <div class="token-tile-label">Days Remaining</div>
-        <div class="token-tile-val ${stateColor}">${stateLabel}</div>
-        <div class="token-tile-sub">60-day access token</div>
+        <div class="token-tile-label">Status</div>
+        <div class="token-tile-val ${stateColor}">${escHtml(s.headline)}</div>
+        <div class="token-tile-sub">${escHtml(s.detail)}</div>
       </div>
       <div class="token-tile">
-        <div class="token-tile-label">Expires</div>
-        <div class="token-tile-val" style="font-size:0.85rem;color:var(--white)">Oct 6, 2026</div>
-        <div class="token-tile-sub">America/New_York</div>
+        <div class="token-tile-label">Token Expires</div>
+        <div class="token-tile-val" style="font-size:0.85rem;color:var(--white)">${escHtml(expires)}</div>
+        <div class="token-tile-sub">${escHtml(String(t.type || 'token').toLowerCase())} access token</div>
       </div>
       <div class="token-tile">
-        <div class="token-tile-label">Token Type</div>
-        <div class="token-tile-val" style="font-size:0.75rem;color:var(--muted2)">Page Access</div>
-        <div class="token-tile-sub">upgrade to system user token to avoid expiry</div>
+        <div class="token-tile-label">Data Access Renews</div>
+        <div class="token-tile-val" style="font-size:0.85rem;color:var(--white)">${escHtml(fmtDate(t.dataAccessExpiresAt))}</div>
+        <div class="token-tile-sub">re-authorize the app by then</div>
       </div>
       <div class="token-tile">
-        <div class="token-tile-label">API Version</div>
-        <div class="token-tile-val" style="font-size:0.85rem;color:var(--white)">v21.0</div>
-        <div class="token-tile-sub">graph.facebook.com</div>
+        <div class="token-tile-label">Instagram Account</div>
+        <div class="token-tile-val" style="font-size:0.85rem;color:var(--white)">${account}</div>
+        <div class="token-tile-sub">${escHtml(accountSub)}</div>
       </div>
     </div>
     ${warnHtml}
     <div class="token-steps">
-      <strong>To renew:</strong> Meta Business Suite → Settings → System Users → Generate Token → copy into Netlify env var <code>META_PAGE_ACCESS_TOKEN</code> → redeploy.<br>
-      <strong>Better long-term:</strong> Convert to a System User token — never expires, no rotation needed.
+      <strong>To renew:</strong> Graph API Explorer → generate a user token (pages_show_list, instagram_basic, instagram_content_publish, pages_read_engagement) → Access Token Debugger → Extend Access Token → run <code>me/accounts</code> with the long-lived token → copy your Page's <code>access_token</code> → paste into Netlify env var <code>META_PAGE_ACCESS_TOKEN</code> → redeploy.<br>
+      <strong>It stops working if:</strong> the account that made it changes its password, loses its Page role, or removes the app.
     </div>
   `;
 }
