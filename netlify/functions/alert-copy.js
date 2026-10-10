@@ -4,6 +4,8 @@
 // poller (check-nws-alerts.js), so the two can't drift into different tones
 // or rules. They used to each carry their own near-identical copy of this.
 
+const { checkAlert, generateChecked } = require('./copy-guard');
+
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
 async function generateAlertCopy(context) {
@@ -40,24 +42,46 @@ Alert: ${context}
 
 Write just the caption text.`;
 
-  const [advisoryRes, captionRes] = await Promise.all([
-    fetch('https://api.anthropic.com/v1/messages', {
+  const callModelFor = (prompt, maxTokens) => async (extraInstruction) => {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 80, messages: [{ role: 'user', content: advisoryPrompt }] })
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt + extraInstruction }] })
+    });
+    const data = await res.json();
+    return data.content?.[0]?.text?.trim() || null;
+  };
+
+  // These rules were already in the prompts (no temperatures, no times or
+  // durations, no fear-mongering, exactly 2 lines on the card), but a prompt
+  // only asks. The output is now checked and regenerated if it breaks one
+  // (see copy-guard.js). If every attempt breaks a rule, a plain, neutral
+  // fallback is used — it's built from the alert's name only, so it can't
+  // overstate, invent a time, or include a temperature.
+  // OWM-threshold alerts pass just "HOT" / "COLD" / "STORM"; NWS ones pass the
+  // real alert name ("FLOOD WATCH").
+  const rawName = String(context).split(' — ')[0].trim().toLowerCase();
+  const alertName = { hot: 'extreme heat alert', cold: 'extreme cold alert', storm: 'storm alert' }[rawName] || rawName || 'weather alert';
+  const advisoryFallback = 'weather alert for the city\ncheck local updates, stay safe';
+  const captionFallback = `${alertName} for nyc. check local updates and stay safe out there.\n\n#NYC #NewYork #WeatherAlert #classicnewweather`;
+
+  // The two pieces are independent, so they run in parallel.
+  const [advisory, caption] = await Promise.all([
+    generateChecked({
+      callModel: callModelFor(advisoryPrompt, 80),
+      check: (t) => checkAlert(t, { kind: 'advisory' }),
+      fallback: advisoryFallback,
+      label: 'alert-advisory'
     }),
-    fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, messages: [{ role: 'user', content: captionPrompt }] })
+    generateChecked({
+      callModel: callModelFor(captionPrompt, 200),
+      check: (t) => checkAlert(t, { kind: 'caption' }),
+      fallback: captionFallback,
+      label: 'alert-caption'
     })
   ]);
 
-  const [advisoryData, captionData] = await Promise.all([advisoryRes.json(), captionRes.json()]);
-  return {
-    advisory: advisoryData.content?.[0]?.text?.trim() || null,
-    caption:  captionData.content?.[0]?.text?.trim()  || null
-  };
+  return { advisory: advisory.text, caption: caption.text };
 }
 
 module.exports = { generateAlertCopy };

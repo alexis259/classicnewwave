@@ -2,7 +2,7 @@
 // Calls Claude API server-side, pulling examples from Supabase to match writing style
 
 const { getSlang } = require('./slang');
-const { MAX_SYNOPSIS_LEN, namesADay, scrubDayNames, trimToLength } = require('./copy-guard');
+const { MAX_SYNOPSIS_LEN, checkSynopsis, generateChecked, trimToLength } = require('./copy-guard');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -105,7 +105,7 @@ exports.handler = async (event) => {
 
     // Slang dictionary (managed in editorial.html). Empty strings if the
     // table is missing/empty, in which case the built-in guidance applies.
-    const { block: slangBlock, rule: slangRule } = await getSlang();
+    const { block: slangBlock, rule: slangRule, avoid: avoidTerms } = await getSlang();
 
     const fallbackExamples = !exampleBlock ? `EXAMPLES:
 "WE MADE IT. CALL OFF WORK. GO OUTSIDE."
@@ -229,43 +229,34 @@ Write the synopsis.`;
       return out;
     };
 
-    // Models can't count characters and don't know what day it is, so instead
-    // of trusting the prompt, check the result and regenerate when it's bad.
-    // Costs a fraction of a cent, and only on the attempts that need it.
-    // The rejected text is deliberately NOT echoed back to the model: a
-    // literal bad example in a prompt gets copied rather than avoided.
-    const MAX_ATTEMPTS = 3;
-    const attempts = [];
-    let extra = '';
-    let text = null;
+    // The model can't count characters, doesn't know the date, and will state
+    // numbers that aren't in the data — so the result is checked (see
+    // copy-guard.js) and regenerated when it's wrong. These are exactly the
+    // values the prompt above was given, so a number the model "knew" must be
+    // one of them.
+    const facts = {
+      temp, high, feelsLike, precipChance, humidity, windSpeed, score,
+      avoidTerms, now: new Date()
+    };
 
-    for (let i = 0; i < MAX_ATTEMPTS; i++) {
-      const candidate = await callModel(extra);
-      const problems = [];
-      if (candidate.length > MAX_SYNOPSIS_LEN) problems.push('ran long');
-      if (namesADay(candidate)) problems.push('named a day of the week');
-      attempts.push({ candidate, problems });
-      if (!problems.length) { text = candidate; break; }
+    // What ships if every attempt contains a factual or calendar error:
+    // boring, but built only from the data, so it can't be wrong.
+    const r = (v) => Math.round(Number(v));
+    const safeFallback = `${r(temp)}° now${high != null ? `, topping out at ${r(high)}°` : ''}${precipChance >= 45 ? `. ${r(precipChance)}% chance of rain` : ''}.`;
 
-      extra = `\n\nYour previous attempt was rejected because it ${problems.join(' and ')}. ` +
-        `Write a completely new one: under 115 characters total, and never name a day of the week.`;
-    }
-
-    if (text === null) {
-      // Every attempt had a problem. Prefer one that doesn't name a day, then
-      // the shortest, and clean it up so nothing broken reaches a post.
-      const noDay = attempts.filter(a => !namesADay(a.candidate));
-      const pool = (noDay.length ? noDay : attempts).map(a => a.candidate);
-      text = pool.reduce((best, c) => (c.length < best.length ? c : best), pool[0]);
-      if (namesADay(text)) text = scrubDayNames(text);
-      console.warn(`generate-synopsis: ${MAX_ATTEMPTS} attempts all failed checks; used a cleaned-up fallback`);
-    }
+    const result = await generateChecked({
+      callModel,
+      check: (candidate) => checkSynopsis(candidate, facts),
+      fallback: safeFallback,
+      label: 'generate-synopsis'
+    });
+    let text = result.text;
 
     // Only trims when a fallback was over the limit; ends on a natural break
     // instead of mid-thought.
     text = trimToLength(text, MAX_SYNOPSIS_LEN);
 
-    return { statusCode: 200, headers, body: JSON.stringify({ text, attempts: attempts.length }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ text, attempts: result.attempts, usedFallback: result.usedFallback }) };
 
   } catch (err) {
     console.error('generate-synopsis error:', err);

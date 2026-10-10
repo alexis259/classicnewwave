@@ -5,14 +5,14 @@
 // their own near-identical copy of this function.
 
 const { getSlang } = require('./slang');
-const { namesADay, scrubDayNames } = require('./copy-guard');
+const { checkCaption, generateChecked } = require('./copy-guard');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
 async function generateCaption(row, rainTiming = null) {
   // Same slang dictionary the synopsis writer reads (managed in editorial.html).
   // Empty strings if the table is missing/empty.
-  const { block: slangBlock, rule: slangRule } = await getSlang();
+  const { block: slangBlock, rule: slangRule, avoid: avoidTerms } = await getSlang();
 
   const prompt = `You write short Instagram captions for @classicnewweather — an NYC daily weather account with a specific voice.
 
@@ -60,32 +60,34 @@ Write just the caption text.`;
     return data.content?.[0]?.text?.trim() || null;
   };
 
+  // Safe, factual, boring: built only from the data, so it can't be wrong.
   const fallback = `${Math.round(row.high)}° in NYC today. score: ${row.score}/10. check the link in bio.\n\n#NYC #NewYork #NewYorkCity #NYCWeather #classicnewweather`;
 
-  // The model doesn't know what day it is — four past captions named a weekday
-  // and all four were wrong. A prompt rule alone isn't reliable, so the result
-  // is checked (hashtags like #MondayVibes included) and regenerated if needed.
-  // The rejected text isn't echoed back: a literal bad example gets copied.
-  const MAX_ATTEMPTS = 3;
-  let extra = '';
-  let lastWithDay = null;
+  // The model doesn't know the date, can't be trusted to repeat numbers
+  // faithfully, and has put the wrong day, the wrong month, and the wrong
+  // score on real posts. So the result is checked against the row it was
+  // given (see copy-guard.js) and regenerated if it's wrong. The approved
+  // synopsis is part of what the model sees, so numbers in it are allowed.
+  const facts = {
+    temp: row.temp,
+    high: row.high,
+    feelsLike: row.feels_like,
+    precipChance: row.precip_chance,
+    humidity: row.humidity,
+    windSpeed: row.wind_speed,
+    score: row.score,
+    extraAllowedNumbers: ((row.synopsis_approved || '').match(/\d+/g) || []).map(Number),
+    avoidTerms,
+    now: new Date()
+  };
 
-  for (let i = 0; i < MAX_ATTEMPTS; i++) {
-    const text = await callModel(extra);
-    if (!text) {
-      console.warn('generateCaption: caption generation failed — using fallback');
-      return fallback;
-    }
-    if (!namesADay(text)) return text;
-
-    lastWithDay = text;
-    extra = '\n\nYour previous attempt was rejected because it named a day of the week (including in a hashtag). ' +
-      'Write a completely new caption that never names a day, and no day hashtags.';
-  }
-
-  // Every attempt named a day: strip it rather than post a wrong one.
-  console.warn(`generateCaption: ${MAX_ATTEMPTS} attempts all named a day; scrubbed the last one`);
-  return scrubDayNames(lastWithDay);
+  const result = await generateChecked({
+    callModel,
+    check: (text) => checkCaption(text, facts),
+    fallback,
+    label: 'ig-caption'
+  });
+  return result.text;
 }
 
 module.exports = { generateCaption };

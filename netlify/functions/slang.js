@@ -18,7 +18,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const DEFAULT_REGION = 'nyc';
 
 async function getSlang(region = DEFAULT_REGION) {
-  const empty = { block: '', rule: '' };
+  const empty = { block: '', rule: '', avoid: [] };
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/slang_terms?select=term,meaning,usage_note,status&region=eq.${encodeURIComponent(region)}&order=term.asc`,
@@ -47,7 +47,9 @@ async function getSlang(region = DEFAULT_REGION) {
 
     const rule = 'Slang comes ONLY from the SLANG DICTIONARY in the message below. Use a term only when its meaning and usage note genuinely fit today\'s weather, never use anything on the AVOID list, and do not invent or borrow slang that isn\'t listed. Slang is optional: at most one term, and none at all beats a forced one.';
 
-    return { block: lines.join('\n'), rule };
+    // Returned separately so copy-guard can enforce the avoid list in code
+    // instead of only asking the model nicely.
+    return { block: lines.join('\n'), rule, avoid: avoid.map(r => r.term) };
   } catch (e) {
     console.error('getSlang failed (falling back to built-in slang guidance):', e.message);
     return empty;
