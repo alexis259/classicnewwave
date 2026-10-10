@@ -2,6 +2,7 @@
 // Calls Claude API server-side, pulling examples from Supabase to match writing style
 
 const { getSlang } = require('./slang');
+const { MAX_SYNOPSIS_LEN, namesADay, scrubDayNames, trimToLength } = require('./copy-guard');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -126,7 +127,6 @@ Good examples of the voice:
 - "im just here to report that the weather today is NOT GOOD. v chilly and the wind got it feeling like its 16 degrees"
 - "its gone be hot today. but we do not care. its been too cold. no complaints from me."
 - "rain all day and it's gonna feel colder than 43—just accept the L and bring an umbrella."
-- "happy friday. throw some layers on today - the weather is jokey again"
 - "Today is the last day of good weather for the foreseeable future. don't waste it inside."
 - "high of 82 today so it's gonna get warm. the humidity brought the score down but we move."
 - "clouds all day but we're hitting 66 and it's dry. can't even be mad at that."
@@ -139,7 +139,7 @@ Notice: these use ellipses, em-dashes, periods, and ALL CAPS selectively. They t
 - Ellipses (...) for trail-offs and hesitation. Em-dash (—) for pivots. Mix them up.
 - ${slangRule || 'Slang where it fits: "fr," "mf," "cousin," "family," "yall." Never forced.'}
 - A short beat lands harder than an instruction — but vary what that beat IS. Sometimes it's an action, sometimes a reaction, sometimes a comparison, sometimes a complaint, sometimes nothing at all. Don't default to telling the reader to go do something outside.
-- Hard cap: 140 characters. Count before output. Cut content, don't compress.
+- Length: 140 characters is a hard limit and you can't count reliably, so aim for roughly 90–120 and finish your thought inside that. Say less rather than running long — a short complete line always beats a long one that gets cut.
 - 1–2 sentences max. One sentence is often stronger.
 
 ## Score Band Calibration
@@ -161,6 +161,7 @@ Match language strength to the actual rain %, never overstate it — overselling
 ## Anti-Patterns — Never Do This
 
 - Never mention coffee. Not once. Not ever.
+- Never name a day of the week (monday, tuesday, friday, etc.), and never write as if you know what day it is. You are not told the date, so any day you name is a guess, and a wrong one is embarrassing. Say "today" or leave time out entirely.
 - Never say "good day to move around" or any variation of it.
 - Never use "sticky" as the default word for humidity — find a different way every time.
 - Never start with "seventy-[spelled out number] and..."
@@ -206,49 +207,65 @@ TODAY:
 
 Write the synopsis.`;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 150,
-        temperature: 1.0,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
-    });
+    const callModel = async (extraInstruction) => {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 150,
+          temperature: 1.0,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt + extraInstruction }]
+        })
+      });
+      const data = await res.json();
+      const out = data.content?.[0]?.text?.trim();
+      if (!out) throw new Error('No text returned');
+      return out;
+    };
 
-    const data = await res.json();
-    let text = data.content?.[0]?.text?.trim();
-    if (!text) throw new Error('No text returned');
+    // Models can't count characters and don't know what day it is, so instead
+    // of trusting the prompt, check the result and regenerate when it's bad.
+    // Costs a fraction of a cent, and only on the attempts that need it.
+    // The rejected text is deliberately NOT echoed back to the model: a
+    // literal bad example in a prompt gets copied rather than avoided.
+    const MAX_ATTEMPTS = 3;
+    const attempts = [];
+    let extra = '';
+    let text = null;
 
-    // Hard cap at 140 chars — trim at last sentence boundary if possible, else
-    // last word boundary. Never a raw slice: an ellipsis ("heavy...") has
-    // '.' characters that aren't real sentence ends, and used to trip the old
-    // boundary check without being one, falling through to a blind 140-char
-    // cut that severed a word mid-way (e.g. "...before it even starts r").
-    if (text.length > 140) {
-      const trimmed = text.slice(0, 140);
-      let lastSentenceEnd = -1;
-      for (let i = 0; i < trimmed.length; i++) {
-        const c = trimmed[i];
-        if ((c === '.' || c === '!' || c === '?') && trimmed[i - 1] !== '.' && trimmed[i + 1] !== '.') {
-          lastSentenceEnd = i;
-        }
-      }
-      if (lastSentenceEnd > 80) {
-        text = trimmed.slice(0, lastSentenceEnd + 1);
-      } else {
-        const lastSpace = trimmed.lastIndexOf(' ');
-        text = (lastSpace > 0 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd();
-      }
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      const candidate = await callModel(extra);
+      const problems = [];
+      if (candidate.length > MAX_SYNOPSIS_LEN) problems.push('ran long');
+      if (namesADay(candidate)) problems.push('named a day of the week');
+      attempts.push({ candidate, problems });
+      if (!problems.length) { text = candidate; break; }
+
+      extra = `\n\nYour previous attempt was rejected because it ${problems.join(' and ')}. ` +
+        `Write a completely new one: under 115 characters total, and never name a day of the week.`;
     }
 
-    return { statusCode: 200, headers, body: JSON.stringify({ text }) };
+    if (text === null) {
+      // Every attempt had a problem. Prefer one that doesn't name a day, then
+      // the shortest, and clean it up so nothing broken reaches a post.
+      const noDay = attempts.filter(a => !namesADay(a.candidate));
+      const pool = (noDay.length ? noDay : attempts).map(a => a.candidate);
+      text = pool.reduce((best, c) => (c.length < best.length ? c : best), pool[0]);
+      if (namesADay(text)) text = scrubDayNames(text);
+      console.warn(`generate-synopsis: ${MAX_ATTEMPTS} attempts all failed checks; used a cleaned-up fallback`);
+    }
+
+    // Only trims when a fallback was over the limit; ends on a natural break
+    // instead of mid-thought.
+    text = trimToLength(text, MAX_SYNOPSIS_LEN);
+
+    return { statusCode: 200, headers, body: JSON.stringify({ text, attempts: attempts.length }) };
 
   } catch (err) {
     console.error('generate-synopsis error:', err);

@@ -5,6 +5,7 @@
 // their own near-identical copy of this function.
 
 const { getSlang } = require('./slang');
+const { namesADay, scrubDayNames } = require('./copy-guard');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
@@ -19,6 +20,7 @@ VOICE:
 - 2-3 lines max, casual and cool
 - lowercase mostly, NYC energy
 - give the score, tease the vibe, tell people to check the link in bio
+- never name a day of the week, in the text or in a hashtag (no "monday," "tuesday," #MondayVibes, etc.). You are not told what day it is, so any day you name is a guess and has been wrong before. Say "today" instead.
 - end with 4-5 hashtags on their own line — always include #NYC and #NewYork${slangRule ? `\n- ${slangRule}` : ''}
 
 ${slangBlock}
@@ -40,26 +42,50 @@ TODAY:
 
 Write just the caption text.`;
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 250,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  const data = await res.json();
-  const text = data.content?.[0]?.text?.trim();
-  if (!text) {
-    console.warn('generateCaption: caption generation failed — using fallback');
-    return `${Math.round(row.high)}° in NYC today. score: ${row.score}/10. check the link in bio.\n\n#NYC #NewYork #NewYorkCity #NYCWeather #classicnewweather`;
+  const callModel = async (extraInstruction) => {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 250,
+        messages: [{ role: 'user', content: prompt + extraInstruction }]
+      })
+    });
+    const data = await res.json();
+    return data.content?.[0]?.text?.trim() || null;
+  };
+
+  const fallback = `${Math.round(row.high)}° in NYC today. score: ${row.score}/10. check the link in bio.\n\n#NYC #NewYork #NewYorkCity #NYCWeather #classicnewweather`;
+
+  // The model doesn't know what day it is — four past captions named a weekday
+  // and all four were wrong. A prompt rule alone isn't reliable, so the result
+  // is checked (hashtags like #MondayVibes included) and regenerated if needed.
+  // The rejected text isn't echoed back: a literal bad example gets copied.
+  const MAX_ATTEMPTS = 3;
+  let extra = '';
+  let lastWithDay = null;
+
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const text = await callModel(extra);
+    if (!text) {
+      console.warn('generateCaption: caption generation failed — using fallback');
+      return fallback;
+    }
+    if (!namesADay(text)) return text;
+
+    lastWithDay = text;
+    extra = '\n\nYour previous attempt was rejected because it named a day of the week (including in a hashtag). ' +
+      'Write a completely new caption that never names a day, and no day hashtags.';
   }
-  return text;
+
+  // Every attempt named a day: strip it rather than post a wrong one.
+  console.warn(`generateCaption: ${MAX_ATTEMPTS} attempts all named a day; scrubbed the last one`);
+  return scrubDayNames(lastWithDay);
 }
 
 module.exports = { generateCaption };
