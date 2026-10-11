@@ -201,6 +201,16 @@ function scoreWeather(w) {
   return { score: Math.max(1, Math.min(10, score)), penalties };
 }
 
+// The "high" is the max of the forecast slots still ahead of now, so it only
+// falls as the day goes on; the score is built from it. For a day that has
+// already posted, keep what was posted. Mutates `refreshed` in place.
+function freezePosted(refreshed, row) {
+  delete refreshed.score;
+  delete refreshed.penalties;
+  if (row.high != null) refreshed.high = row.high;
+  return refreshed;
+}
+
 // If past 8AM and no synopsis yet, generate one server-side and save it.
 // rainTiming is ephemeral (never persisted — see fetchFreshWeather), so it can
 // only be passed in directly from a caller that just did a fresh OWM fetch;
@@ -304,8 +314,14 @@ exports.handler = async (event) => {
         if (todayForecast) todayForecast.rain = row.precip_chance;
       }
 
+      // Once the day's post is out, its score, penalties and high are frozen —
+      // they're what the graphic and caption already showed. A later refresh
+      // (or manual repost) sees a smaller "high" as the day's warm slots
+      // elapse, which dropped a posted 4 to a reposted 2. See freezePosted().
+      if (row.ig_posted) freezePosted(refreshed, row);
+
       // Re-score on explicit force refresh so scoring band changes take effect immediately
-      if (force) {
+      if (force && !row.ig_posted) {
         const rescored = scoreWeather({ ...weather, humidity: refreshed.humidity, precipChance: refreshed.precip_chance });
         refreshed.score = rescored.score;
         refreshed.penalties = rescored.penalties;
@@ -366,3 +382,5 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
 };
+
+exports.freezePosted = freezePosted;
