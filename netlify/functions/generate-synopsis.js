@@ -3,6 +3,7 @@
 
 const { getSlang } = require('./slang');
 const { MAX_SYNOPSIS_LEN, checkSynopsis, generateChecked, trimToLength } = require('./copy-guard');
+const { pickShape } = require('./synopsis-shape');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -36,7 +37,7 @@ async function fetchExamples() {
   // timestamp and immune to this regardless of what's in date_key.
   const [seeded, approved] = await Promise.all([
     supabaseFetch('/synopsis_examples?select=synopsis,temp,feels_like,condition,precip_chance,score', SUPABASE_SERVICE_KEY),
-    supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=created_at.desc&limit=4')
+    supabaseFetch('/daily?select=synopsis_approved,temp,feels_like,condition,precip_chance,score&approved=eq.true&synopsis_approved=not.is.null&order=created_at.desc&limit=8')
   ]);
 
   // Curated examples are the ONLY voice anchor ("match this"). Recent approved
@@ -46,8 +47,9 @@ async function fetchExamples() {
   // the same structure, which then anchored the day after — a repetitive
   // run that would eventually break and start a new one, just with
   // different words each time ("perfect day to X", then "go/get outside",
-  // then "but [temp] is still [slang]—layers..."). Recent days are now kept
-  // separate and shown only as a list of shapes to explicitly avoid.
+  // then "but [temp] is still [slang]—layers..."). Recent days are no longer
+  // shown to the model at all: they're only used by copy-guard's repeat check
+  // (see checkSynopsis), which compares each draft against them in code.
   const voiceExamples = seeded.sort(() => Math.random() - 0.5).slice(0, 6).map(row => ({
     synopsis: row.synopsis,
     temp: row.temp,
@@ -90,14 +92,12 @@ exports.handler = async (event) => {
 
     // Fetch examples (falls back gracefully if Supabase is unavailable)
     let exampleBlock = '';
-    let recentBlock = '';
+    let recentDays = [];
     try {
-      const { voiceExamples, recentDays } = await fetchExamples();
-      if (voiceExamples.length > 0) {
-        exampleBlock = `EXAMPLES FROM MY ACTUAL WRITING — match this voice exactly:\n${voiceExamples.map(formatExample).join('\n\n')}`;
-      }
-      if (recentDays.length > 0) {
-        recentBlock = `RECENT DAYS — these already ran. Do not reuse their opening move, sentence structure, or closing move today, even with different words:\n${recentDays.map(s => `"${s}"`).join('\n')}`;
+      const fetched = await fetchExamples();
+      recentDays = fetched.recentDays;
+      if (fetched.voiceExamples.length > 0) {
+        exampleBlock = `EXAMPLES FROM MY ACTUAL WRITING — match this voice exactly:\n${fetched.voiceExamples.map(formatExample).join('\n\n')}`;
       }
     } catch(e) {
       // Non-fatal — generate without examples
@@ -168,15 +168,8 @@ Match language strength to the actual rain %, never overstate it — overselling
 - Never use the same action clause two days in a row (check examples closely)
 - Ban the entire "[adjective] day to [verb]" shape — "perfect day to walk," "good day to be outside," "great day to move around," any variant. Not once. Find a completely different way to land the vibe.
 - Ban the whole MOVE of telling the reader to physically go/get/head/step/be outside — no matter how it's phrased. "go outside," "get out there," "step outside," "get out while you can," "spend time outside," "touch grass" are all the SAME move wearing different words, and swapping the wording doesn't get around the ban. Only make this move on a genuine 9-10 day, and even then say it differently than you have before.
-- For a mixed-but-okay day (this is especially strong pull on humid-but-dry days — resist it hardest there), do NOT default to a concession sentence: naming one gripe, pivoting with "but," reassuring that the headline number is still fine, then a short closer. That shape is as repetitive as "day to [verb]" or "go outside" no matter which words fill it in — it's the grammar of the sentence that's the problem, not any one phrase, so swapping the gripe or the adjective doesn't escape it. Before writing, commit to ONE of these instead and write only that:
-  (a) Lead with the verdict first, reason second — state the vibe, then explain why, no "but" pivot.
-  (b) Open on a reaction or exclamation with no setup — react first, explain never or last.
-  (c) Lead with practical advice (what to wear, what to do) and let the weather reasoning trail after it.
-  (d) Describe the physical feeling of being outside today with no gripe/reassure framing at all — no contrast structure, just the sensation.
-  (e) Say less — one short clause, no pivot, no closer tacked on.
-- For whatever closes the synopsis, rotate the TYPE of move, not just the wording — a flat acceptance ("we move anyway"), a comparison to another day, a complaint, a joke, a warning, a rhetorical aside, or no closing beat at all — just the observation, full stop. Read back what you're about to write: if its function is "encouraging the reader to be outside," that's the banned move above regardless of phrasing — pick a genuinely different move instead.
 - The EXAMPLES above show voice and range, not phrases to borrow. If the same phrase, clause, or closing move shows up in more than one example, it's now overused — do not reuse it, no matter how well it fits.
-- Before finalizing, compare your draft against the RECENT DAYS list. If it opens the same way, leans on the same "[complaint] but [condition]" concession shape, or closes the same way as ANY of them, that's a repeat even if the words differ — rewrite with a genuinely different structure. Recent days are there to show you what to avoid, not what to echo.
+- Follow TODAY'S SHAPE in the message below. It's assigned so no two days read alike — don't swap it for a structure you like better.
 - No corporate weather copy: "temperatures will reach," "conditions will be," "we recommend"
 - No forced positivity on bad days — don't soften a 2/10 day
 - The rain % is a whole-day worst case, not necessarily what's happening right now. If TODAY includes a rain timing window (e.g. "this evening," "overnight"), the rain isn't happening yet — say so plainly ("clear now, rain moves in tonight") instead of writing as if it's raining currently. If no timing is given, or it says "now," it's fine to treat the rain as current.
@@ -185,16 +178,23 @@ Match language strength to the actual rain %, never overstate it — overselling
 
 Return only the synopsis text — no preamble, no explanation, no quotation marks.`;
 
+    const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+
     const scoreTier = score >= 9 ? 'PERFECT (9-10)' : score >= 7 ? 'GOOD (7-8)' : score >= 4 ? 'MID/BLAH (4-6)' : 'BAD (1-3)';
     const extremeHeat = high >= 95 || feelsLike >= 100;
 
-    const userPrompt = `SCORE TIER: ${scoreTier}${extremeHeat ? ' — EXTREME HEAT OVERRIDE: urgency regardless of score' : ''}
+    // Rebuilt per attempt: a retry rotates to the next assigned shape so a
+    // draft rejected as a repeat is rewritten differently, not reworded.
+    const buildUserPrompt = (attempt) => {
+      const shape = pickShape(dateKey, attempt);
+      return `SCORE TIER: ${scoreTier}${extremeHeat ? ' — EXTREME HEAT OVERRIDE: urgency regardless of score' : ''}
 
 ${exampleBlock || fallbackExamples}
 
-${recentBlock}
-
 ${slangBlock}
+
+TODAY'S SHAPE (assigned — follow it):
+- Structure: ${shape.form}${shape.closer ? `\n- Closing move: ${shape.closer}` : ''}
 
 TODAY:
 - Temp: ${Math.round(temp)}°F${high != null ? `, high of ${Math.round(high)}°F` : ''}, feels like ${Math.round(feelsLike)}°F
@@ -206,8 +206,11 @@ TODAY:
 - Issues: ${penalties && penalties.length ? penalties.join(', ') : 'none — clean day'}
 
 Write the synopsis.`;
+    };
 
+    let attemptNo = 0;
     const callModel = async (extraInstruction) => {
+      const userPrompt = buildUserPrompt(attemptNo++);
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -236,7 +239,7 @@ Write the synopsis.`;
     // one of them.
     const facts = {
       temp, high, feelsLike, precipChance, humidity, windSpeed, score,
-      avoidTerms, now: new Date()
+      avoidTerms, recent: recentDays, now: new Date()
     };
 
     // What ships if every attempt contains a factual or calendar error:

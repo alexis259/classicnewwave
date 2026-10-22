@@ -209,6 +209,96 @@ function styleProblems(text, ctx) {
   return out;
 }
 
+// ───────────────────────── repetition across days (soft) ─────────────────────────
+// A prompt can't make a model vary day to day, so each draft is compared with
+// the last several approved synopses (ctx.recent, newest first). Words alone
+// aren't the signal — numbers are normalised and filler words ignored, so
+// "climbing to 63" and "climbing to 65" count as the same phrase.
+// The retry message never quotes the repeated text (see header).
+
+const FILLER = new Set([
+  'the', 'a', 'an', 'and', 'but', 'or', 'so', 'it', 'its', "it's", 'is', 'are', 'was', 'be', 'to', 'of',
+  'in', 'on', 'at', 'for', 'with', 'we', "we're", 'you', "you're", 'your', 'i', 'im', "i'm", 'that', "that's",
+  'this', 'just', 'still', 'out', 'up', 'today', 'all', 'day', 'then', 'not', 'no', 'as', 'by', 'from',
+  'like', 'if', 'than', '#'
+]);
+
+function tokens(text) {
+  return String(text || '').toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/\d+(?:\.\d+)?/g, ' # ')
+    .replace(/[^a-z#'\s]/g, ' ')
+    .split(/\s+/).filter(Boolean);
+}
+
+function ngrams(toks, n) {
+  const out = new Set();
+  for (let i = 0; i + n <= toks.length; i++) {
+    const gram = toks.slice(i, i + n);
+    if (gram.every(w => FILLER.has(w))) continue; // "and the", "it's all" say nothing
+    out.add(gram.join(' '));
+  }
+  return out;
+}
+
+function closingClause(text) {
+  const parts = String(text || '').split(/\s*(?:—|\.{2,}|…|[.!?])\s*/).map(x => x.trim()).filter(Boolean);
+  return tokens(parts[parts.length - 1] || '');
+}
+
+// Punctuation/word devices a synopsis can lean on. Using one that most recent
+// days also used is how a "voice" turns into a template.
+const DEVICES = {
+  'a "but" pivot': (t) => /\bbut\b/i.test(t),
+  'an em-dash pivot': (t) => t.includes('—'),
+  'an ellipsis trail-off': (t) => /\.{3}|…/.test(t)
+};
+
+function repeatProblems(text, ctx) {
+  const recent = (ctx.recent || []).filter(Boolean);
+  if (!recent.length) return [];
+  const out = [];
+  const add = (msg) => out.push({ type: 'repeat', hard: false, msg });
+
+  const toks = tokens(text);
+  const recentToks = recent.map(tokens);
+
+  const opener = toks.slice(0, 2).join(' ');
+  if (toks.length >= 2 && recentToks.some(r => r.slice(0, 2).join(' ') === opener)) {
+    add('opened the same way as a recent day');
+  }
+
+  const closer = closingClause(text);
+  if (closer.length >= 2 && recent.some(r => {
+    const rc = closingClause(r);
+    return rc.length >= 2 && (rc.slice(-2).join(' ') === closer.slice(-2).join(' ') ||
+      rc.slice(0, 2).join(' ') === closer.slice(0, 2).join(' '));
+  })) {
+    add('closed the same way as a recent day');
+  }
+
+  const grams3 = ngrams(toks, 3);
+  if (recentToks.some(r => { const g = ngrams(r, 3); return [...grams3].some(x => g.has(x)); })) {
+    add('reused a phrase from a recent day');
+  } else {
+    // A two-word phrase is only a problem once it has run on several days.
+    const bigrams = ngrams(toks, 2);
+    const overused = [...bigrams].some(b => recentToks.filter(r => ngrams(r, 2).has(b)).length >= 2);
+    if (overused) add('leaned on a phrase that has already run on several recent days');
+  }
+
+  const lastFew = recent.slice(0, 4);
+  const need = Math.min(3, lastFew.length);
+  if (need >= 2) {
+    for (const [name, uses] of Object.entries(DEVICES)) {
+      if (uses(text) && lastFew.filter(uses).length >= need) {
+        add(`used ${name}, which nearly every recent day also used`);
+      }
+    }
+  }
+  return out;
+}
+
 // ───────────────────────── per-kind checks ─────────────────────────
 
 function lengthProblem(text, max) {
@@ -226,7 +316,8 @@ function checkSynopsis(text, ctx = {}) {
     ...scoreProblems(text, ctx),
     ...dataClaimProblems(text, ctx),
     ...avoidProblems(text, ctx),
-    ...styleProblems(text, ctx)
+    ...styleProblems(text, ctx),
+    ...repeatProblems(text, ctx)
   ];
 }
 
@@ -363,5 +454,5 @@ module.exports = {
   checkAlert,
   generateChecked,
   // exposed for tests
-  calendarProblems, numberProblems, scoreProblems, dataClaimProblems, styleProblems, nycMonth
+  calendarProblems, numberProblems, scoreProblems, dataClaimProblems, styleProblems, repeatProblems, nycMonth
 };

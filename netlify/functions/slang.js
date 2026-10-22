@@ -17,8 +17,21 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 // change (or derive per request) once another city launches.
 const DEFAULT_REGION = 'nyc';
 
+// Filler slang the writers fall back on when nothing steers them elsewhere
+// ("this one's a W", "this hits different"). Enforced in code via copy-guard,
+// on top of whatever the owner's dictionary says. "W"/"dub" reads as negative
+// where the owner is from. A term the owner marks 'use' in the dictionary
+// wins over this list.
+const BASELINE_AVOID = ['W', 'dub', 'hits different'];
+
+function withBaseline(avoidTerms, useTerms = []) {
+  const used = new Set(useTerms.map(t => String(t || '').trim().toLowerCase()));
+  const have = new Set(avoidTerms.map(t => String(t || '').trim().toLowerCase()));
+  return [...avoidTerms, ...BASELINE_AVOID.filter(t => !used.has(t.toLowerCase()) && !have.has(t.toLowerCase()))];
+}
+
 async function getSlang(region = DEFAULT_REGION) {
-  const empty = { block: '', rule: '', avoid: [] };
+  const empty = { block: '', rule: '', avoid: withBaseline([]) };
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/slang_terms?select=term,meaning,usage_note,status&region=eq.${encodeURIComponent(region)}&order=term.asc`,
@@ -49,11 +62,11 @@ async function getSlang(region = DEFAULT_REGION) {
 
     // Returned separately so copy-guard can enforce the avoid list in code
     // instead of only asking the model nicely.
-    return { block: lines.join('\n'), rule, avoid: avoid.map(r => r.term) };
+    return { block: lines.join('\n'), rule, avoid: withBaseline(avoid.map(r => r.term), use.map(r => r.term)) };
   } catch (e) {
     console.error('getSlang failed (falling back to built-in slang guidance):', e.message);
     return empty;
   }
 }
 
-module.exports = { getSlang };
+module.exports = { getSlang, BASELINE_AVOID, withBaseline };
