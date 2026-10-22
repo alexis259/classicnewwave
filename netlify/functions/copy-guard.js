@@ -258,7 +258,6 @@ function closingClause(text) {
 // days also used is how a "voice" turns into a template.
 const DEVICES = {
   'a "but" pivot': (t) => /\bbut\b/i.test(t),
-  'an em-dash pivot': (t) => t.includes('—'),
   'an ellipsis trail-off': (t) => /\.{3}|…/.test(t)
 };
 
@@ -364,6 +363,27 @@ function checkAlert(text, { kind = 'caption' } = {}) {
   return out;
 }
 
+// ───────────────────────── dashes ─────────────────────────
+// The owner doesn't want em dashes in any copy. Asking doesn't hold (the old
+// prompts even recommended them), so the dash is removed from the model's
+// output here, before the checks run, which means it can't reach a post however
+// the model behaves. En dashes, "--" and a spaced hyphen (what models switch to
+// when told no em dashes) are treated the same way. Hyphens inside words
+// ("cold-humidity") are left alone.
+function stripDashes(text) {
+  return String(text || '').split('\n').map(line => {
+    if (!/[—–]|--|\s-\s/.test(line)) return line;
+    return line
+      .replace(/(\d)\s*[–—-]\s*(\d)/g, '$1 to $2')          // "49–65" -> "49 to 65"
+      .replace(/\s*(?:—|–|--|(?<=\s)-(?=\s))\s*/g, ', ')    // pause -> comma
+      .replace(/,\s*(?=[.!?…,;:])/g, '')                    // ", ." -> "."
+      .replace(/(\.{2,}|…)\s*,\s*/g, '$1 ')                 // "...," -> "... "
+      .replace(/^\s*,\s*/, '')                              // dash opened the line
+      .replace(/\s*,\s*$/, '')                              // dash closed the line
+      .replace(/ {2,}/g, ' ');
+  }).join('\n');
+}
+
 // ───────────────────────── trimming ─────────────────────────
 
 // Words a sentence can't end on, used only when a cut has no punctuation to
@@ -457,6 +477,7 @@ module.exports = {
   MAX_SYNOPSIS_LEN,
   namesADay,
   trimToLength,
+  stripDashes,
   checkSynopsis,
   checkCaption,
   checkAlert,

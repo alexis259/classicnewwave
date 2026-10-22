@@ -4,7 +4,7 @@
 // poller (check-nws-alerts.js), so the two can't drift into different tones
 // or rules. They used to each carry their own near-identical copy of this.
 
-const { checkAlert, generateChecked } = require('./copy-guard');
+const { checkAlert, generateChecked, stripDashes } = require('./copy-guard');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
@@ -49,7 +49,8 @@ Write just the caption text.`;
       body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt + extraInstruction }] })
     });
     const data = await res.json();
-    return data.content?.[0]?.text?.trim() || null;
+    const out = data.content?.[0]?.text?.trim();
+    return out ? stripDashes(out) : null;
   };
 
   // These rules were already in the prompts (no temperatures, no times or

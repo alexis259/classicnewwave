@@ -5,7 +5,7 @@
 // their own near-identical copy of this function.
 
 const { getSlang } = require('./slang');
-const { checkCaption, generateChecked } = require('./copy-guard');
+const { checkCaption, generateChecked, stripDashes } = require('./copy-guard');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
@@ -21,6 +21,7 @@ VOICE:
 - lowercase mostly, NYC energy
 - give the score, tease the vibe, tell people to check the link in bio
 - never name a day of the week, in the text or in a hashtag (no "monday," "tuesday," #MondayVibes, etc.). You are not told what day it is, so any day you name is a guess and has been wrong before. Say "today" instead.
+- never use em dashes (—), en dashes (–), or a hyphen standing in for a dash. Use a comma, period, or ellipsis instead
 - end with 4-5 hashtags on their own line — always include #NYC and #NewYork${slangRule ? `\n- ${slangRule}` : ''}
 
 ${slangBlock}
@@ -57,7 +58,8 @@ Write just the caption text.`;
       })
     });
     const data = await res.json();
-    return data.content?.[0]?.text?.trim() || null;
+    const out = data.content?.[0]?.text?.trim();
+    return out ? stripDashes(out) : null;
   };
 
   // Safe, factual, boring: built only from the data, so it can't be wrong.

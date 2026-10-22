@@ -102,3 +102,12 @@ test('proofreader failing does not block a good draft', async () => {
   assert.equal(out.usedFallback, false);
   assert.equal(out.text, 'jacket weather. 63 and clear, wind has opinions.');
 });
+
+test('an em dash from the model never reaches the synopsis', async () => {
+  const prompts = [];
+  mockFetch(['jacket weather — 63 and clear, wind has opinions.'], prompts);
+  const out = await call();
+  assert.equal(out.attempts, 1);
+  assert.equal(out.text, 'jacket weather, 63 and clear, wind has opinions.');
+  assert.ok(!/[—–]/.test(out.text));
+});

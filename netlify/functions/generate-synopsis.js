@@ -2,7 +2,7 @@
 // Calls Claude API server-side, pulling examples from Supabase to match writing style
 
 const { getSlang } = require('./slang');
-const { MAX_SYNOPSIS_LEN, checkSynopsis, generateChecked, trimToLength } = require('./copy-guard');
+const { MAX_SYNOPSIS_LEN, checkSynopsis, generateChecked, trimToLength, stripDashes } = require('./copy-guard');
 const { pickShape } = require('./synopsis-shape');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
@@ -74,7 +74,7 @@ function formatExample(ex) {
   if (ex.precipChance) parts.push(`${ex.precipChance}% rain`);
   if (ex.score) parts.push(`score ${ex.score}/10`);
   const conditions = parts.length ? `[${parts.join(', ')}]` : '';
-  return `${conditions}\n"${ex.synopsis}"`;
+  return `${conditions}\n"${stripDashes(ex.synopsis)}"`;
 }
 
 // Proofreading call: is this one line coherent? One-word answer, so it's
@@ -144,7 +144,7 @@ exports.handler = async (event) => {
     const fallbackExamples = !exampleBlock ? `EXAMPLES:
 "WE MADE IT. CALL OFF WORK. GO OUTSIDE."
 "different day. same weather. just wear clothes at this point"
-"rain all day and it's gonna feel colder than it actually is—just accept the L and bring an umbrella."
+"rain all day and it's gonna feel colder than it actually is, just accept the L and bring an umbrella."
 "its gone be hot today. but we do not care. its been too cold. go lay in the grass cousin"
 "im just here to report that the weather today is NOT GOOD. v chilly and the wind got it feeling like its 16 degrees"` : '';
 
@@ -160,17 +160,18 @@ Good examples of the voice:
 - "blahhh..back to the trenches we go. today it'll be rain and it might be mixed with some snow. i dont even know anymore"
 - "im just here to report that the weather today is NOT GOOD. v chilly and the wind got it feeling like its 16 degrees"
 - "its gone be hot today. but we do not care. its been too cold. no complaints from me."
-- "rain all day and it's gonna feel colder than 43—just accept the L and bring an umbrella."
+- "rain all day and it's gonna feel colder than 43, just accept the L and bring an umbrella."
 - "Today is the last day of good weather for the foreseeable future. don't waste it inside."
 - "high of 82 today so it's gonna get warm. the humidity brought the score down but we move."
 - "clouds all day but we're hitting 66 and it's dry. can't even be mad at that."
 
-Notice: these use ellipses, em-dashes, periods, and ALL CAPS selectively. They talk directly to the reader ("we", "cousin", "family", "fr"). They're honest about being tired of bad weather. They can be self-aware and meta. They rarely sound like weather copy.
+Notice: these use ellipses, periods, and ALL CAPS selectively. They talk directly to the reader ("we", "cousin", "family", "fr"). They're honest about being tired of bad weather. They can be self-aware and meta. They rarely sound like weather copy.
 
 ## Style Rules
 
 - Lowercase by default. ALL CAPS only for real emphasis — not every other word.
-- Ellipses (...) for trail-offs and hesitation. Em-dash (—) for pivots. Mix them up.
+- Ellipses (...) for trail-offs and hesitation. Commas and periods for everything else.
+- Never use em dashes (—), en dashes (–), or a hyphen standing in for a dash. Use a comma, a period, or an ellipsis instead.
 - ${slangRule || 'Slang where it fits: "fr," "mf," "cousin," "family," "yall." Never forced.'}
 - A short beat lands harder than an instruction — but vary what that beat IS. Sometimes it's an action, sometimes a reaction, sometimes a comparison, sometimes a complaint, sometimes nothing at all. Don't default to telling the reader to go do something outside.
 - Length: 140 characters is a hard limit and you can't count reliably, so aim for roughly 90–120 and finish your thought inside that. Say less rather than running long — a short complete line always beats a long one that gets cut.
@@ -263,7 +264,7 @@ Write the synopsis.`;
       const data = await res.json();
       const out = data.content?.[0]?.text?.trim();
       if (!out) throw new Error('No text returned');
-      return out;
+      return stripDashes(out);
     };
 
     // The model can't count characters, doesn't know the date, and will state

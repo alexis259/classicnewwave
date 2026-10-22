@@ -52,9 +52,9 @@ test('no recent days means nothing to compare', () => {
 });
 
 test('a device only counts as overused when most recent days used it', () => {
-  // dash used by 1 of 4 recent days: fine
-  const m = repeats('cold today—dress for it', ['sunny and warm', 'mild all day', 'rain later', 'pretty out—enjoy it']);
-  assert.equal(m.some(x => /em-dash/.test(x)), false);
+  // ellipsis used by 1 of 4 recent days: fine
+  const m = repeats('cold today... dress for it', ['sunny and warm', 'mild all day', 'rain later', 'pretty out... enjoy it']);
+  assert.equal(m.some(x => /ellipsis/.test(x)), false);
 });
 
 test('checkSynopsis includes the repeat check', () => {

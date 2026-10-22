@@ -232,3 +232,27 @@ test('claims: "dry" on a humid day is rejected; advice and dry-weather days are 
   assert.deepEqual(g.dataClaimProblems("it's dry and that's what matters", { ...ctx, humidity: 55 }), []);
   assert.deepEqual(g.dataClaimProblems("it's dry", { ...ctx, humidity: undefined }), []);
 });
+
+test('dashes: em dash, en dash, "--" and spaced hyphen all become commas; word hyphens survive', () => {
+  const cases = [
+    ['colder than 43—just accept the L', 'colder than 43, just accept the L'],
+    ['wind is sharp — bring a jacket', 'wind is sharp, bring a jacket'],
+    ['clear skies – finally', 'clear skies, finally'],
+    ['clear skies -- finally', 'clear skies, finally'],
+    ['clear skies - finally', 'clear skies, finally'],
+    ['high of 49–65 today', 'high of 49 to 65 today'],
+    ['warm... — then cool', 'warm... then cool'],
+    ['rain later—', 'rain later'],
+    ['—ugh, rain', 'ugh, rain'],
+    ['stop—.', 'stop.'],
+    ['the cold-humidity combo is rough', 'the cold-humidity combo is rough'],
+    ['no dashes here', 'no dashes here'],
+  ];
+  for (const [input, want] of cases) assert.equal(g.stripDashes(input), want, input);
+});
+
+test('dashes: only the dashed line changes; hashtags and line breaks are untouched', () => {
+  const input = "it's wet out there — layer up\n\n#NYC #NewYork #classicnewweather";
+  assert.equal(g.stripDashes(input), "it's wet out there, layer up\n\n#NYC #NewYork #classicnewweather");
+  assert.equal(g.stripDashes(null), '');
+});
