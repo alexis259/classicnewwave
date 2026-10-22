@@ -77,6 +77,40 @@ function formatExample(ex) {
   return `${conditions}\n"${ex.synopsis}"`;
 }
 
+// Proofreading call: is this one line coherent? One-word answer, so it's
+// cheap. The voice is deliberately informal (lowercase, slang, fragments,
+// ellipses, em-dashes), so those must not count as errors — only phrases that
+// fail to parse.
+async function readsCleanly(text) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 5,
+        temperature: 0,
+        messages: [{ role: 'user', content: `You proofread one line of casual social-media weather copy. The voice is intentionally informal: lowercase, slang, fragments, trailing ellipses and em-dashes are all fine, so do not flag any of that.
+
+Reply GARBLED only if some part would stop a reader on first read because it is broken: words from two different sentences fused together, or a phrase that does not parse. Otherwise reply OK. One word only.
+
+Line: ${text}` }]
+      })
+    });
+    const data = await res.json();
+    const verdict = data.content?.[0]?.text || '';
+    return !/garbled/i.test(verdict);
+  } catch (e) {
+    console.warn('generate-synopsis: proofread unavailable, skipping:', e.message);
+    return true;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -247,10 +281,27 @@ Write the synopsis.`;
     const r = (v) => Math.round(Number(v));
     const safeFallback = `${r(temp)}° now${high != null ? `, topping out at ${r(high)}°` : ''}${precipChance >= 45 ? `. ${r(precipChance)}% chance of rain` : ''}.`;
 
+    // Rules can't tell whether a sentence reads as English — one mashed
+    // together from two thoughts ("climbing out of the cold-humidity's there
+    // but it's dry") passed every other check and shipped. So after the rule
+    // checks, a second short model call proofreads the draft. It runs only on
+    // drafts the rules already accept (no point proofreading one being thrown
+    // away), and it fails open: if the call errors or times out, the draft is
+    // not penalised.
+    const checkWithProofread = async (candidate) => {
+      const problems = checkSynopsis(candidate, facts);
+      if (problems.some(p => p.hard)) return problems;
+      if (!(await readsCleanly(candidate))) {
+        problems.push({ type: 'readability', hard: false, msg: 'was garbled — a phrase that does not parse as a sentence. Write plain, complete sentences' });
+      }
+      return problems;
+    };
+
     const result = await generateChecked({
       callModel,
-      check: (candidate) => checkSynopsis(candidate, facts),
+      check: checkWithProofread,
       fallback: safeFallback,
+      budgetMs: 5000,
       label: 'generate-synopsis'
     });
     let text = result.text;

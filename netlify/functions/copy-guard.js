@@ -156,6 +156,11 @@ function scoreProblems(text, ctx) {
 
 const STRONG_RAIN = /\b(?:pouring|poured|pours|hammer(?:ing|s|ed)?|downpours?|torrential|deluge|drenched|soaked|soaking|buckets|cats and dogs|flood(?:ing|ed)?|heavy rain)\b/i;
 const NO_RAIN = /\b(?:no rain|zero rain|zero chance|bone[- ]dry|rain[- ]free|dry all day|completely dry|totally dry|not a drop)\b/i;
+// "it's dry", "stays dry", "pretty dry" — as a description of the day. Advice
+// ("stay dry", "keep dry") is not matched. Readers hear "dry" as low humidity,
+// so on a humid day it contradicts the humidity the graphic itself shows.
+const CALLS_DAY_DRY = /\b(?:it'?s|its|is|are|stays|remains|looks|be|being|pretty|mostly|totally|completely|actually|still|but|and)\s+dry\b/i;
+const HUMID_ABOVE = 70; // matches the scoring band where humidity starts costing points
 const COLD_WORDS = /\b(?:freezing|frigid|arctic|bitter(?:ly)?)\b/i;
 const HOT_WORDS = /\b(?:scorching|sweltering|boiling|blistering|oven)\b/i;
 
@@ -170,6 +175,9 @@ function dataClaimProblems(text, ctx) {
     if (NO_RAIN.test(text) && ctx.precipChance >= 60) {
       add(`said there is no rain but the rain chance is ${Math.round(ctx.precipChance)}%`);
     }
+  }
+  if (ctx.humidity != null && ctx.humidity > HUMID_ABOVE && CALLS_DAY_DRY.test(text)) {
+    add(`called the day "dry" while humidity is ${Math.round(ctx.humidity)}% — say "no rain" if that's what you mean, or describe the humidity`);
   }
   if (ctx.feelsLike != null) {
     if (COLD_WORDS.test(text) && ctx.feelsLike > 45) add(`called it freezing but it feels like ${Math.round(ctx.feelsLike)}°`);
@@ -412,7 +420,7 @@ function retryInstruction(problems) {
 // time budget (these run inside time-limited serverless functions). If nothing
 // is clean: ship the least-bad attempt that has no HARD problem, else `fallback`.
 //   callModel(extraInstruction) -> string | null
-//   check(text)                 -> [{ type, hard, msg }]
+//   check(text)                 -> [{ type, hard, msg }] (or a Promise of it)
 async function generateChecked({ callModel, check, fallback, maxAttempts = 3, budgetMs = 7000, label = 'copy' }) {
   const started = Date.now();
   const attempts = [];
@@ -426,7 +434,7 @@ async function generateChecked({ callModel, check, fallback, maxAttempts = 3, bu
       console.warn(`${label}: model returned nothing — using fallback`);
       return { text: fallback, attempts: attempts.length + 1, usedFallback: true, problems: [] };
     }
-    const problems = check(candidate);
+    const problems = await check(candidate);
     attempts.push({ candidate, problems });
     if (!problems.length) return { text: candidate, attempts: attempts.length, usedFallback: false, problems: [] };
     extra = retryInstruction(problems);

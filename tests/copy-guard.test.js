@@ -219,3 +219,16 @@ test('generateChecked: stops retrying when the time budget is spent', quiet(asyn
   const r = await g.generateChecked({ callModel: slow, check, fallback: FALLBACK, budgetMs: 10 });
   assert.equal(calls, 1); assert.equal(r.usedFallback, true);
 }));
+
+test('claims: "dry" on a humid day is rejected; advice and dry-weather days are fine', () => {
+  const humid = { ...ctx, humidity: 79, precipChance: 0 };
+  for (const t of ["it's dry and that's what matters", 'mostly dry out there', 'stays dry all afternoon', 'pretty dry but heavy']) {
+    assert.ok(types(g.dataClaimProblems(t, humid)).includes('claim'), t);
+  }
+  for (const t of ['stay dry out there', 'keep dry, rain later', 'no rain today, just thick air', 'dry cleaning day']) {
+    assert.deepEqual(g.dataClaimProblems(t, humid), [], t);
+  }
+  // not humid: "dry" is fine
+  assert.deepEqual(g.dataClaimProblems("it's dry and that's what matters", { ...ctx, humidity: 55 }), []);
+  assert.deepEqual(g.dataClaimProblems("it's dry", { ...ctx, humidity: undefined }), []);
+});
