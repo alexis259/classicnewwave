@@ -38,10 +38,10 @@ function mockFetch(replies, prompts, { garbled = [], proofreads = [], proofreadF
 }
 
 const weather = { temp: 60, high: 63, feelsLike: 57, condition: 'clear sky', precipChance: 0, humidity: 55, windSpeed: 14, score: 8, penalties: ['a bit cool'] };
-const call = async () => {
+const call = async (body = weather) => {
   delete require.cache[require.resolve('../netlify/functions/generate-synopsis.js')];
   const { handler } = require('../netlify/functions/generate-synopsis.js');
-  const res = await handler({ httpMethod: 'POST', body: JSON.stringify(weather) });
+  const res = await handler({ httpMethod: 'POST', body: JSON.stringify(body) });
   return JSON.parse(res.body);
 };
 
@@ -110,4 +110,20 @@ test('an em dash from the model never reaches the synopsis', async () => {
   assert.equal(out.attempts, 1);
   assert.equal(out.text, 'jacket weather, 63 and clear, wind has opinions.');
   assert.ok(!/[—–]/.test(out.text));
+});
+
+const OCT25 = { temp: 59.6, high: 64.1, feelsLike: 57.4, condition: 'clear sky', precipChance: 0, humidity: 73, windSpeed: 5, score: 6, penalties: ['a bit cool', 'some wind chill', 'a lil humid'] };
+
+test("Oct 25: the model is told what held the day back, and a humidity-blaming draft is redone", async () => {
+  const prompts = [];
+  mockFetch([
+    "bruh the humidity's ruining a perfectly decent day.",
+    'cool start, clear all day, jacket early and you can ditch it by lunch.'
+  ], prompts);
+  const out = await call(OCT25);
+  assert.match(prompts[0], /biggest first: a bit cool \(-2\), some wind chill \(-1\), a lil humid \(-1\)/);
+  assert.equal(out.attempts, 2);
+  assert.equal(out.usedFallback, false);
+  assert.equal(out.text, 'cool start, clear all day, jacket early and you can ditch it by lunch.');
+  assert.match(prompts[1], /blamed the humidity/);
 });

@@ -4,6 +4,7 @@
 const { getSlang } = require('./slang');
 const { MAX_SYNOPSIS_LEN, checkSynopsis, generateChecked, trimToLength, stripDashes } = require('./copy-guard');
 const { pickShape } = require('./synopsis-shape');
+const { driversFromPenalties } = require('./scoring');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -213,6 +214,7 @@ Match language strength to the actual rain %, never overstate it — overselling
 
 Return only the synopsis text — no preamble, no explanation, no quotation marks.`;
 
+    const drivers = driversFromPenalties(penalties, { high });
     const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 
     const scoreTier = score >= 9 ? 'PERFECT (9-10)' : score >= 7 ? 'GOOD (7-8)' : score >= 4 ? 'MID/BLAH (4-6)' : 'BAD (1-3)';
@@ -238,7 +240,8 @@ TODAY:
 - Humidity: ${humidity}%
 - Wind: ${windSpeed} mph
 - Score: ${score}/10
-- Issues: ${penalties && penalties.length ? penalties.join(', ') : 'none — clean day'}
+- What held the score down, biggest first: ${drivers.length ? drivers.map(d => `${d.label} (-${d.cost})`).join(', ') : 'nothing, clean day'}
+- If you name what is holding the day back, name the biggest one. Smaller ones get a light mention or none at all.
 
 Write the synopsis.`;
     };
@@ -274,7 +277,7 @@ Write the synopsis.`;
     // one of them.
     const facts = {
       temp, high, feelsLike, precipChance, humidity, windSpeed, score,
-      avoidTerms, recent: recentDays, now: new Date()
+      drivers, avoidTerms, recent: recentDays, now: new Date()
     };
 
     // What ships if every attempt contains a factual or calendar error:

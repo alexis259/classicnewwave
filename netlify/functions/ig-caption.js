@@ -6,6 +6,7 @@
 
 const { getSlang } = require('./slang');
 const { checkCaption, generateChecked, stripDashes } = require('./copy-guard');
+const { driversFromPenalties } = require('./scoring');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
@@ -13,6 +14,8 @@ async function generateCaption(row, rainTiming = null) {
   // Same slang dictionary the synopsis writer reads (managed in editorial.html).
   // Empty strings if the table is missing/empty.
   const { block: slangBlock, rule: slangRule, avoid: avoidTerms } = await getSlang();
+
+  const drivers = driversFromPenalties(Array.isArray(row.penalties) ? row.penalties : [], { high: row.high });
 
   const prompt = `You write short Instagram captions for @classicnewweather — an NYC daily weather account with a specific voice.
 
@@ -39,6 +42,7 @@ TODAY:
 - Condition right now: ${row.condition}
 - Rain: ${row.precip_chance}% chance at some point today${rainTiming && rainTiming !== 'now' ? ` — peaks ${rainTiming}, not happening yet` : rainTiming === 'now' ? ' — happening now' : ''}
 - Score: ${row.score}/10
+- What held the score down, biggest first: ${drivers.length ? drivers.map(d => `${d.label} (-${d.cost})`).join(', ') : 'nothing, clean day'}. If you say what is holding the day back, say the biggest one; smaller ones get a light mention or none.
 - Today's vibe: ${row.synopsis_approved || ''}
 
 Write just the caption text.`;
@@ -78,6 +82,7 @@ Write just the caption text.`;
     humidity: row.humidity,
     windSpeed: row.wind_speed,
     score: row.score,
+    drivers,
     extraAllowedNumbers: ((row.synopsis_approved || '').match(/\d+/g) || []).map(Number),
     avoidTerms,
     now: new Date()

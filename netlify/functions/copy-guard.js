@@ -186,6 +186,44 @@ function dataClaimProblems(text, ctx) {
   return out;
 }
 
+// What the score says held the day back (ctx.drivers, from scoring.js:
+// [{ driver, label, cost }] biggest first). Copy that blames a minor factor for
+// the day misleads: Oct 25 scored a 6 because it was cool (-2) with a little
+// wind chill (-1), and the post said "the humidity's ruining a perfectly decent
+// day" about a 73% humidity that cost one point. Only an explicit blame
+// ("ruining", "buzzkill", "the problem") of a factor that cost half or less of
+// the biggest one is rejected; mentioning humidity in passing is fine.
+const DRIVER_WORDS = {
+  temp: /\b(?:cold|chilly|chill|cool|cooler|crisp|frigid|freezing|brisk|nippy|hot|heat|warm)\b/i,
+  wind: /\b(?:wind\w*|breez\w*|gust\w*)\b/i,
+  rain: /\b(?:rain\w*|wet|umbrella|drizzl\w*|shower\w*|storm\w*)\b/i,
+  humidity: /\b(?:humid\w*|muggy|sticky|soupy|swamp\w*|clammy|damp|thick air)\b/i,
+  clouds: /\b(?:overcast|gray|grey|cloud\w*|gloom\w*)\b/i
+};
+const DRIVER_NAME = { temp: 'the temperature', wind: 'the wind', rain: 'the rain', humidity: 'the humidity', clouds: 'the clouds' };
+const BLAME = /\b(?:ruin\w*|kill\w*|buzz\s?kill\w*|wreck\w*|spoil\w*|mess\w* (?:up|with)|screw\w*|tank\w*|hurt\w*|problem|issue|culprit|worst part|the catch|downside|bummer|miserable|nasty|gross|annoying)\b/i;
+
+function driverProblems(text, ctx) {
+  const drivers = ctx.drivers;
+  if (!Array.isArray(drivers)) return []; // no scoring info -> nothing to compare against
+  const cost = (d) => drivers.filter(x => x.driver === d).reduce((n, x) => n + x.cost, 0);
+  const top = drivers.reduce((b, x) => (x.cost > (b ? b.cost : 0) ? x : b), null);
+  if (!top) return [];
+  for (const sentence of String(text).split(/[.!?…\n]+/)) {
+    if (!BLAME.test(sentence)) continue;
+    for (const [name, re] of Object.entries(DRIVER_WORDS)) {
+      if (name === top.driver || !re.test(sentence)) continue;
+      if (cost(name) * 2 > top.cost) continue; // a big enough factor to complain about
+      if (DRIVER_WORDS[top.driver].test(sentence)) continue; // the real driver is named too
+      return [{
+        type: 'driver', hard: true,
+        msg: `blamed ${DRIVER_NAME[name]} for the day, but it only cost ${cost(name)} point${cost(name) === 1 ? '' : 's'} while ${DRIVER_NAME[top.driver]} cost ${top.cost}. If you say what is holding the day back, say ${DRIVER_NAME[top.driver]}; smaller factors can get a light mention or none`
+      }];
+    }
+  }
+  return [];
+}
+
 // Terms the owner marked "avoid" in the slang dictionary. Asked of the model
 // in the prompt; enforced here.
 function avoidProblems(text, ctx) {
@@ -322,6 +360,7 @@ function checkSynopsis(text, ctx = {}) {
     ...numberProblems(text, ctx),
     ...scoreProblems(text, ctx),
     ...dataClaimProblems(text, ctx),
+    ...driverProblems(text, ctx),
     ...avoidProblems(text, ctx),
     ...styleProblems(text, ctx),
     ...repeatProblems(text, ctx)
@@ -334,6 +373,7 @@ function checkCaption(text, ctx = {}) {
     ...numberProblems(text, ctx),
     ...scoreProblems(text, ctx),
     ...dataClaimProblems(text, ctx),
+    ...driverProblems(text, ctx),
     ...avoidProblems(text, ctx)
   ];
   if (text.length > MAX_CAPTION_LEN) out.push({ type: 'length', hard: true, msg: 'is too long for an Instagram caption' });
@@ -483,5 +523,5 @@ module.exports = {
   checkAlert,
   generateChecked,
   // exposed for tests
-  calendarProblems, numberProblems, scoreProblems, dataClaimProblems, styleProblems, repeatProblems, nycMonth
+  calendarProblems, numberProblems, scoreProblems, dataClaimProblems, styleProblems, repeatProblems, driverProblems, nycMonth
 };

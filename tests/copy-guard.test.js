@@ -256,3 +256,40 @@ test('dashes: only the dashed line changes; hashtags and line breaks are untouch
   assert.equal(g.stripDashes(input), "it's wet out there, layer up\n\n#NYC #NewYork #classicnewweather");
   assert.equal(g.stripDashes(null), '');
 });
+
+const { driversFromPenalties } = require('../netlify/functions/scoring.js');
+const OCT25 = driversFromPenalties(['a bit cool', 'some wind chill', 'a lil humid'], { high: 64 });
+
+test('drivers: Oct 25 — blaming a 1-point humidity for a day the cool temps held back is rejected', () => {
+  for (const t of [
+    "bruh the humidity's ruining a perfectly decent day.",
+    "clear skies though the humidity's kind of a buzzkill today.",
+    'the muggy air is the only problem today',
+  ]) assert.ok(types(g.driverProblems(t, { drivers: OCT25 })).includes('driver'), t);
+});
+
+test('drivers: the biggest driver can be blamed; light mentions of minor ones are fine', () => {
+  for (const t of [
+    'the chill is killing it this morning, bundle up',
+    'cool start, a little humid, but clear all day',
+    'humidity is up a bit, nothing crazy',
+    "it's humid but the cold is the real problem",     // real driver named in the same sentence
+  ]) assert.deepEqual(g.driverProblems(t, { drivers: OCT25 }), [], t);
+});
+
+test('drivers: a humid-heavy day (2 pts, top driver) can blame humidity; a clean day can blame nothing', () => {
+  const humid = driversFromPenalties(['humid & heavy'], { high: 75 });
+  assert.deepEqual(g.driverProblems('the humidity is ruining this', { drivers: humid }), []);
+  const clean = driversFromPenalties([], { high: 75 });
+  assert.deepEqual(g.driverProblems('the humidity is ruining this', { drivers: clean }), []); // nothing to compare to
+});
+
+test('drivers: no scoring info means no check', () => {
+  assert.deepEqual(g.driverProblems('the humidity is ruining this', {}), []);
+});
+
+test('drivers: the check runs on synopses and captions', () => {
+  const c = { drivers: OCT25, now: OCT, avoidTerms: [] };
+  assert.ok(types(g.checkSynopsis("humidity's ruining a decent day.", c)).includes('driver'));
+  assert.ok(types(g.checkCaption("47 right now. humidity's kind of a buzzkill today.\n\n#NYC #NewYork", c)).includes('driver'));
+});

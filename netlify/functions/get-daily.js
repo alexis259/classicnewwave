@@ -2,6 +2,7 @@
 // Returns today's weather + synopsis from Supabase
 // Front end calls this instead of OpenWeatherMap directly
 
+const { scoreWeather } = require('./scoring');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const OWM_KEY = process.env.OWM_KEY;
@@ -163,43 +164,7 @@ function detectAlert(weather) {
   return null;
 }
 
-function scoreWeather(w) {
-  let score = 10;
-  const penalties = [];
-  const t = w.high;
-
-  if (t >= 70 && t <= 80) {}
-  else if ((t >= 65 && t < 70) || (t > 80 && t <= 82)) { score -= 1; }
-  else if (t >= 60 && t < 65) { score -= 2; penalties.push("a bit cool"); }
-  else if (t >= 55 && t < 60) { score -= 3; penalties.push("kinda cool"); }
-  else if (t >= 50 && t < 55) { score -= 4; penalties.push("chilly"); }
-  else if (t >= 42 && t < 50) { score -= 5; penalties.push("cold out"); }
-  else if (t >= 35 && t < 42) { score -= 6; penalties.push("cold af"); }
-  else if (t >= 28 && t < 35) { score -= 7; penalties.push("freezing"); }
-  else if (t < 28)             { score -= 8; penalties.push("BRUTAL"); }
-  else if (t > 82 && t < 90)  { score -= 2; penalties.push("hot"); }
-  else if (t >= 90 && t < 95) { score -= 6; penalties.push("extreme heat"); }
-  else if (t >= 95)            { score -= 8; penalties.push("scorching"); }
-
-  const chill = w.temp - w.feelsLike;
-  if (chill >= 15)     { score -= 3; penalties.push("wind chill nasty"); }
-  else if (chill >= 8) { score -= 2; penalties.push("wind making it worse"); }
-  else if (chill >= 4) { score -= 1; penalties.push("some wind chill"); }
-
-  if (w.precipChance > 70)      { score -= 3; penalties.push("heavy rain"); }
-  else if (w.precipChance > 45) { score -= 2; penalties.push("real rain chance"); }
-  else if (w.precipChance > 20) { score -= 1; penalties.push("light rain possible"); }
-
-  if (w.humidity > 80)      { score -= 2; penalties.push("humid & heavy"); }
-  else if (w.humidity > 70) { score -= 1; penalties.push("a lil humid"); }
-
-  const condDesc = (w.condition || '').toLowerCase();
-  if ((condDesc === 'broken clouds' || condDesc === 'overcast clouds') && w.precipChance < 20) {
-    score -= 1; penalties.push("overcast");
-  }
-
-  return { score: Math.max(1, Math.min(10, score)), penalties };
-}
+// Scoring lives in scoring.js (it also reports what drove the score).
 
 // The "high" is the max of the forecast slots still ahead of now, so it only
 // falls as the day goes on; the score is built from it. For a day that has
