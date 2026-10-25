@@ -293,3 +293,12 @@ test('drivers: the check runs on synopses and captions', () => {
   assert.ok(types(g.checkSynopsis("humidity's ruining a decent day.", c)).includes('driver'));
   assert.ok(types(g.checkCaption("47 right now. humidity's kind of a buzzkill today.\n\n#NYC #NewYork", c)).includes('driver'));
 });
+
+test('style: a gripe with nothing in it is flagged; specific complaints are not', () => {
+  for (const t of ["the chill and humidity got it feeling like something's off.", 'weather is just off today', 'honestly not it', 'feels kinda off out there', 'something is off about today']) {
+    assert.ok(types(g.styleProblems(t, ctx)).includes('style'), t);
+  }
+  for (const t of ['cool start, warming up by lunch', 'wind is sharp but the sun is out', "it's 60 and the air is thick", 'feels like 57 out there']) {
+    assert.ok(!g.styleProblems(t, ctx).some(p => /complained/.test(p.msg)), t);
+  }
+});

@@ -108,7 +108,7 @@ function calendarProblems(text, { now = new Date(), seasons = true } = {}) {
 // ───────────────────────── numbers & score ─────────────────────────
 
 function roundedValues(ctx) {
-  return [ctx.temp, ctx.high, ctx.feelsLike, ctx.precipChance, ctx.humidity, ctx.windSpeed, ctx.score]
+  return [ctx.temp, ctx.high, ctx.low, ctx.feelsLike, ctx.precipChance, ctx.humidity, ctx.windSpeed, ctx.score]
     .filter(v => v != null && !Number.isNaN(Number(v)))
     .map(v => Math.round(Number(v)));
 }
@@ -252,6 +252,12 @@ function styleProblems(text, ctx) {
     add('used the "gripe, but it\'s still fine" concession shape');
   }
   if (/\bcoffee\b/i.test(text)) add('mentioned coffee');
+  // "something's off", "feels off": a gripe with nothing in it. Oct 25's
+  // "the chill and humidity got it feeling like something's off" named two
+  // minor factors and never said what the weather was doing.
+  if (/\bsomething(?:'s|s| is| feels)?\s+(?:is\s+)?(?:off|wrong|not right)\b|\bfeel(?:s|ing)?\s+(?:so\s+|kinda\s+|a bit\s+|a little\s+)?(?:off|wrong|weird|funky)\b|\bnot it\b|\bjust\s+off\b/i.test(text)) {
+    add('complained without saying what is wrong. Say specifically what the weather is doing');
+  }
   return out;
 }
 

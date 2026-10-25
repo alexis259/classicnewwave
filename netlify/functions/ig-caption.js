@@ -38,11 +38,11 @@ RAIN LANGUAGE — calibrate intensity to the actual percentage, never oversell i
 - Overselling intensity that doesn't pan out costs credibility with the audience — when in doubt, undersell rather than oversell.
 
 TODAY:
-- Temp: ${Math.round(row.temp)}°F, high of ${Math.round(row.high)}°F, feels like ${Math.round(row.feels_like)}°F
+- Temp: ${row.low != null ? `low of ${Math.round(row.low)}°F this morning, ` : ''}${Math.round(row.temp)}°F right now, high of ${Math.round(row.high)}°F, feels like ${Math.round(row.feels_like)}°F right now
 - Condition right now: ${row.condition}
 - Rain: ${row.precip_chance}% chance at some point today${rainTiming && rainTiming !== 'now' ? ` — peaks ${rainTiming}, not happening yet` : rainTiming === 'now' ? ' — happening now' : ''}
 - Score: ${row.score}/10
-- What held the score down, biggest first: ${drivers.length ? drivers.map(d => `${d.label} (-${d.cost})`).join(', ') : 'nothing, clean day'}. If you say what is holding the day back, say the biggest one; smaller ones get a light mention or none.
+- What held the WHOLE day's score down, biggest first (includes the cooler early hours): ${drivers.length ? drivers.map(d => `${d.label} (-${d.cost})`).join(', ') : 'nothing, clean day'}. If you say what is holding the day back, say the biggest one; smaller ones get a light mention or none.
 - Today's vibe: ${row.synopsis_approved || ''}
 
 Write just the caption text.`;
@@ -77,6 +77,7 @@ Write just the caption text.`;
   const facts = {
     temp: row.temp,
     high: row.high,
+    low: row.low,
     feelsLike: row.feels_like,
     precipChance: row.precip_chance,
     humidity: row.humidity,

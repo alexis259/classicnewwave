@@ -217,6 +217,18 @@ Return only the synopsis text — no preamble, no explanation, no quotation mark
     const drivers = driversFromPenalties(penalties, { high });
     const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 
+    // The score and its deductions are frozen once the day posts (about 8am,
+    // often the coolest part), while "temp" and "feels like" keep updating.
+    // Regenerating at midday therefore paired a milder "right now" with a
+    // wind-chill deduction from the cold morning, and the writer blended them
+    // into "the chill and humidity got it feeling off". The day's low gives it
+    // the actual arc (cool start, warming up) so the two agree.
+    let low = null;
+    try {
+      const rows = await supabaseFetch(`/daily?date_key=eq.${encodeURIComponent(dateKey)}&select=low`);
+      if (rows[0] && rows[0].low != null) low = rows[0].low;
+    } catch (e) { /* non-fatal: the line is just omitted */ }
+
     const scoreTier = score >= 9 ? 'PERFECT (9-10)' : score >= 7 ? 'GOOD (7-8)' : score >= 4 ? 'MID/BLAH (4-6)' : 'BAD (1-3)';
     const extremeHeat = high >= 95 || feelsLike >= 100;
 
@@ -234,13 +246,13 @@ TODAY'S SHAPE (assigned — follow it):
 - Structure: ${shape.form}${shape.closer ? `\n- Closing move: ${shape.closer}` : ''}
 
 TODAY:
-- Temp: ${Math.round(temp)}°F${high != null ? `, high of ${Math.round(high)}°F` : ''}, feels like ${Math.round(feelsLike)}°F
+- Temp: ${low != null ? `low of ${Math.round(low)}°F this morning, ` : ''}${Math.round(temp)}°F right now${high != null ? `, high of ${Math.round(high)}°F` : ''}, feels like ${Math.round(feelsLike)}°F right now
 - Condition right now: ${condition}
 - Rain: ${precipChance}% chance at some point today${rainTiming && rainTiming !== 'now' ? ` — peaks ${rainTiming}, not happening yet` : rainTiming === 'now' ? ' — happening now' : ''}
 - Humidity: ${humidity}%
 - Wind: ${windSpeed} mph
 - Score: ${score}/10
-- What held the score down, biggest first: ${drivers.length ? drivers.map(d => `${d.label} (-${d.cost})`).join(', ') : 'nothing, clean day'}
+- What held the WHOLE day's score down, biggest first (this includes the cooler early hours, so it can describe the morning even if it's milder right now): ${drivers.length ? drivers.map(d => `${d.label} (-${d.cost})`).join(', ') : 'nothing, clean day'}
 - If you name what is holding the day back, name the biggest one. Smaller ones get a light mention or none at all.
 
 Write the synopsis.`;
@@ -276,7 +288,7 @@ Write the synopsis.`;
     // values the prompt above was given, so a number the model "knew" must be
     // one of them.
     const facts = {
-      temp, high, feelsLike, precipChance, humidity, windSpeed, score,
+      temp, high, low, feelsLike, precipChance, humidity, windSpeed, score,
       drivers, avoidTerms, recent: recentDays, now: new Date()
     };
 

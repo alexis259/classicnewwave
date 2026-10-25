@@ -19,6 +19,7 @@ function mockFetch(replies, prompts, { garbled = [], proofreads = [], proofreadF
   globalThis.fetch = async (url, opts) => {
     const u = String(url);
     const json = (body) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+    if (u.includes('date_key=eq')) return json([{ low: 46.3 }]);
     if (u.includes('/daily?')) return json(RECENT.map(s => ({ synopsis_approved: s })));
     if (u.includes('/synopsis_examples')) return json([]);
     if (u.includes('/slang_terms')) return json([]);
@@ -121,9 +122,23 @@ test("Oct 25: the model is told what held the day back, and a humidity-blaming d
     'cool start, clear all day, jacket early and you can ditch it by lunch.'
   ], prompts);
   const out = await call(OCT25);
-  assert.match(prompts[0], /biggest first: a bit cool \(-2\), some wind chill \(-1\), a lil humid \(-1\)/);
+  assert.match(prompts[0], /biggest first[^:]*: a bit cool \(-2\), some wind chill \(-1\), a lil humid \(-1\)/);
   assert.equal(out.attempts, 2);
   assert.equal(out.usedFallback, false);
   assert.equal(out.text, 'cool start, clear all day, jacket early and you can ditch it by lunch.');
   assert.match(prompts[1], /blamed the humidity/);
+});
+
+test("Oct 25 regenerate: the writer gets the day's arc, and a vague gripe is redone", async () => {
+  const prompts = [];
+  mockFetch([
+    "meh. it's 60 and clear but the chill and humidity got it feeling like something's off.",
+    'cool start at 46, clear all day, and you can drop the jacket by lunch.'
+  ], prompts);
+  const out = await call(OCT25);
+  assert.match(prompts[0], /low of 46°F this morning, 60°F right now, high of 64°F, feels like 57°F right now/);
+  assert.match(prompts[0], /WHOLE day's score/);
+  assert.equal(out.attempts, 2);
+  assert.equal(out.text, 'cool start at 46, clear all day, and you can drop the jacket by lunch.');
+  assert.match(prompts[1], /complained without saying what is wrong/);
 });
