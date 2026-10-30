@@ -611,12 +611,44 @@ function renderDailyPost(row) {
               ? `<button class="btn btn-muted" onclick="repostDaily()" id="repost-btn">↻ Re-post (override)</button>`
               : `<button class="btn btn-primary" onclick="repostDaily()" id="repost-btn">↻ Post Now</button>`
           }
+          <button class="btn btn-muted" onclick="refreshToday()" id="refresh-btn" title="Re-pull today's weather and rewrite today's high, sky and score. Does not post.">↻ Refresh data</button>
           <span class="post-feedback" id="repost-feedback"></span>
         </div>
 
       </div>
     </div>
   `;
+}
+
+// Re-pulls today's weather and rewrites today's row, including the score and
+// high that stay frozen once a day has posted. Does not post anything. Then:
+// regenerate + approve the synopsis (editorial), then Re-post.
+async function refreshToday() {
+  if (!confirm("Re-pull today's weather and rewrite today's high, sky, humidity and score?\n\nThis does not post. Afterwards, regenerate and approve the synopsis, then re-post.")) return;
+  const btn = document.getElementById('refresh-btn');
+  const fb  = document.getElementById('repost-feedback');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing…';
+  fb.className = 'post-feedback';
+  fb.textContent = '';
+  try {
+    const res = await fetch('/.netlify/functions/refresh-today', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: ADMIN_PW })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `error ${res.status}`);
+    const r = (v) => v == null ? '—' : Math.round(v);
+    fb.className = 'post-feedback ok';
+    fb.textContent = `high ${r(data.before.high)}° → ${r(data.after.high)}° · ${data.before.condition} → ${data.after.condition} · score ${data.before.score} → ${data.after.score}`;
+    setTimeout(() => loadAll(), 4000);
+  } catch (e) {
+    fb.className = 'post-feedback err';
+    fb.textContent = e.message || 'refresh failed';
+  }
+  btn.disabled = false;
+  btn.textContent = '↻ Refresh data';
 }
 
 async function repostDaily() {
