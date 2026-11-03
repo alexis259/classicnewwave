@@ -851,7 +851,7 @@
   <div class="section">
     <div class="section-header">
       <div class="section-title">IG Automation</div>
-      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">auto-post-ig.js · cron 8:00 AM EDT</div>
+      <div style="font-size:0.58rem;color:var(--muted);letter-spacing:0.1em">auto-post-ig.js · cron 8:00 AM New York</div>
     </div>
     <div class="section-body">
 
@@ -859,7 +859,7 @@
       <div class="flow">
         <div class="flow-step">
           <div class="flow-num">1</div>
-          <div class="flow-text"><strong>Cron fires</strong> — Netlify scheduled function at <code>0 12 * * *</code> UTC = 8:00 AM EDT (summer). Change to <code>0 13 * * *</code> in winter (EST).
+          <div class="flow-text"><strong>Cron fires</strong> — Netlify scheduled function at <code>0 12,13 * * *</code> UTC. Only the run that lands on 8:00 AM New York time proceeds (<code>schedule-gate.js</code>), so nothing changes at daylight saving.
             <div class="flow-sub">Also triggerable manually: POST to <code>/.netlify/functions/auto-post-ig</code> with <code>{ "password": "..." }</code></div>
           </div>
         </div>
@@ -989,8 +989,7 @@
         </tbody>
       </table>
       <div class="rule-list" style="margin-top:16px">
-        <div class="rule-item yellow"><strong>Summer UTC offsets (EDT):</strong> 7AM = <code>0 11</code> · 8AM = <code>0 12</code> · Noon = <code>0 16</code></div>
-        <div class="rule-item"><strong>Winter UTC offsets (EST):</strong> 7AM = <code>0 12</code> · 8AM = <code>0 13</code> · Noon = <code>0 17</code> — update in netlify.toml each time change</div>
+        <div class="rule-item yellow"><strong>Daylight saving:</strong> each job is scheduled at both possible UTC hours — 7AM = <code>0 11,12</code> · 8AM = <code>0 12,13</code> · Noon = <code>0 16,17</code> — and the function skips the run on the wrong New York hour (<code>schedule-gate.js</code>). Nothing to edit twice a year.</div>
         <div class="rule-item cyan">Cron auth: Netlify passes <code>{ next_run }</code> in the body — all cron functions detect this and skip password check. Manual calls from admin require <code>{ "password": "..." }</code>.</div>
       </div>
     </div>
@@ -1088,7 +1087,7 @@
           <tr>
             <td class="fn-name">auto-post-ig.js</td>
             <td class="fn-caller">Netlify cron + Admin panel</td>
-            <td>Scheduled at 7:30 AM EDT. Orchestrates: ig_posted check → graphic gen → caption gen → Meta container → waitForContainer → publish feed + story → record in Supabase.</td>
+            <td>Scheduled at 8:00 AM New York time. Orchestrates: ig_posted check → graphic gen → caption gen → Meta container → waitForContainer → publish feed + story → record in Supabase.</td>
           </tr>
           <tr>
             <td class="fn-name">generate-synopsis.js</td>
@@ -1117,7 +1116,7 @@
           </tr>
           <tr>
             <td class="fn-name">check-forecast.js</td>
-            <td class="fn-caller">Netlify cron (7AM EDT)</td>
+            <td class="fn-caller">Netlify cron (7AM New York)</td>
             <td>Scans OWM 5-day/3-hour forecast. Detects upcoming extremes: extreme heat/cold, heat wave (3+ days ≥ 90°F), cold snap (3+ days ≤ 32°F), major storm. Deduplicates and writes to <code>forecast_alerts</code> table.</td>
           </tr>
           <tr>
@@ -1127,7 +1126,7 @@
           </tr>
           <tr>
             <td class="fn-name">auto-post-alert.js</td>
-            <td class="fn-caller">Netlify cron (noon EDT) + Admin panel</td>
+            <td class="fn-caller">Netlify cron (noon New York) + Admin panel</td>
             <td>Checks today's <code>alert_flag</code>. If set and not yet posted: generates advisory copy + IG caption via Claude Haiku, renders alert card, uploads to Supabase storage, publishes to Instagram. Optimistic lock prevents duplicate cron posts.</td>
           </tr>
           <tr>

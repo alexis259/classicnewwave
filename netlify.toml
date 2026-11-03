@@ -7,29 +7,33 @@
   node_bundler = "esbuild"
   external_node_modules = ["@napi-rs/canvas"]
 
-# ── IG PROGRAMMING SCHEDULE (all times NYC / EDT = UTC-4 in summer) ──────────
+# ── IG PROGRAMMING SCHEDULE (all times NYC) ──────────────────────────────────
 # Slot 1 — 7:00 AM  — check-forecast    — scan 5-day forecast, write alert flags
 # Slot 2 — 8:00 AM  — auto-post-ig      — daily rating card (carousel or weekly)
 # Slot 3 — 12:00 PM — auto-post-alert   — weather alert card (only if flagged)
 # Slot 4 — every 30m — check-nws-alerts — poll NWS API, post immediately on critical events
 # Add new slots below as programming expands.
-# Summer (EDT): subtract 4h from NYC time to get UTC  → e.g. noon = "0 16 * * *"
-# Winter (EST): subtract 5h from NYC time to get UTC  → e.g. noon = "0 17 * * *"
+#
+# Cron is UTC, and New York is UTC-4 (EDT) in summer and UTC-5 (EST) in winter.
+# Nothing here is edited at daylight saving. Each job is scheduled at BOTH
+# possible UTC hours, and the function itself (schedule-gate.js) skips the run
+# that lands on the wrong New York hour. To add a slot for NYC hour H, schedule
+# "0 {H+4},{H+5} * * *" and call shouldSkipCron(event, H) at the top of the handler.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [functions."check-forecast"]
-  # Slot 1 — 7:00 AM EDT
-  schedule = "0 11 * * *"
+  # Slot 1 — 7:00 AM NYC (11:00 UTC in EDT, 12:00 UTC in EST)
+  schedule = "0 11,12 * * *"
 
 [functions."auto-post-ig"]
-  # Slot 2 — 8:00 AM EDT. Change to "0 13 * * *" in winter (EST)
-  schedule = "0 12 * * *"
+  # Slot 2 — 8:00 AM NYC (12:00 UTC in EDT, 13:00 UTC in EST)
+  schedule = "0 12,13 * * *"
   background = true
   included_files = ["netlify/functions/fonts/**", "netlify/functions/assets/**"]
 
 [functions."auto-post-alert"]
-  # Slot 3 — 12:00 PM EDT. Change to "0 17 * * *" in winter (EST)
-  schedule = "0 16 * * *"
+  # Slot 3 — 12:00 PM NYC (16:00 UTC in EDT, 17:00 UTC in EST)
+  schedule = "0 16,17 * * *"
   background = true
   included_files = ["netlify/functions/fonts/**"]
 

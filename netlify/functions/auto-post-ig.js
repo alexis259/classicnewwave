@@ -1,9 +1,10 @@
 // netlify/functions/auto-post-ig.js
 // Posts today's story graphic to Instagram (feed + story) via Meta Graph API
-// Triggered by Netlify scheduled cron at 7:30 AM ET, or manually from admin panel
+// Triggered by Netlify scheduled cron at 8:00 AM New York time (see schedule-gate.js), or manually from admin panel
 
 const { generateAndUpload } = require('./generate-ig-graphic');
 const { generateCaption } = require('./ig-caption');
+const { shouldSkipCron } = require('./schedule-gate');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -134,6 +135,12 @@ exports.handler = async (event) => {
     }
   }
 
+  // Cron is scheduled at both UTC hours that could be 8am New York; only the one
+  // that is actually 8am proceeds, so this stays correct across daylight saving.
+  if (shouldSkipCron(event, 8, 'auto-post-ig')) {
+    return { statusCode: 200, headers, body: JSON.stringify({ skipped: true, reason: 'Not 8am New York time' }) };
+  }
+
   // Guard: skip without Meta credentials — safe to deploy before creds are ready
   if (!META_IG_USER_ID || !META_PAGE_ACCESS_TOKEN) {
     console.log('auto-post-ig: Meta credentials not configured — skipping');
@@ -179,6 +186,14 @@ exports.handler = async (event) => {
     // Determine template type: weekly on Mondays, daily otherwise
     const nycDay = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long' }).format(new Date());
     const templateType = nycDay === 'Monday' ? 'weekly' : 'daily';
+
+    // A post with no synopsis is worse than a late one. The force-refresh above
+    // generates it (from 8am New York on); if that didn't produce one, fail BEFORE
+    // claiming the post so Netlify's own retry (1 min, then 2 min) can try again.
+    if (isCron && !row.ig_posted && !String(row.synopsis_approved || '').trim()) {
+      console.error('auto-post-ig: no synopsis after refresh — not posting; failing so Netlify retries');
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'No synopsis available yet' }) };
+    }
 
     // Cron: skip if already posted (guards against at-least-once delivery duplicates)
     // Manual admin post: always allow — password already gates access

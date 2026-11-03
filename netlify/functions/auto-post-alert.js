@@ -9,6 +9,7 @@
 
 const { drawAlertCard } = require('./trigger-alert');
 const { generateAlertCopy } = require('./alert-copy');
+const { shouldSkipCron } = require('./schedule-gate');
 
 const SUPABASE_URL    = process.env.SUPABASE_URL;
 const SUPABASE_KEY    = process.env.SUPABASE_SERVICE_KEY;
@@ -87,6 +88,11 @@ async function postToIG(imageUrl, caption) {
 // ── HANDLER ──
 
 exports.handler = async (event) => {
+  // Scheduled at both UTC hours that could be noon New York; see schedule-gate.js
+  if (shouldSkipCron(event, 12, 'auto-post-alert')) {
+    return { statusCode: 200, body: JSON.stringify({ skipped: 'not noon New York time' }) };
+  }
+
   const dateKey = toNYCDateKey(new Date());
 
   // Auth: Netlify cron sends { next_run } in body — skip password check

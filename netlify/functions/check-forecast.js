@@ -1,7 +1,9 @@
 // netlify/functions/check-forecast.js
-// Scheduled daily at 7AM NYC (11:00 UTC summer / 12:00 UTC winter)
+// Scheduled daily at 7AM NYC (runs at both 11:00 and 12:00 UTC; schedule-gate.js keeps the right one)
 // Scans OWM 5-day forecast for alert-worthy upcoming conditions
 // Results stored in Supabase forecast_alerts table for admin panel display
+
+const { shouldSkipCron } = require('./schedule-gate');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
@@ -26,7 +28,11 @@ async function supabaseFetch(path, options = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-exports.handler = async () => {
+exports.handler = async (event) => {
+  // Scheduled at both UTC hours that could be 7am New York; see schedule-gate.js
+  if (shouldSkipCron(event, 7, 'check-forecast')) {
+    return { statusCode: 200, body: JSON.stringify({ skipped: 'not 7am New York time' }) };
+  }
   try {
     // Fetch OWM 5-day / 3-hour forecast
     const res = await fetch(
