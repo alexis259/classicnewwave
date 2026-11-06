@@ -3,6 +3,7 @@
 
 const { createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas');
 const path = require('path');
+const { hairStatusForRow } = require('./hair');
 const fs = require('fs');
 
 const W = 1080, H = 1350;
@@ -67,29 +68,6 @@ function outfitItems(temp, rain) {
   else if (temp < 42) pieces.push('BEANIE');
   if (rain > 30) pieces.push('UMBRELLA');
   return pieces;
-}
-
-function getHairStatus(humidity, rain) {
-  if (humidity >= 85 || rain > 60) return { level: 'SILK PRESS WARNING',  color: '#E8C500', sub: 'PROCEED AT YOUR OWN RISK.', rec: 'PUFF  •  BRAIDS  •  BUN' };
-  if (humidity >= 75 || rain > 40) return { level: 'HIGH HUMIDITY ALERT', color: '#E88000', sub: 'MONITOR CLOSELY.',          rec: 'WASH & GO  •  PROTECTIVE STYLE' };
-  if (humidity >= 65 || rain > 25) return { level: 'MODERATE RISK',       color: '#C8A000', sub: 'PROCEED WITH CAUTION.',     rec: 'ANTI-HUMIDITY SPRAY  •  BRAID OUT' };
-  if (humidity >= 55)              return { level: 'LOW RISK',             color: '#88AA40', sub: 'FRIZZ POSSIBLE.',           rec: 'SILK PRESS  •  WASH & GO' };
-  return                                   { level: 'GOOD HAIR DAY',       color: '#5AAA40', sub: "YOU'RE GOOD.",              rec: 'SILK PRESS  •  BLOWOUT  •  ANY STYLE' };
-}
-
-function getHairIconFile(humidity, rain) {
-  if (rain > 60 || humidity >= 85) return 'cornrows.png';    // SILK PRESS WARNING → go protective
-  if (rain > 40 || humidity >= 75) return 'afro-puff.png';   // HIGH HUMIDITY ALERT → protective
-  if (rain > 25 || humidity >= 65) return 'silk-press.png';  // MODERATE RISK → silk press at risk
-  return 'wash-and-go.png';                                   // LOW RISK / GOOD HAIR DAY
-}
-
-// Returns 3 icons for the full hair graphic panel
-function getHairIconFilesForDisplay(humidity, rain) {
-  if (rain > 60 || humidity >= 80) return ['cornrows.png', 'bantu-knots.png', 'afro-puff.png'];
-  if (rain > 40 || humidity >= 70) return ['afro-puff.png', 'wash-and-go.png', 'bantu-knots.png'];
-  if (rain > 25 || humidity >= 55) return ['wash-and-go.png', 'afro-puff.png', 'silk-press.png'];
-  return ['silk-press.png', 'wash-and-go.png', 'afro-puff.png'];
 }
 
 function getOutsideMeter(score) {
@@ -804,22 +782,12 @@ async function drawDailySlide2(row) {
   const high = Math.round(row.high ?? row.temp);
   const s2   = getSlide2Colors(high, rain);
 
-  // Hair level + copy
-  let alertLevel, proceedText, recText;
-  if (hum >= 85 || rain > 60) {
-    alertLevel = 'SILK PRESS WARNING';  proceedText = 'PROCEED AT YOUR OWN RISK.';  recText = 'PUFF  ·  BRAIDS  ·  BUN';
-  } else if (hum >= 75 || rain > 40) {
-    alertLevel = 'HIGH HUMIDITY ALERT'; proceedText = 'MONITOR CLOSELY.';            recText = 'WASH & GO  ·  PROTECTIVE STYLE';
-  } else if (hum >= 65 || rain > 25) {
-    alertLevel = 'MODERATE RISK';       proceedText = 'PROCEED WITH CAUTION.';       recText = 'ANTI-HUMIDITY SPRAY  ·  BRAID OUT';
-  } else if (hum >= 55) {
-    alertLevel = 'LOW RISK';            proceedText = 'FRIZZ POSSIBLE.';             recText = 'SILK PRESS  ·  WASH & GO';
-  } else {
-    alertLevel = 'GOOD HAIR DAY';       proceedText = "YOU'RE GOOD.";                recText = 'SILK PRESS  ·  BLOWOUT  ·  ANY STYLE';
-  }
+  // Hair level + copy (shared with the site and the other templates: hair.js)
+  const hair = hairStatusForRow(row);
+  const alertLevel = hair.level, proceedText = hair.sub, recText = hair.rec;
 
-  // Hair icons (3 files from existing helper)
-  const hairIconFiles = getHairIconFilesForDisplay(hum, rain);
+  // Hair icons
+  const hairIconFiles = hair.icons;
   const hairIconImgs  = await Promise.all(hairIconFiles.map(async f => {
     try { return await loadImage(path.join(__dirname, `assets/${f}`)); } catch { return null; }
   }));
@@ -962,8 +930,8 @@ async function drawWeekly(row) {
   const score = row.score;
   const synopsis = row.synopsis_approved || '';
   const outfit = outfitItems(high, row.precip_chance);
-  const hair = getHairStatus(row.humidity, row.precip_chance);
-  const hairIconFiles = getHairIconFilesForDisplay(row.humidity, row.precip_chance);
+  const hair = hairStatusForRow(row);
+  const hairIconFiles = hair.icons;
   const hairIconImgs  = await Promise.all(hairIconFiles.map(async f => {
     try { return await loadImage(path.join(__dirname, `assets/${f}`)); } catch { return null; }
   }));
@@ -1329,21 +1297,12 @@ async function drawAlert(row) {
 // 8:Blowout       9:Afro       10:Twist Out             11:Bantu Knots
 // 12:Locs         13:Loc Bun   14:Curly Fro             15:Wash-and-Go
 
-function getHairIconIndices(hair) {
-  const level = hair.level;
-  if (level === 'SILK PRESS WARNING')  return [0, 3, 5];   // Natural Puff, Box Braids, High Bun
-  if (level === 'HIGH HUMIDITY ALERT') return [15, 4, 11]; // Wash-and-Go, Cornrows, Bantu Knots
-  if (level === 'MODERATE RISK')       return [10, 4, 3];  // Twist Out, Cornrows, Box Braids
-  if (level === 'LOW RISK')            return [7, 10, 14]; // Silk Press, Twist Out, Curly Fro
-  return [7, 8, 14]; // GOOD HAIR DAY: Silk Press, Blowout, Curly Fro
-}
-
 // ── TEMPLATE 4: HAIR FORECAST ──
 
 async function drawHair(row) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
-  const hair = getHairStatus(row.humidity, row.precip_chance);
+  const hair = hairStatusForRow(row);
   const humidity = row.humidity || 0;
 
   // Load assets (graceful fallback if missing)
@@ -1533,7 +1492,7 @@ async function drawHair(row) {
   wrapText(ctx, hair.rec, CX, ALT_Y + 44, icnAreaX - CX - 20, 30, 2);
 
   // Hair icons — individual PNGs (already have transparent backgrounds)
-  const hairIconFiles = getHairIconFilesForDisplay(row.humidity, row.precip_chance);
+  const hairIconFiles = hair.icons;
   const loadedHairImgs = await Promise.all(
     hairIconFiles.map(async f => { try { return await loadImage(path.join(__dirname, `assets/${f}`)); } catch { return null; } })
   );
@@ -1697,7 +1656,7 @@ async function drawDashboard(row) {
   const score = row.score;
   const synopsis = row.synopsis_approved || '';
   const outfit = outfitItems(high, row.precip_chance);
-  const hair = getHairStatus(row.humidity, row.precip_chance);
+  const hair = hairStatusForRow(row);
   const meter = getOutsideMeter(score);
   const forecast = Array.isArray(row.forecast) ? row.forecast.slice(0, 5) : [];
   const scoreLabel = score >= 8 ? 'A PERFECT DAY' : score >= 6 ? 'A SOLID DAY' : score >= 4 ? 'PROCEED WITH CAUTION' : score >= 2 ? 'ROUGH ONE OUT THERE' : 'STAY HOME TODAY';

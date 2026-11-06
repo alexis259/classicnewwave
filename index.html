@@ -521,7 +521,17 @@ function getHairIconFile(humidity, rain) {
 }
 
 // Hair level colors mirror --hair-* tokens in :root
-const HAIR_COLORS = { warn: '#cc2200', alert: '#cc6600', mod: '#aa8800', low: '#88aa44', good: '#22aa44' };
+const HAIR_COLORS = { warn: '#cc2200', alert: '#cc6600', mod: '#aa8800', low: '#88aa44', good: '#22aa44', dry: '#3a86b4' };
+const HAIR_TIER_COLORS = { silk: HAIR_COLORS.warn, high: HAIR_COLORS.alert, moderate: HAIR_COLORS.mod, low: HAIR_COLORS.low, good: HAIR_COLORS.good, dry: HAIR_COLORS.dry };
+
+// The hair forecast is computed once on the server (netlify/functions/hair.js)
+// from the dew point, and arrives as data.hair. The humidity PERCENTAGE is still
+// what's shown; only the rating behind it changed. The old relative-humidity
+// functions below are kept as a fallback in case the server field is missing.
+function hairFromServer(h, humidity) {
+  const sentence = (t) => { const x = String(t || '').toLowerCase(); return x.charAt(0).toUpperCase() + x.slice(1); };
+  return { level: `${h.level}.`, humidity: `Humidity: ${humidity}%`, sub: sentence(h.sub), color: HAIR_TIER_COLORS[h.tier] || HAIR_COLORS.good, icon: h.icon };
+}
 
 function getHairStatus(humidity, rain) {
   if (rain >= 70 || humidity >= 85) return { level: 'SILK PRESS WARNING.',  humidity: `Humidity: ${humidity}%`, sub: 'Proceed at your own risk.',      color: HAIR_COLORS.warn };
@@ -621,9 +631,9 @@ function render(data) {
     outfit.map(i => `<span class="fit-pill">${i}</span>`).join('');
 
   // Hair
-  const hair = getHairStatus(data.humidity ?? 50, precip);
+  const hair = data.hair && data.hair.level ? hairFromServer(data.hair, data.humidity ?? 50) : getHairStatus(data.humidity ?? 50, precip);
   const hairIconEl = document.getElementById('hair-icon');
-  hairIconEl.src = `/assets/hair/${getHairIconFile(data.humidity ?? 50, precip)}`;
+  hairIconEl.src = `/assets/hair/${hair.icon || getHairIconFile(data.humidity ?? 50, precip)}`;
   hairIconEl.alt = hair.level;
   document.getElementById('hair-level').textContent    = hair.level;
   document.getElementById('hair-level').style.color    = hair.color;

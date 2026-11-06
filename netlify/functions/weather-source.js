@@ -5,6 +5,7 @@
 // (the daily refresh) and refresh-today (the manual correction).
 
 const { fetchNWS, summarizeNWS, mergeNWS } = require('./nws');
+const { dewPointF } = require('./scoring');
 
 const OWM_KEY = process.env.OWM_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -164,6 +165,15 @@ async function fetchFreshWeather() {
     used_nws_condition: used.condition,
     owm_data_age_min: owm._owmDataAgeMin
   });
+
+  // The dew point rides along in today's forecast entry (a JSON column, so no
+  // schema change). get-daily pins it there when humidity is locked after the
+  // post, so the hair forecast keeps using a temperature and humidity that were
+  // measured together (see hair.js).
+  const dew = dewPointF(weather.temp, weather.humidity);
+  if (dew != null && Array.isArray(weather.forecast)) {
+    weather.forecast = weather.forecast.map(f => f.dateKey === todayKey ? { ...f, dew: Math.round(dew * 10) / 10 } : f);
+  }
 
   delete weather._owmDataAgeMin;
   return weather;

@@ -3,6 +3,7 @@
 // Front end calls this instead of OpenWeatherMap directly
 
 const { scoreWeather } = require('./scoring');
+const { hairStatusForRow, dewPointForRow } = require('./hair');
 const { fetchFreshWeather, detectAlert, toNYCDateKey } = require('./weather-source');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
@@ -119,6 +120,17 @@ async function maybeAutoGenerate(row, dateKey, rainTiming = null) {
   }
 }
 
+// The hair forecast is computed here, once, from the stored row (see hair.js),
+// and sent along with it. Not stored: it's derived, and the site just renders it.
+function withHair(row) {
+  try {
+    return { ...row, hair: hairStatusForRow(row) };
+  } catch (e) {
+    console.error('hair status failed (site falls back to its own):', e.message);
+    return row;
+  }
+}
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -141,7 +153,7 @@ exports.handler = async (event) => {
 
       if (!stale) {
         const finalRow = await maybeAutoGenerate(row, dateKey);
-        return { statusCode: 200, headers, body: JSON.stringify(finalRow) };
+        return { statusCode: 200, headers, body: JSON.stringify(withHair(finalRow)) };
       }
 
       // Row is older than 3 hours — refresh weather from OWM
@@ -173,7 +185,13 @@ exports.handler = async (event) => {
         // freshly computed from THIS fetch — pin it back to the frozen
         // value so the forecast strip can't disagree with the locked headline.
         const todayForecast = refreshed.forecast.find(f => f.dateKey === dateKey);
-        if (todayForecast) todayForecast.rain = row.precip_chance;
+        if (todayForecast) {
+          todayForecast.rain = row.precip_chance;
+          // Same for the dew point: it goes with the frozen humidity, not with
+          // this fetch's newer temperature.
+          const frozenDew = dewPointForRow(row);
+          if (frozenDew != null) todayForecast.dew = Math.round(frozenDew * 10) / 10;
+        }
       }
 
       // Once the day's post is out, its score, penalties and high are frozen —
@@ -199,7 +217,7 @@ exports.handler = async (event) => {
       const finalRow = await maybeAutoGenerate(mergedRow, dateKey, weather.rainTiming);
       // rain_timing is ephemeral — computed from this fetch only, never persisted
       // (no matching Supabase column), so it's attached here, after the PATCH.
-      return { statusCode: 200, headers, body: JSON.stringify({ ...finalRow, rain_timing: weather.rainTiming }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ ...withHair(finalRow), rain_timing: weather.rainTiming }) };
     }
 
     // No data yet — fetch fresh from OWM
@@ -237,7 +255,7 @@ exports.handler = async (event) => {
 
     const insertedRow = Array.isArray(inserted) ? inserted[0] : row;
     const finalRow = await maybeAutoGenerate(insertedRow, dateKey, weather.rainTiming);
-    return { statusCode: 200, headers, body: JSON.stringify({ ...finalRow, rain_timing: weather.rainTiming }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ ...withHair(finalRow), rain_timing: weather.rainTiming }) };
 
   } catch (err) {
     console.error('get-daily error:', err);
