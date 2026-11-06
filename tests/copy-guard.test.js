@@ -302,3 +302,18 @@ test('style: a gripe with nothing in it is flagged; specific complaints are not'
     assert.ok(!g.styleProblems(t, ctx).some(p => /complained/.test(p.msg)), t);
   }
 });
+
+test('humidity talk is rejected when the dew point says the air is comfortable, allowed when it is not', () => {
+  const comfy = { ...ctx, humidity: 86, dewPoint: 54 };
+  for (const t of ["the humidity's got the air feeling heavy", 'muggy morning', 'a little humid out there', 'sticky start']) {
+    assert.ok(types(g.dataClaimProblems(t, comfy)).includes('claim'), t);
+  }
+  for (const t of ['cool start, clear all day', 'jacket early, shed it by lunch']) {
+    assert.deepEqual(g.dataClaimProblems(t, comfy), [], t);
+  }
+  const muggy = { ...ctx, humidity: 80, dewPoint: 68 };
+  assert.deepEqual(g.dataClaimProblems('muggy and heavy out there', muggy), []);
+  // "dry" follows the dew point too: 86% RH at dew 54 is not humid air
+  assert.deepEqual(g.dataClaimProblems("it's dry and cool", comfy), []);
+  assert.ok(types(g.dataClaimProblems("it's dry out", muggy)).includes('claim'));
+});

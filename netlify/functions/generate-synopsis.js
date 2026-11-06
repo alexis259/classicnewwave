@@ -4,7 +4,7 @@
 const { getSlang } = require('./slang');
 const { MAX_SYNOPSIS_LEN, checkSynopsis, generateChecked, trimToLength, stripDashes } = require('./copy-guard');
 const { pickShape } = require('./synopsis-shape');
-const { driversFromPenalties } = require('./scoring');
+const { driversFromPenalties, dewPointF, airFeel } = require('./scoring');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -215,6 +215,18 @@ Match language strength to the actual rain %, never overstate it — overselling
 Return only the synopsis text — no preamble, no explanation, no quotation marks.`;
 
     const drivers = driversFromPenalties(penalties, { high });
+
+    // Relative humidity misleads in cool weather (86% at 57 degrees feels fine),
+    // and the writer was calling it out nearly every day. Tell it how the air
+    // actually feels (dew point) and to stay quiet about humidity unless that's
+    // a real factor.
+    const dewPoint = dewPointF(temp, humidity);
+    const feel = airFeel(dewPoint);
+    const airLine = dewPoint == null
+      ? `Humidity: ${humidity}%`
+      : feel === 'comfortable'
+        ? `Air: comfortable (dew point ${Math.round(dewPoint)}°F). The humidity reads ${humidity}% but that number is misleading in cool air. Do not mention humidity at all`
+        : `Air: ${feel} (dew point ${Math.round(dewPoint)}°F, humidity ${humidity}%). Mention it only if it matters to the day`;
     const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 
     // The score and its deductions are frozen once the day posts (about 8am,
@@ -249,7 +261,7 @@ TODAY:
 - Temp: ${low != null ? `low of ${Math.round(low)}°F this morning, ` : ''}${Math.round(temp)}°F right now${high != null ? `, high of ${Math.round(high)}°F` : ''}, feels like ${Math.round(feelsLike)}°F right now
 - Condition right now: ${condition}
 - Rain: ${precipChance}% chance at some point today${rainTiming && rainTiming !== 'now' ? ` — peaks ${rainTiming}, not happening yet` : rainTiming === 'now' ? ' — happening now' : ''}
-- Humidity: ${humidity}%
+- ${airLine}
 - Wind: ${windSpeed} mph
 - Score: ${score}/10
 - What held the WHOLE day's score down, biggest first (this includes the cooler early hours, so it can describe the morning even if it's milder right now): ${drivers.length ? drivers.map(d => `${d.label} (-${d.cost})`).join(', ') : 'nothing, clean day'}
@@ -289,7 +301,7 @@ Write the synopsis.`;
     // one of them.
     const facts = {
       temp, high, low, feelsLike, precipChance, humidity, windSpeed, score,
-      drivers, avoidTerms, recent: recentDays, now: new Date()
+      drivers, dewPoint, avoidTerms, recent: recentDays, now: new Date()
     };
 
     // What ships if every attempt contains a factual or calendar error:

@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 
 const RECENT = [
   "THE WIND'S SHARP BUT THE SKY'S CLEAN AND WE'RE CLIMBING TO 65—THIS HITS DIFFERENT FR.",
-  "49 to 65 and we're climbing out of the cold-humidity's there but it's dry and that's what matters.",
+  "49 to 65 and we're climbing out of the cold-breeze's there but it's clear and that's what matters.",
   "WIND'S MAKING 43 FEEL LIKE 36...BUNDLE UP BUT IT CLEARS OUT NICE BY AFTERNOON."
 ];
 
@@ -76,7 +76,7 @@ test('a draft that repeats recent days is rejected and redone in a different sha
 
 // Oct 19's real draft, with its numbers swapped for today's mocked data so the
 // number check doesn't reject it first — the point here is the proofreader.
-const OCT19 = "60 to 63 and we're climbing out of the cold-humidity's there but it's dry and that's what matters.";
+const OCT19 = "60 to 63 and we're climbing out of the cold-breeze's there but it's clear and that's what matters.";
 
 test('a garbled draft is rejected by the proofreader and redone', async () => {
   const prompts = [], proofreads = [];
@@ -85,7 +85,7 @@ test('a garbled draft is rejected by the proofreader and redone', async () => {
   assert.equal(out.attempts, 2);
   assert.equal(out.text, 'jacket weather. 63 and clear, wind has opinions.');
   assert.match(prompts[1], /garbled/);
-  assert.ok(!prompts[1].includes('cold-humidity'));
+  assert.ok(!prompts[1].includes('cold-breeze'));
 });
 
 test('proofreader is skipped for a draft the rules already rejected', async () => {
@@ -141,4 +141,29 @@ test("Oct 25 regenerate: the writer gets the day's arc, and a vague gripe is red
   assert.equal(out.attempts, 2);
   assert.equal(out.text, 'cool start at 46, clear all day, and you can drop the jacket by lunch.');
   assert.match(prompts[1], /complained without saying what is wrong/);
+});
+
+const OCT30 = { temp: 57.65, high: 63.59, feelsLike: 57.16, condition: 'broken clouds', precipChance: 0, humidity: 86, windSpeed: 8, score: 5, penalties: ['a bit cool', 'overcast'] };
+
+test("Oct 30: 86% humidity at 57 degrees is a comfortable-air day, so the writer is told to leave it out and a humidity draft is redone", async () => {
+  const prompts = [];
+  mockFetch([
+    "bring layers, the humidity's got the air feeling heavier than the temp says it should. 64 at best and clouds all day.",
+    'bring layers, 64 at best and clouds all day.'
+  ], prompts);
+  const out = await call(OCT30);
+  assert.match(prompts[0], /Air: comfortable \(dew point 53°F\)/);
+  assert.match(prompts[0], /Do not mention humidity at all/);
+  assert.equal(out.attempts, 2);
+  assert.equal(out.text, 'bring layers, 64 at best and clouds all day.');
+  assert.match(prompts[1], /dew point is 53/);
+});
+
+test('a genuinely muggy day still gets to talk about it', async () => {
+  const prompts = [];
+  mockFetch(["muggy and heavy out there, 84 and swampy."], prompts);
+  const out = await call({ temp: 82, high: 84, feelsLike: 90, condition: 'few clouds', precipChance: 10, humidity: 85, windSpeed: 4, score: 5, penalties: ['humid & heavy'] });
+  assert.match(prompts[0], /Air: heavy and muggy \(dew point 77°F, humidity 85%\)/);
+  assert.equal(out.attempts, 1);
+  assert.equal(out.text, 'muggy and heavy out there, 84 and swampy.');
 });

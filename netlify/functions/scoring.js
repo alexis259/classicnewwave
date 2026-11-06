@@ -12,6 +12,31 @@
 // the single place the thresholds live (admin.html keeps an offline fallback
 // copy that is not used when Supabase has a score).
 
+// Relative humidity is a bad measure of how the air feels: cold air reads high
+// (86% at 57 degrees is comfortable), warm air reads lower (60% at 85 is
+// swampy). The dew point is what you actually feel, and it barely moves over a
+// day while RH swings, so a cool 8am reading no longer costs a day points for
+// "humidity" that has burned off by afternoon. Over Sep 15 - Nov 3, 2026 the old
+// RH rule docked humidity points on 38 of 60 days; the dew point does on 20.
+function dewPointF(tempF, rh) {
+  if (tempF == null || rh == null || !(rh > 0) || Number.isNaN(Number(tempF))) return null;
+  const a = 17.62, b = 243.12; // Magnus formula
+  const c = (Number(tempF) - 32) * 5 / 9;
+  const g = Math.log(rh / 100) + a * c / (b + c);
+  return (b * g / (a - g)) * 9 / 5 + 32;
+}
+
+const HUMID_DEW = 62;      // starts to feel sticky
+const OPPRESSIVE_DEW = 70; // heavy
+
+// Plain-language band for the copy writers.
+function airFeel(dew) {
+  if (dew == null) return null;
+  if (dew >= OPPRESSIVE_DEW) return 'heavy and muggy';
+  if (dew >= HUMID_DEW) return 'a little humid';
+  return 'comfortable';
+}
+
 function scoreBreakdown(w) {
   const items = [];
   const take = (driver, label, cost) => items.push({ driver, label, cost });
@@ -39,8 +64,11 @@ function scoreBreakdown(w) {
   else if (w.precipChance > 45) take('rain', 'real rain chance', 2);
   else if (w.precipChance > 20) take('rain', 'light rain possible', 1);
 
-  if (w.humidity > 80)      take('humidity', 'humid & heavy', 2);
-  else if (w.humidity > 70) take('humidity', 'a lil humid', 1);
+  const dew = dewPointF(w.temp, w.humidity);
+  if (dew != null) {
+    if (dew >= OPPRESSIVE_DEW)  take('humidity', 'humid & heavy', 2);
+    else if (dew >= HUMID_DEW)  take('humidity', 'a lil humid', 1);
+  }
 
   const condDesc = (w.condition || '').toLowerCase();
   if ((condDesc === 'broken clouds' || condDesc === 'overcast clouds') && w.precipChance < 20) {
@@ -71,7 +99,7 @@ for (const w of [
 for (const w of [
   { temp: 70, feelsLike: 66 }, { temp: 70, feelsLike: 62 }, { temp: 70, feelsLike: 55 },
   { precipChance: 30 }, { precipChance: 50 }, { precipChance: 80 },
-  { humidity: 75 }, { humidity: 85 }, { condition: 'overcast clouds' }
+  { temp: 75, feelsLike: 75, humidity: 66 }, { temp: 85, feelsLike: 85, humidity: 80 }, { condition: 'overcast clouds' }
 ]) {
   for (const i of scoreBreakdown({ high: 75, temp: 70, feelsLike: 70, precipChance: 0, humidity: 0, condition: '', ...w })) {
     if (i.label) LABEL_INFO[i.label] = i;
@@ -91,4 +119,4 @@ function driversFromPenalties(labels, { high } = {}) {
   return items.sort((a, b) => b.cost - a.cost);
 }
 
-module.exports = { scoreBreakdown, scoreWeather, driversFromPenalties, LABEL_INFO };
+module.exports = { scoreBreakdown, scoreWeather, driversFromPenalties, dewPointF, airFeel, HUMID_DEW, OPPRESSIVE_DEW, LABEL_INFO };

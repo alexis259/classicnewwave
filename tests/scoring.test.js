@@ -4,7 +4,7 @@
 // agree with the deductions it actually makes.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { scoreWeather, scoreBreakdown, driversFromPenalties, LABEL_INFO } = require('../netlify/functions/scoring.js');
+const { scoreWeather, scoreBreakdown, driversFromPenalties, dewPointF, airFeel, LABEL_INFO } = require('../netlify/functions/scoring.js');
 
 // Verbatim copy of the pre-refactor implementation from get-daily.js.
 function legacyScoreWeather(w) {
@@ -67,10 +67,13 @@ function* grid() {
   }
 }
 
-test('scoring.js matches the old scoreWeather on 30k+ inputs and every band edge', () => {
+// Humidity is the one deliberate change (dew point instead of relative humidity,
+// below), so this pins everything ELSE to the old behaviour by zeroing it.
+test('scoring.js matches the old scoreWeather on 30k+ inputs and every band edge (humidity aside)', () => {
   let n = 0;
   for (const w of grid()) {
-    assert.deepEqual(scoreWeather(w), legacyScoreWeather(w), JSON.stringify(w));
+    const noHum = { ...w, humidity: 0 };
+    assert.deepEqual(scoreWeather(noHum), legacyScoreWeather(noHum), JSON.stringify(w));
     n++;
   }
   assert.ok(n > 30000);
@@ -96,4 +99,38 @@ test('Oct 25: cool temps outrank humidity', () => {
 test('unknown or missing labels do not throw', () => {
   assert.deepEqual(driversFromPenalties(undefined), []);
   assert.equal(driversFromPenalties(['something new'])[0].cost, 1);
+});
+
+test('dew point: known values', () => {
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 0.6, `${a} vs ${b}`);
+  near(dewPointF(57.65, 86), 53.5);
+  near(dewPointF(85, 60), 69.6);
+  near(dewPointF(70, 50), 50.5);
+  assert.equal(dewPointF(null, 50), null);
+  assert.equal(dewPointF(60, 0), null);
+  assert.equal(dewPointF(60, undefined), null);
+});
+
+test('humidity is judged by how the air feels (dew point), not by the percentage', () => {
+  const pen = (temp, humidity) => scoreBreakdown({ high: 75, temp, feelsLike: temp, precipChance: 0, humidity, condition: '' })
+    .filter(i => i.driver === 'humidity').map(i => i.label);
+  // Real days from this fall: the old rule docked these; the air was comfortable.
+  assert.deepEqual(pen(57.65, 86), []);   // Oct 30, 8am: 86% RH, dew point 54
+  assert.deepEqual(pen(52.3, 82), []);    // Nov 3
+  assert.deepEqual(pen(58.1, 88), []);    // Sep 26
+  assert.deepEqual(pen(63.5, 73), []);    // Nov 2
+  // Genuinely sticky or muggy days still count.
+  assert.deepEqual(pen(65.6, 92), ['a lil humid']);   // Oct 12, dew 63
+  assert.deepEqual(pen(75, 80), ['a lil humid']);     // dew 68
+  assert.deepEqual(pen(84, 87), ['humid & heavy']);   // Oct 2, dew 80
+  assert.deepEqual(pen(78.5, 82), ['humid & heavy']); // Sep 17, dew 72.6
+  // And a dry-looking percentage in heat can still be muggy.
+  assert.deepEqual(pen(90, 60), ['humid & heavy']);   // dew 75
+});
+
+test('air feel bands', () => {
+  assert.equal(airFeel(dewPointF(57, 86)), 'comfortable');
+  assert.equal(airFeel(dewPointF(75, 66)), 'a little humid');
+  assert.equal(airFeel(dewPointF(85, 80)), 'heavy and muggy');
+  assert.equal(airFeel(null), null);
 });

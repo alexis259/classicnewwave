@@ -6,7 +6,7 @@
 
 const { getSlang } = require('./slang');
 const { checkCaption, generateChecked, stripDashes } = require('./copy-guard');
-const { driversFromPenalties } = require('./scoring');
+const { driversFromPenalties, dewPointF, airFeel } = require('./scoring');
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
@@ -16,6 +16,11 @@ async function generateCaption(row, rainTiming = null) {
   const { block: slangBlock, rule: slangRule, avoid: avoidTerms } = await getSlang();
 
   const drivers = driversFromPenalties(Array.isArray(row.penalties) ? row.penalties : [], { high: row.high });
+  const dewPoint = dewPointF(row.temp, row.humidity);
+  const feel = airFeel(dewPoint);
+  const airLine = feel === 'comfortable'
+    ? `- Air: comfortable (dew point ${Math.round(dewPoint)}°F). Do not mention humidity, it reads high in cool air but is not a problem\n`
+    : feel ? `- Air: ${feel} (dew point ${Math.round(dewPoint)}°F). Mention it only if it matters to the day\n` : '';
 
   const prompt = `You write short Instagram captions for @classicnewweather — an NYC daily weather account with a specific voice.
 
@@ -41,7 +46,7 @@ TODAY:
 - Temp: ${row.low != null ? `low of ${Math.round(row.low)}°F this morning, ` : ''}${Math.round(row.temp)}°F right now, high of ${Math.round(row.high)}°F, feels like ${Math.round(row.feels_like)}°F right now
 - Condition right now: ${row.condition}
 - Rain: ${row.precip_chance}% chance at some point today${rainTiming && rainTiming !== 'now' ? ` — peaks ${rainTiming}, not happening yet` : rainTiming === 'now' ? ' — happening now' : ''}
-- Score: ${row.score}/10
+${airLine}- Score: ${row.score}/10
 - What held the WHOLE day's score down, biggest first (includes the cooler early hours): ${drivers.length ? drivers.map(d => `${d.label} (-${d.cost})`).join(', ') : 'nothing, clean day'}. If you say what is holding the day back, say the biggest one; smaller ones get a light mention or none.
 - Today's vibe: ${row.synopsis_approved || ''}
 
@@ -84,6 +89,7 @@ Write just the caption text.`;
     windSpeed: row.wind_speed,
     score: row.score,
     drivers,
+    dewPoint,
     extraAllowedNumbers: ((row.synopsis_approved || '').match(/\d+/g) || []).map(Number),
     avoidTerms,
     now: new Date()

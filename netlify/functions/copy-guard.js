@@ -108,7 +108,7 @@ function calendarProblems(text, { now = new Date(), seasons = true } = {}) {
 // ───────────────────────── numbers & score ─────────────────────────
 
 function roundedValues(ctx) {
-  return [ctx.temp, ctx.high, ctx.low, ctx.feelsLike, ctx.precipChance, ctx.humidity, ctx.windSpeed, ctx.score]
+  return [ctx.temp, ctx.high, ctx.low, ctx.feelsLike, ctx.dewPoint, ctx.precipChance, ctx.humidity, ctx.windSpeed, ctx.score]
     .filter(v => v != null && !Number.isNaN(Number(v)))
     .map(v => Math.round(Number(v)));
 }
@@ -160,7 +160,11 @@ const NO_RAIN = /\b(?:no rain|zero rain|zero chance|bone[- ]dry|rain[- ]free|dry
 // ("stay dry", "keep dry") is not matched. Readers hear "dry" as low humidity,
 // so on a humid day it contradicts the humidity the graphic itself shows.
 const CALLS_DAY_DRY = /\b(?:it'?s|its|is|are|stays|remains|looks|be|being|pretty|mostly|totally|completely|actually|still|but|and)\s+dry\b/i;
-const HUMID_ABOVE = 70; // matches the scoring band where humidity starts costing points
+const HUMID_ABOVE = 70; // fallback when no dew point is known: RH over this reads as humid
+const HUMID_DEW = 62;   // dew point (F) where the air starts to feel sticky; matches scoring.js
+const COMFORT_DEW = 60; // below this, saying the air is humid/muggy is wrong
+// Words that call the air humid. "damp" is left out: it describes rain-wet weather too.
+const HUMID_WORDS = /\b(?:humid\w*|muggy|sticky|soupy|swamp\w*|clammy|thick air)\b/i;
 const COLD_WORDS = /\b(?:freezing|frigid|arctic|bitter(?:ly)?)\b/i;
 const HOT_WORDS = /\b(?:scorching|sweltering|boiling|blistering|oven)\b/i;
 
@@ -176,8 +180,14 @@ function dataClaimProblems(text, ctx) {
       add(`said there is no rain but the rain chance is ${Math.round(ctx.precipChance)}%`);
     }
   }
-  if (ctx.humidity != null && ctx.humidity > HUMID_ABOVE && CALLS_DAY_DRY.test(text)) {
-    add(`called the day "dry" while humidity is ${Math.round(ctx.humidity)}% — say "no rain" if that's what you mean, or describe the humidity`);
+  // The dew point is what the air feels like; relative humidity alone misleads
+  // (86% at 57 degrees is comfortable). Use it when we have it.
+  const humidAir = ctx.dewPoint != null ? ctx.dewPoint >= HUMID_DEW : (ctx.humidity != null && ctx.humidity > HUMID_ABOVE);
+  if (humidAir && CALLS_DAY_DRY.test(text)) {
+    add(`called the day "dry" while the air is humid — say "no rain" if that's what you mean, or describe the humidity`);
+  }
+  if (ctx.dewPoint != null && ctx.dewPoint < COMFORT_DEW && HUMID_WORDS.test(text)) {
+    add(`called the air humid or muggy, but the dew point is ${Math.round(ctx.dewPoint)}° so it feels comfortable. The humidity percentage reads high in cool air and is not a problem. Leave humidity out`);
   }
   if (ctx.feelsLike != null) {
     if (COLD_WORDS.test(text) && ctx.feelsLike > 45) add(`called it freezing but it feels like ${Math.round(ctx.feelsLike)}°`);
